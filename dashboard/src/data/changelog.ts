@@ -11,7 +11,7 @@ export const changelog: Release[] = [
     version: PRODUCT_VERSION,
     date: "August 22, 2026",
     changes: [
-      "BookLock is now FavLock, with a new secure home at vault.favlock.app.",
+      "MoonLock is now FavLock, with a new secure home at vault.favlock.app.",
     ],
   },
   {
