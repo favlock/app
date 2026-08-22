@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FavLock Chrome Web Store promotional tiles</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body data-tile="small">
+    <main>
+      <section class="promo-tile small-tile" aria-label="FavLock small promotional tile">
+        <div class="small-copy">
+          <img class="brand-logo" src="../../../favlock-logo.svg" alt="FavLock" />
+          <span class="eyebrow">Chrome extension</span>
+          <h1>Save the web.<br /><span>Keep it yours.</span></h1>
+          <p>Capture · Organize · Read</p>
+        </div>
+
+        <div class="small-product-scene" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <article class="mini-popup">
+            <header>
+              <img src="../../../favlock-logo.svg" alt="" />
+              <span>＋ Quick save</span>
+            </header>
+            <div class="mini-page">
+              <i>⌑</i>
+              <div><strong>Designing for focus</strong><small>fieldnotes.example</small></div>
+              <b class="unsaved">Not saved</b>
+            </div>
+            <label>Collection<div>Design library <b>⌄</b></div></label>
+            <label>Lists<div>Reading queue <b>⌄</b></div></label>
+            <button>Save page</button>
+          </article>
+        </div>
+        <div class="small-lock-pill"><i></i>Encrypted before storage</div>
+      </section>
+
+      <section class="promo-tile marquee-tile" aria-label="FavLock marquee promotional tile">
+        <div class="marquee-copy">
+          <img class="brand-logo" src="../../../favlock-logo.svg" alt="FavLock" />
+          <span class="eyebrow">FavLock for Chrome</span>
+          <h1>Save the web.<br /><span>Keep it yours.</span></h1>
+          <p>Capture pages, organize with Collections, Lists and tags, and read without distractions.</p>
+          <div class="feature-row">
+            <span><i class="amber-dot"></i>Encrypted before storage</span>
+            <span>Tab sessions</span>
+            <span>Readspace</span>
+          </div>
+        </div>
+
+        <div class="marquee-product-scene" aria-hidden="true">
+          <div class="large-orbit orbit-a"></div>
+          <div class="large-orbit orbit-b"></div>
+          <div class="feature-card collection-card">
+            <small>COLLECTION</small>
+            <strong>Design library</strong>
+            <span>24 saved pages</span>
+          </div>
+          <div class="feature-card reader-card">
+            <small>READER</small>
+            <strong>Clean reading view</strong>
+            <span>Save to Readspace</span>
+          </div>
+          <article class="hero-popup">
+            <header>
+              <img src="../../../favlock-logo.svg" alt="" />
+              <span>＋ Quick save</span>
+            </header>
+            <div class="hero-page">
+              <i>⌑</i>
+              <div><strong>A guide to thoughtful typography</strong><small>typejournal.example</small></div>
+              <b class="unsaved">Not saved</b>
+            </div>
+            <label>Title<input value="A guide to thoughtful typography" readonly /></label>
+            <label>Collection<div class="select-like">Design library <b>⌄</b></div></label>
+            <fieldset>
+              <legend>Lists <small>optional</small></legend>
+              <div class="choice-row"><span>✓ Reading queue</span><span>✓ UI research</span></div>
+            </fieldset>
+            <label>Tags<div class="select-like">typography, design <b>⌄</b></div></label>
+            <div class="hero-actions"><button>Save page</button><button>Save open tabs</button></div>
+            <footer><span>Reader</span><span>Dashboard</span><span>Settings</span></footer>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const tile = new URLSearchParams(window.location.search).get("tile") || "small";
+      document.body.dataset.tile = tile;
+      document.title = `FavLock ${tile} promotional tile`;
+    </script>
+  </body>
+</html>

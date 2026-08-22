@@ -1,0 +1,57 @@
+name: Feature request
+description: Suggest a focused improvement to the FavLock app or extensions.
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Explain the user problem before proposing a solution. Do not include
+        private account data or unpatched security details.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Dashboard
+        - Chrome extension
+        - Shared client behavior
+        - Build or development tooling
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user need or limitation should be addressed?
+      placeholder: Describe the problem and who experiences it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed outcome
+      description: Describe the desired behavior without requiring a specific implementation.
+      placeholder: Explain what a successful result would look like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      placeholder: Describe current workarounds or other approaches.
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues for similar requests.
+          required: true
+        - label: This request contains no private account data or unpatched vulnerability details.
+          required: true

@@ -1,0 +1,555 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+    "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+}
+
+:root {
+  --app-bg: #f7f1df;
+  --app-card: #fff8e7;
+  --app-card-strong: #fff3ce;
+  --app-ink: #202229;
+  --app-muted: #525768;
+  --app-line: #1d2230;
+  --app-primary: #0f766e;
+  --app-accent: #f59e0b;
+  --app-secondary: #2563eb;
+  --app-hero-start: #f8f0d8;
+  --app-hero-mid: #eaf6e3;
+  --app-hero-end: #dff3fa;
+}
+
+html[data-theme-variant="retro"] {
+  --app-bg: #fff1d8;
+  --app-card: #fff8ea;
+  --app-card-strong: #ffe3b0;
+  --app-ink: #2d1f1b;
+  --app-muted: #6b5048;
+  --app-line: #3d2924;
+  --app-primary: #be123c;
+  --app-accent: #f97316;
+  --app-secondary: #0891b2;
+  --app-hero-start: #ffe7bf;
+  --app-hero-mid: #ffd6d6;
+  --app-hero-end: #d7f6ff;
+}
+
+html[data-theme-variant="neon"] {
+  --app-bg: #f7efff;
+  --app-card: #fff7ff;
+  --app-card-strong: #f4ddff;
+  --app-ink: #24133b;
+  --app-muted: #66507f;
+  --app-line: #3c245f;
+  --app-primary: #7c3aed;
+  --app-accent: #ec4899;
+  --app-secondary: #06b6d4;
+  --app-hero-start: #f5e8ff;
+  --app-hero-mid: #ffe1f1;
+  --app-hero-end: #d9fbff;
+}
+
+html[data-theme-variant="aurora"] {
+  --app-bg: #eefbf5;
+  --app-card: #f8fffd;
+  --app-card-strong: #dcfce7;
+  --app-ink: #172a2f;
+  --app-muted: #526f78;
+  --app-line: #243f46;
+  --app-primary: #0d9488;
+  --app-accent: #8b5cf6;
+  --app-secondary: #0ea5e9;
+  --app-hero-start: #dffbef;
+  --app-hero-mid: #ddf7ff;
+  --app-hero-end: #ede9fe;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--app-bg);
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
+    "Segoe UI", sans-serif;
+  color: var(--app-ink);
+  background:
+    radial-gradient(
+      circle at 8% 0%,
+      color-mix(in oklab, var(--app-accent) 13%, transparent),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 92% 0%,
+      color-mix(in oklab, var(--app-secondary) 9%, transparent),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--app-hero-start) 46%, var(--app-bg)),
+      var(--app-bg) 42rem
+    );
+}
+
+body::before {
+  display: none;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* Slightly overscan the fixed layer to prevent iOS compositor seams at the
+ * viewport edges while the navigation drawer is open. */
+.mobile-navigation-backdrop {
+  position: fixed;
+  inset: -1px;
+  min-height: calc(100dvh + 2px);
+  background-color: rgb(0 0 0 / 0.55);
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+.entry-editor:empty::before {
+  content: attr(data-placeholder);
+  color: color-mix(in oklab, var(--app-muted) 68%, transparent);
+  pointer-events: none;
+}
+
+.entry-editor ul[data-checklist="true"],
+.entry-card-preview ul[data-checklist="true"] {
+  list-style: none;
+  padding-left: 0;
+}
+
+.entry-editor ul[data-checklist="true"] > li,
+.entry-card-preview ul[data-checklist="true"] > li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.entry-editor ul[data-checklist="true"] > li > input[type="checkbox"],
+.entry-card-preview ul[data-checklist="true"] > li > input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  margin-top: 0.35rem;
+  accent-color: var(--app-primary);
+}
+
+.entry-card-preview ul[data-checklist="true"] > li > input[type="checkbox"] {
+  margin-top: 0.2rem;
+  pointer-events: none;
+}
+
+.retro-panel {
+  background: color-mix(in oklab, var(--app-card) 88%, white);
+  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
+  box-shadow: 0 10px 30px -24px color-mix(in oklab, var(--app-line) 28%, transparent);
+}
+
+.app-surface {
+  background: color-mix(in oklab, var(--app-card) 84%, white);
+  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--app-line) 5%, transparent),
+    0 14px 34px -28px color-mix(in oklab, var(--app-line) 34%, transparent);
+  backdrop-filter: blur(18px) saturate(1.05);
+}
+
+.app-sidebar {
+  background: color-mix(in oklab, var(--app-card) 82%, white);
+  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--app-line) 4%, transparent),
+    0 18px 48px -34px color-mix(in oklab, var(--app-line) 32%, transparent);
+  backdrop-filter: blur(22px) saturate(1.06);
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--app-line) 16%, transparent)
+    transparent;
+}
+
+.app-sidebar-label {
+  color: color-mix(in oklab, var(--app-muted) 82%, var(--app-ink));
+  font-size: 0.6875rem;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  line-height: 1.25rem;
+  text-transform: uppercase;
+}
+
+.theme-button-base {
+  border-radius: 0.75rem;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    color 160ms ease-out,
+    opacity 160ms ease-out;
+}
+
+.theme-button-base[data-disabled],
+.theme-button-base:disabled {
+  cursor: not-allowed;
+}
+
+.theme-button-base[data-focus] {
+  outline-color: color-mix(in oklab, var(--app-primary) 65%, white);
+}
+
+.theme-button-surface {
+  border-color: color-mix(in oklab, var(--app-line) 11%, transparent);
+  background: color-mix(in oklab, var(--app-card) 82%, white);
+  color: var(--app-ink);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 8%, transparent);
+}
+
+.theme-button-surface:not(:disabled):hover,
+.theme-button-surface[data-hover]:not([data-disabled]) {
+  border-color: color-mix(in oklab, var(--app-primary) 24%, transparent);
+  background: color-mix(in oklab, var(--app-card-strong) 58%, white);
+  box-shadow: 0 2px 6px color-mix(in oklab, var(--app-line) 10%, transparent);
+}
+
+.theme-button-surface:not(:disabled):active,
+.theme-button-surface[data-active]:not([data-disabled]) {
+  background: color-mix(in oklab, var(--app-card-strong) 70%, white);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 8%, transparent);
+}
+
+.theme-button-primary {
+  --btn-bg: var(--app-primary);
+  --btn-border: color-mix(in oklab, var(--app-primary) 72%, var(--app-line));
+  --btn-hover-overlay: color-mix(in oklab, white 12%, transparent);
+  --btn-icon: color-mix(in oklab, white 72%, var(--app-primary));
+  color: white;
+  box-shadow:
+    0 1px 2px color-mix(in oklab, var(--app-line) 14%, transparent),
+    0 5px 14px -8px color-mix(in oklab, var(--app-primary) 52%, transparent);
+}
+
+.theme-button-primary:not(:disabled):hover,
+.theme-button-primary[data-hover]:not([data-disabled]) {
+  filter: brightness(1.035);
+  box-shadow:
+    0 2px 4px color-mix(in oklab, var(--app-line) 12%, transparent),
+    0 7px 18px -10px color-mix(in oklab, var(--app-primary) 56%, transparent);
+}
+
+.theme-button-primary:not(:disabled):active,
+.theme-button-primary[data-active]:not([data-disabled]) {
+  filter: brightness(0.97);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 14%, transparent);
+}
+
+.theme-button-plain {
+  border-color: transparent;
+  color: var(--app-ink);
+}
+
+.theme-button-plain:hover,
+.theme-button-plain[data-hover],
+.theme-button-plain[data-active] {
+  background: color-mix(in oklab, var(--app-card-strong) 72%, transparent);
+  color: var(--app-primary);
+}
+
+.theme-button-icon {
+  align-items: center;
+  justify-content: center;
+  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
+  border-radius: 0.7rem;
+  background: color-mix(in oklab, var(--app-card) 76%, white);
+  color: var(--app-muted);
+  box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 7%, transparent);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease-out,
+    border-color 160ms ease-out,
+    box-shadow 160ms ease-out,
+    color 160ms ease-out;
+}
+
+.theme-button-icon:not(:disabled):hover {
+  border-color: color-mix(in oklab, var(--app-primary) 22%, transparent);
+  background: color-mix(in oklab, var(--app-card-strong) 58%, white);
+  color: var(--app-primary);
+  box-shadow: 0 2px 6px color-mix(in oklab, var(--app-line) 9%, transparent);
+}
+
+.theme-button-icon:not(:disabled):active {
+  background: color-mix(in oklab, var(--app-card-strong) 70%, white);
+  box-shadow: none;
+}
+
+.theme-button-icon:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--app-primary) 65%, white);
+  outline-offset: 2px;
+}
+
+.theme-nav-button {
+  min-height: 2.75rem;
+  color: var(--app-muted);
+  cursor: pointer;
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out;
+}
+
+.theme-nav-button:hover {
+  background: color-mix(in oklab, var(--app-card-strong) 70%, transparent);
+  color: var(--app-primary);
+}
+
+.theme-nav-button:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--app-primary) 65%, white);
+  outline-offset: 2px;
+}
+
+.theme-nav-button-active {
+  background: color-mix(in oklab, var(--app-primary) 11%, var(--app-card));
+  color: var(--app-primary);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--app-primary) 8%, transparent);
+}
+
+.theme-nav-count-active {
+  background: color-mix(in oklab, var(--app-primary) 18%, var(--app-card));
+  color: var(--app-primary);
+}
+
+.theme-danger-button:hover {
+  background: color-mix(in oklab, var(--color-red-500) 10%, var(--app-card));
+  color: var(--color-red-600);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-button-base,
+  .theme-button-icon {
+    transition: none;
+  }
+
+  .theme-button-base:hover,
+  .theme-button-base[data-hover],
+  .theme-button-base:active,
+  .theme-button-base[data-active],
+  .theme-button-icon:hover,
+  .theme-button-icon:active {
+    transform: none;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 420ms ease both;
+}
+
+@keyframes liquid-skeleton-wave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.liquid-skeleton-surface {
+  background: color-mix(in oklab, var(--app-card) 90%, white);
+  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 24px -20px
+    color-mix(in oklab, var(--app-line) 30%, transparent);
+}
+
+.liquid-skeleton {
+  background-image: linear-gradient(
+    110deg,
+    color-mix(in oklab, var(--app-line) 10%, transparent) 10%,
+    color-mix(in oklab, white 75%, transparent) 40%,
+    color-mix(in oklab, var(--app-line) 10%, transparent) 70%
+  );
+  background-size: 220% 100%;
+  animation: liquid-skeleton-wave 1.5s linear infinite;
+}
+
+@keyframes liquid-drift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 55%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+@keyframes liquid-float {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(0, -14px, 0) scale(1.04);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+.liquid-hero-bg {
+  background-image: linear-gradient(
+    120deg,
+    var(--app-hero-start) 0%,
+    var(--app-hero-mid) 35%,
+    color-mix(in oklab, var(--app-hero-mid) 65%, var(--app-secondary)) 68%,
+    var(--app-hero-end) 100%
+  );
+  animation: liquid-drift 28s ease-in-out infinite;
+}
+
+.hero-orb-primary {
+  background: color-mix(in oklab, var(--app-primary) 32%, transparent);
+}
+
+.hero-orb-accent {
+  background: color-mix(in oklab, var(--app-accent) 30%, transparent);
+}
+
+.hero-orb-secondary {
+  background: color-mix(in oklab, var(--app-secondary) 24%, transparent);
+}
+
+.liquid-float {
+  animation: liquid-float 7.2s ease-in-out infinite;
+}
+
+.liquid-search-shell {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.liquid-search-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(
+    120deg,
+    transparent 12%,
+    rgba(255, 255, 255, 0.5) 42%,
+    transparent 68%
+  );
+  opacity: 0;
+}
+
+.liquid-search-shell:hover::after,
+.liquid-search-shell:focus-within::after {
+  opacity: 0.72;
+}
+
+.liquid-fav-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.liquid-fav-card::after {
+  content: "";
+  position: absolute;
+  inset: auto;
+  width: 140%;
+  aspect-ratio: 1;
+  left: -20%;
+  bottom: -95%;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(103, 232, 249, 0.34) 0%,
+    rgba(103, 232, 249, 0.06) 45%,
+    transparent 70%
+  );
+  transform: scale(0.7);
+  opacity: 0;
+  transition:
+    opacity 320ms ease,
+    transform 520ms ease;
+  pointer-events: none;
+}
+
+.liquid-fav-card:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.liquid-ink {
+  color: var(--app-ink);
+}
+
+.liquid-muted {
+  color: var(--app-muted);
+}
+
+.liquid-divider {
+  border-color: color-mix(in oklab, var(--app-line) 12%, transparent);
+}
+
+.liquid-chip {
+  background: color-mix(in oklab, var(--app-accent) 18%, white);
+  border: 1px solid color-mix(in oklab, var(--app-line) 14%, transparent);
+  color: color-mix(in oklab, var(--app-line) 72%, black);
+}
+
+.liquid-input {
+  background: color-mix(in oklab, var(--app-card) 88%, white);
+  border-color: color-mix(in oklab, var(--app-line) 18%, transparent);
+  color: var(--app-ink);
+}
+
+.liquid-input::placeholder {
+  color: color-mix(in oklab, var(--app-muted) 75%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-hero-bg,
+  .liquid-float,
+  .liquid-search-shell::after,
+  .liquid-fav-card::after {
+    animation: none;
+    transition: none;
+  }
+
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

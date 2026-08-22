@@ -1,0 +1,71 @@
+name: Bug report
+description: Report a reproducible problem in the FavLock app or extensions.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve FavLock. Search existing issues first.
+        Do not disclose vulnerabilities, secrets, account data, encryption keys,
+        or private content here. Use the private security-reporting link instead.
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Dashboard
+        - Chrome extension
+        - Shared client behavior
+        - Build or development tooling
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem without including sensitive data.
+      placeholder: Explain what you observed.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to ...
+        2. Select ...
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      placeholder: Explain what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include the FavLock version, browser, extension version, and operating system when relevant.
+      placeholder: FavLock 1.x.x, Chrome 1xx, macOS 1x.x
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmation
+      options:
+        - label: I searched existing issues for this problem.
+          required: true
+        - label: This report contains no vulnerability details, secrets, customer data, encryption keys, or private content.
+          required: true

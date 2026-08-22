@@ -1,0 +1,13 @@
+.git
+.github
+.agents
+.codex
+**/node_modules
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+*.log
+.DS_Store
+extensions

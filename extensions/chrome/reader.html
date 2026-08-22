@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en" data-theme="yellow">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Read | FavLock</title>
+    <link rel="stylesheet" href="reader.css" />
+  </head>
+  <body>
+    <header class="reader-toolbar">
+      <div class="toolbar-inner">
+        <a
+          id="favlockDashboardLink"
+          class="reader-brand"
+          href="#"
+          target="_blank"
+          rel="noreferrer"
+          aria-label="Open FavLock"
+        >
+          <img src="favlock-logo.svg" alt="FavLock" />
+          <span class="reader-label">Reader</span>
+        </a>
+        <div class="reader-actions">
+          <div class="control-group" aria-label="Text size">
+            <button id="decreaseSize" type="button" aria-label="Decrease text size">
+              <span class="type-small">A</span>
+            </button>
+            <button id="increaseSize" type="button" aria-label="Increase text size">
+              <span class="type-large">A</span>
+            </button>
+          </div>
+          <div class="theme-group" role="group" aria-label="Reading appearance">
+            <button
+              type="button"
+              class="theme-choice"
+              data-reader-theme="white"
+              aria-label="Use white appearance"
+              title="White"
+            ><span class="theme-swatch theme-swatch-white"></span></button>
+            <button
+              type="button"
+              class="theme-choice"
+              data-reader-theme="yellow"
+              aria-label="Use paper appearance"
+              title="Paper"
+            ><span class="theme-swatch theme-swatch-yellow"></span></button>
+            <button
+              type="button"
+              class="theme-choice"
+              data-reader-theme="dark"
+              aria-label="Use dark appearance"
+              title="Dark"
+            ><span class="theme-swatch theme-swatch-dark"></span></button>
+          </div>
+          <button id="saveButton" type="button" class="save-button">
+            <span id="saveButtonLabel">Save to Readspace</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main class="reader-shell">
+      <p id="status" class="status" role="status" aria-live="polite">Preparing your reading view…</p>
+      <article id="article" class="article" hidden>
+        <h1 id="title" class="article-title"></h1>
+        <div class="article-meta">
+          <span id="siteName" class="site-name"></span>
+          <span id="byline"></span>
+          <time id="publishedDate"></time>
+          <time id="updatedDate"></time>
+          <a id="sourceLink" target="_blank" rel="noreferrer noopener">Original</a>
+        </div>
+        <div id="content" class="content"></div>
+      </article>
+    </main>
+
+    <script type="module" src="reader.js"></script>
+  </body>
+</html>

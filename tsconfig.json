@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./dashboard/tsconfig.app.json" },
+    { "path": "./dashboard/tsconfig.node.json" }
+  ]
+}

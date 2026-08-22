@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/favlockapp/app/security/policy
+    about: Report vulnerabilities privately by following the security policy. Do not open a public issue.

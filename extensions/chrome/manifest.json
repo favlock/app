@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "FavLock – Private Bookmark Manager",
+  "description": "Save and update bookmarks, organize with collections, tags and Lists, capture articles, and sync encrypted content across devices.",
+  "version": "1.4.0",
+  "version_name": "1.4.0",
+  "permissions": ["activeTab", "bookmarks", "contextMenus", "identity", "scripting", "storage", "tabs"],
+  "host_permissions": [
+    "http://localhost:4180/*",
+    "https://api.favlock.localhost/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src http://localhost:4180 https://api.favlock.localhost"
+  },
+  "externally_connectable": {
+    "matches": [
+      "http://localhost:4177/*",
+      "https://vault.favlock.localhost/*"
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:4177/*",
+        "https://vault.favlock.localhost/*"
+      ],
+      "js": ["pairing-bridge.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/favlock-16.png",
+    "32": "icons/favlock-32.png",
+    "48": "icons/favlock-48.png",
+    "128": "icons/favlock-128.png"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Save, update, or read with FavLock",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/favlock-16.png",
+      "32": "icons/favlock-32.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["bookmark-import-bridge.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}

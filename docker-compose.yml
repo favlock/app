@@ -1,0 +1,18 @@
+services:
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dashboard
+      args:
+        VITE_WEB_URL: ${VITE_WEB_URL:?Set VITE_WEB_URL}
+        VITE_DASHBOARD_URL: ${VITE_DASHBOARD_URL:?Set VITE_DASHBOARD_URL}
+        VITE_API_URL: ${VITE_API_URL:?Set VITE_API_URL}
+        VITE_CHROME_EXTENSION_URL: ${VITE_CHROME_EXTENSION_URL:-https://chromewebstore.google.com/search/FavLock}
+        VITE_CHROME_EXTENSION_ID: ${VITE_CHROME_EXTENSION_ID:?Set VITE_CHROME_EXTENSION_ID}
+        VITE_AUTH_URL: ${VITE_AUTH_URL:?Set VITE_AUTH_URL}
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:?Set VITE_TURNSTILE_SITE_KEY}
+        VITE_CREEM_PRO_PRODUCT_URL: ${VITE_CREEM_PRO_PRODUCT_URL:?Set VITE_CREEM_PRO_PRODUCT_URL}
+    restart: unless-stopped
+    expose:
+      - "8080"

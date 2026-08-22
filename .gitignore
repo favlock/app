@@ -1,0 +1,20 @@
+# Dependencies and build output
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Generated extension configuration
+extensions/chrome/config.generated.js
+
+# Editors and operating-system files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
