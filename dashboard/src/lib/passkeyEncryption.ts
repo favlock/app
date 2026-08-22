@@ -78,6 +78,16 @@ function getPrfResult(credential: PublicKeyCredential): BufferSource | null {
   return results.prf?.results?.first ?? null;
 }
 
+function copyBufferSource(value: BufferSource): Uint8Array<ArrayBuffer> {
+  if (ArrayBuffer.isView(value)) {
+    return Uint8Array.from(
+      new Uint8Array(value.buffer, value.byteOffset, value.byteLength),
+    );
+  }
+
+  return Uint8Array.from(new Uint8Array(value));
+}
+
 function passkeyError(error: unknown, action: "create" | "use"): Error {
   if (!(error instanceof DOMException)) {
     return error instanceof Error
@@ -109,7 +119,7 @@ function passkeyError(error: unknown, action: "create" | "use"): Error {
 async function deriveWrappingKey(prfResult: BufferSource): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     "raw",
-    prfResult,
+    copyBufferSource(prfResult),
     { name: "AES-GCM", length: 256 },
     false,
     ["encrypt", "decrypt"],
