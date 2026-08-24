@@ -9,9 +9,16 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "August 24, 2026",
+    changes: [
+      "Create or replace the passkey that protects your encryption key from Security & privacy settings.",
+    ],
+  },
+  {
+    version: "1.4.0",
     date: "August 22, 2026",
     changes: [
-      "BookLock is now FavLock, with a new secure home at vault.favlock.app.",
+      "MoonLock is now FavLock, with a new secure home at vault.favlock.app.",
     ],
   },
   {

@@ -33,6 +33,7 @@ import BrowserBookmarkImportSection from "../components/BrowserBookmarkImportSec
 import DataExportSection from "../components/DataExportSection";
 import KeyTransferSection from "../components/KeyTransferSection";
 import PasswordSignInSection from "../components/PasswordSignInSection";
+import PasskeySettingsSection from "../components/PasskeySettingsSection";
 import ResourceUsageSection from "../components/ResourceUsageSection";
 import LocalPrivacySection from "../components/LocalPrivacySection";
 import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySection";
@@ -62,7 +63,7 @@ export default function Settings() {
   const navigate = useNavigate();
   const shouldOpenEncryptionKey = location.hash === "#settings";
   const activeTab: SettingsTab =
-    shouldOpenEncryptionKey
+    shouldOpenEncryptionKey || location.hash === "#passkey"
       ? "security"
       : location.hash === "#preferences"
       ? "preferences"
@@ -413,6 +414,7 @@ export default function Settings() {
                 className="space-y-4"
               >
                 <KeyTransferSection />
+                <PasskeySettingsSection />
                 {user ? (
                   <PasswordSignInSection
                     email={user.email ?? ""}
