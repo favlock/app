@@ -56,6 +56,7 @@ import {
   Trash2,
   Sparkles,
   ArrowRight,
+  ArrowDownUp,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
@@ -123,6 +124,7 @@ interface FolderSidebarProps {
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
   onStartOnboarding?: () => void;
+  onOpenImportExport?: () => void;
 }
 
 interface SortableCollectionProps {
@@ -232,6 +234,7 @@ export default function FolderSidebar({
   selectedTagId,
   onSelectTag,
   onStartOnboarding,
+  onOpenImportExport,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
   const { user, signOut } = useAuth();
@@ -1043,6 +1046,15 @@ export default function FolderSidebar({
             <SettingsIcon size={16} />
             <span className="text-sm flex-1 text-left">Settings</span>
           </Link>
+
+          <button
+            type="button"
+            onClick={onOpenImportExport}
+            className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+          >
+            <ArrowDownUp size={16} aria-hidden="true" />
+            <span className="text-sm flex-1 text-left">Import &amp; export</span>
+          </button>
 
           <Link
             to="/support"

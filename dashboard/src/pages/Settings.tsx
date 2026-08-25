@@ -29,8 +29,6 @@ import {
   useOutletContext,
 } from "react-router-dom";
 import type { DashboardLayoutContext } from "./DashboardLayout";
-import BrowserBookmarkImportSection from "../components/BrowserBookmarkImportSection";
-import DataExportSection from "../components/DataExportSection";
 import KeyTransferSection from "../components/KeyTransferSection";
 import PasswordSignInSection from "../components/PasswordSignInSection";
 import PasskeySettingsSection from "../components/PasskeySettingsSection";
@@ -41,11 +39,6 @@ import BookmarkDuplicateCleanupSection from "../components/BookmarkDuplicateClea
 import BillingSection from "../components/BillingSection";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
 import { hasPasswordSignIn } from "../lib/auth";
-import {
-  Dialog,
-  DialogActions,
-  DialogTitle,
-} from "../components/ui/dialog";
 
 type SettingsTab = "profile" | "preferences" | "security" | "usage";
 
@@ -72,8 +65,6 @@ export default function Settings() {
         : location.hash === "#usage"
           ? "usage"
           : "profile";
-  const isImportDialogOpen = location.hash === "#import-bookmarks";
-  const isExportDialogOpen = location.hash === "#export-data";
   const { data: userInfo, isLoading: loading } = useUserInfo();
   const updateUserInfo = useUpdateUserInfo();
   const [firstName, setFirstName] = useState("");
@@ -115,17 +106,6 @@ export default function Settings() {
     });
   };
 
-  const closeDataDialog = () => {
-    navigate(
-      {
-        pathname: location.pathname,
-        search: location.search,
-        hash: "",
-      },
-      { replace: true },
-    );
-  };
-
   const selectTabFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
     currentTab: SettingsTab,
@@ -152,36 +132,7 @@ export default function Settings() {
   };
 
   return (
-    <>
-      <Dialog
-        open={isImportDialogOpen}
-        onClose={closeDataDialog}
-        size="3xl"
-      >
-        <DialogTitle className="sr-only">Import bookmarks</DialogTitle>
-        <BrowserBookmarkImportSection />
-        <DialogActions>
-          <Button type="button" outline onClick={closeDataDialog}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={isExportDialogOpen}
-        onClose={closeDataDialog}
-        size="2xl"
-      >
-        <DialogTitle className="sr-only">Export data</DialogTitle>
-        {isExportDialogOpen ? <DataExportSection /> : null}
-        <DialogActions>
-          <Button type="button" outline onClick={closeDataDialog}>
-            Close
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <div className="w-full min-w-0 flex-1 space-y-6 lg:space-y-8">
+    <div className="w-full min-w-0 flex-1 space-y-6 lg:space-y-8">
       <header className="flex flex-col justify-between gap-4 px-4 pt-4 sm:px-5 md:flex-row md:items-center lg:px-1 lg:pt-1">
         <div>
           <div className="flex items-center gap-2">
@@ -440,7 +391,6 @@ export default function Settings() {
           </div>
         </div>
       </section>
-      </div>
-    </>
+    </div>
   );
 }

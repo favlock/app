@@ -15,6 +15,9 @@ import SearchEnginePreferenceDialog from "../components/SearchEnginePreferenceDi
 import OnboardingDialog from "../components/OnboardingDialog";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
 import { isOnboardingHidden } from "../lib/onboarding";
+import DataTransferDialog, {
+  type DataTransferView,
+} from "../components/DataTransferDialog";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -25,6 +28,8 @@ export default function DashboardLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isAddBookmarkOpen, setIsAddBookmarkOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [dataTransferView, setDataTransferView] =
+    useState<DataTransferView | null>(null);
   const [hasFinishedInitialOnboarding, setHasFinishedInitialOnboarding] =
     useState(false);
   const hasCheckedOnboarding = useRef(false);
@@ -60,6 +65,13 @@ export default function DashboardLayout() {
   const selectedTagId = tagSlug
     ? (tagSlugIndex.idBySlug.get(tagSlug) ?? null)
     : null;
+  const dataTransferHashView: DataTransferView | null =
+    location.hash === "#import-bookmarks"
+      ? "import"
+      : location.hash === "#export-data"
+        ? "export"
+        : null;
+  const activeDataTransferView = dataTransferHashView ?? dataTransferView;
 
   useEffect(() => {
     setIsMobileSidebarOpen(false);
@@ -192,6 +204,34 @@ export default function DashboardLayout() {
     setIsAddBookmarkOpen(true);
   };
 
+  const closeDataTransfer = () => {
+    setDataTransferView(null);
+    if (dataTransferHashView) {
+      navigate(
+        {
+          pathname: location.pathname,
+          search: location.search,
+          hash: "",
+        },
+        { replace: true },
+      );
+    }
+  };
+
+  const changeDataTransferView = (view: DataTransferView) => {
+    setDataTransferView(view);
+    if (dataTransferHashView) {
+      navigate(
+        {
+          pathname: location.pathname,
+          search: location.search,
+          hash: "",
+        },
+        { replace: true },
+      );
+    }
+  };
+
   return (
     <div className="text-[var(--app-ink)] font-sans antialiased min-h-screen">
       <SearchEnginePreferenceDialog enabled={hasFinishedInitialOnboarding} />
@@ -201,6 +241,11 @@ export default function DashboardLayout() {
           setIsOnboardingOpen(false);
           setHasFinishedInitialOnboarding(true);
         }}
+      />
+      <DataTransferDialog
+        view={activeDataTransferView}
+        onViewChange={changeDataTransferView}
+        onClose={closeDataTransfer}
       />
 
       <a
@@ -265,6 +310,10 @@ export default function DashboardLayout() {
                     setIsMobileSidebarOpen(false);
                     setIsOnboardingOpen(true);
                   }}
+                  onOpenImportExport={() => {
+                    setIsMobileSidebarOpen(false);
+                    setDataTransferView("chooser");
+                  }}
                 />
               </div>
             </Headless.DialogPanel>
@@ -278,6 +327,7 @@ export default function DashboardLayout() {
               selectedTagId={selectedTagId}
               onSelectTag={handleSelectTag}
               onStartOnboarding={() => setIsOnboardingOpen(true)}
+              onOpenImportExport={() => setDataTransferView("chooser")}
             />
           </aside>
 
