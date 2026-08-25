@@ -319,6 +319,10 @@ function isDefinitiveClientError(error: unknown): boolean {
   );
 }
 
+function isExpiredSessionError(error: unknown): boolean {
+  return error instanceof AuthRequestError && error.status === 401;
+}
+
 export class FavLockAuthClient {
   readonly #apiUrl: string;
   readonly #authUrl: string;
@@ -518,6 +522,15 @@ export class FavLockAuthClient {
         try {
           this.#session = await this.#refreshSession();
         } catch (error) {
+          if (!isExpiredSessionError(error)) {
+            this.#scheduleRefreshRetry();
+            this.#notify("INITIAL_SESSION", this.#session);
+            return {
+              data: { session: this.#session },
+              error: error instanceof Error ? error : new Error("Authentication failed."),
+            };
+          }
+
           this.#removeSession(false);
           return {
             data: { session: null },
@@ -832,6 +845,16 @@ export class FavLockAuthClient {
     return this.#refreshPromise;
   }
 
+  #scheduleRefreshRetry(): void {
+    if (this.#refreshTimer !== null) window.clearTimeout(this.#refreshTimer);
+    this.#refreshTimer = null;
+    if (!this.#session || this.#disposed) return;
+    this.#refreshTimer = window.setTimeout(() => {
+      this.#refreshTimer = null;
+      this.#scheduleRefresh();
+    }, REFRESH_RETRY_MS);
+  }
+
   #scheduleRefresh(): void {
     if (this.#refreshTimer !== null) window.clearTimeout(this.#refreshTimer);
     this.#refreshTimer = null;
@@ -843,18 +866,11 @@ export class FavLockAuthClient {
     this.#refreshTimer = window.setTimeout(() => {
       this.#refreshTimer = null;
       void this.#refreshSession().catch((error: unknown) => {
-        const expired = !this.#session || this.#session.expires_at * 1000 <= Date.now();
-        if (
-          expired ||
-          (error instanceof AuthRequestError && error.status === 401)
-        ) {
+        if (isExpiredSessionError(error)) {
           this.#removeSession();
           return;
         }
-        this.#refreshTimer = window.setTimeout(
-          () => this.#scheduleRefresh(),
-          REFRESH_RETRY_MS,
-        );
+        this.#scheduleRefreshRetry();
       });
     }, delay);
   }

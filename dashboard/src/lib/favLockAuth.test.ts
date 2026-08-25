@@ -86,6 +86,7 @@ describe("FavLockAuthClient", () => {
   afterEach(() => {
     for (const client of clients) client.dispose();
     clients.length = 0;
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -337,6 +338,88 @@ describe("FavLockAuthClient", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string)).toEqual({
       refreshToken: "refresh-token",
     });
+  });
+
+  it("preserves an expired session when refresh is temporarily unavailable", async () => {
+    const expiredSession = storedSession({
+      expires_in: 1,
+      expires_at: Math.floor(Date.now() / 1000) - 1,
+    });
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(expiredSession));
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("offline"));
+    const client = trackedClient(fetchMock);
+    const listener = vi.fn();
+    client.onAuthStateChange(listener);
+
+    const result = await client.getSession();
+    await Promise.resolve();
+
+    expect(result.error?.message).toBe("Authentication is temporarily unavailable.");
+    expect(result.data.session?.user.id).toBe(USER_ID);
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull();
+    expect(listener).toHaveBeenCalledWith(
+      "INITIAL_SESSION",
+      expect.objectContaining({ refresh_token: "refresh-token" }),
+    );
+    expect(listener).not.toHaveBeenCalledWith("SIGNED_OUT", null);
+  });
+
+  it("clears an expired session when refresh credentials are rejected", async () => {
+    localStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify(
+        storedSession({
+          expires_in: 1,
+          expires_at: Math.floor(Date.now() / 1000) - 1,
+        }),
+      ),
+    );
+    const client = trackedClient(
+      vi.fn().mockResolvedValue(
+        response(
+          {
+            error: {
+              code: "session_expired",
+              message: "Your session has expired. Sign in again.",
+            },
+          },
+          401,
+        ),
+      ),
+    );
+
+    const result = await client.getSession();
+
+    expect(result.data.session).toBeNull();
+    expect(result.error?.message).toBe("Your session has expired. Sign in again.");
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("does not sign out after a scheduled refresh fails temporarily", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-25T12:00:00.000Z"));
+    localStorage.setItem(
+      SESSION_STORAGE_KEY,
+      JSON.stringify(
+        storedSession({
+          expires_in: 61,
+          expires_at: Math.floor(Date.now() / 1000) + 61,
+        }),
+      ),
+    );
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("offline"));
+    const client = trackedClient(fetchMock);
+    const listener = vi.fn();
+    client.onAuthStateChange(listener);
+    await client.getSession();
+    await Promise.resolve();
+    listener.mockClear();
+
+    await vi.advanceTimersByTimeAsync(65_000);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull();
+    expect(listener).not.toHaveBeenCalledWith("SIGNED_OUT", null);
   });
 
   it("migrates a chunked legacy session cookie without exposing it to API requests", async () => {
