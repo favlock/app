@@ -9,6 +9,13 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "August 25, 2026",
+    changes: [
+      "Stay signed in and unlocked when a temporary connection problem interrupts session renewal.",
+    ],
+  },
+  {
+    version: "1.4.1",
     date: "August 24, 2026",
     changes: [
       "Create or replace the passkey that protects your encryption key from Security & privacy settings.",
