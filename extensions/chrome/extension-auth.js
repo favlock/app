@@ -13,6 +13,14 @@ export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 const SESSION_KEY = "favlockAuthSession";
 const ORIGINAL_TAB_KEY = "favlockOriginalTabId";
 
+class SessionRequestError extends Error {
+  constructor(message, status) {
+    super(message);
+    this.name = "SessionRequestError";
+    this.status = status;
+  }
+}
+
 function base64Url(bytes) {
   let binary = "";
   for (const byte of bytes) binary += String.fromCharCode(byte);
@@ -84,7 +92,12 @@ async function requestSession(path, body, failureMessage) {
     referrerPolicy: "no-referrer",
   });
   const payload = await readJson(response, failureMessage);
-  if (!response.ok) throw new Error(readApiError(payload, failureMessage));
+  if (!response.ok) {
+    throw new SessionRequestError(
+      readApiError(payload, failureMessage),
+      response.status,
+    );
+  }
   const session = payload?.data?.session;
   if (
     typeof session?.accessToken !== "string" ||
@@ -184,9 +197,12 @@ export async function refreshSession(session) {
       { refreshToken: session.refreshToken },
       "Your FavLock session expired. Connect the extension again.",
     );
-  } catch {
-    await disconnectExtension();
-    throw new Error("Your FavLock session expired. Connect the extension again.");
+  } catch (error) {
+    if (error instanceof SessionRequestError && error.status === 401) {
+      await disconnectExtension();
+      throw new Error("Your FavLock session expired. Connect the extension again.");
+    }
+    throw new Error("FavLock is temporarily unavailable. Try again.");
   }
   if (payload.user.id !== session.userId) {
     await disconnectExtension();
@@ -374,7 +390,7 @@ export async function getConnectionState() {
   try {
     session = await getValidSession();
   } catch {
-    session = null;
+    session = await readSession();
   }
   return {
     connected: !!session,
