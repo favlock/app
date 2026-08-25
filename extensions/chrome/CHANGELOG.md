@@ -1,5 +1,9 @@
 # Chrome extension changelog
 
+## 1.4.2 — August 25, 2026
+
+- Kept the extension connected and unlocked when session renewal temporarily fails.
+
 ## 1.4.0 — August 22, 2026
 
 Minimum supported FavLock dashboard version: **1.4.0**.
