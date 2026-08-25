@@ -6,9 +6,19 @@ import {
   createRandomUrlToken,
   exchangeAuthorizationCode,
   exchangeExtensionSessionToken,
+  getConnectionState,
   refreshSession,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
+
+const cryptoMocks = vi.hoisted(() => ({
+  deleteLibraryKey: vi.fn().mockResolvedValue(undefined),
+  importLibraryKey: vi.fn(),
+  loadLibraryKey: vi.fn().mockResolvedValue({ type: "secret" }),
+  saveLibraryKey: vi.fn(),
+}));
+
+vi.mock("./extension-crypto.js", () => cryptoMocks);
 
 const user = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -36,16 +46,22 @@ function jsonResponse(payload, status = 200) {
   });
 }
 
+let storageGet;
 let storageSet;
+let storageRemove;
 
 beforeEach(() => {
+  storageGet = vi.fn().mockResolvedValue({});
   storageSet = vi.fn().mockResolvedValue(undefined);
+  storageRemove = vi.fn().mockResolvedValue(undefined);
+  cryptoMocks.deleteLibraryKey.mockClear();
+  cryptoMocks.loadLibraryKey.mockClear();
   vi.stubGlobal("chrome", {
     storage: {
       local: {
-        get: vi.fn().mockResolvedValue({}),
+        get: storageGet,
         set: storageSet,
-        remove: vi.fn().mockResolvedValue(undefined),
+        remove: storageRemove,
       },
       session: {
         get: vi.fn().mockResolvedValue({}),
@@ -196,5 +212,72 @@ describe("extension OAuth helpers", () => {
       }),
     );
     expect(storageSet).toHaveBeenCalledOnce();
+  });
+
+  it("preserves the extension session and key when refresh fails temporarily", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+    const stored = {
+      accessToken: "old-access-token",
+      refreshToken: "old-refresh-token",
+      expiresAt: 1,
+      userId: user.id,
+      email: user.email,
+    };
+
+    await expect(refreshSession(stored)).rejects.toThrow(
+      "FavLock is temporarily unavailable. Try again.",
+    );
+    expect(storageRemove).not.toHaveBeenCalled();
+    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
+  });
+
+  it("keeps the stored connection visible during a temporary refresh failure", async () => {
+    const stored = {
+      accessToken: "old-access-token",
+      refreshToken: "old-refresh-token",
+      expiresAt: 1,
+      userId: user.id,
+      email: user.email,
+    };
+    storageGet.mockResolvedValue({ favlockAuthSession: stored });
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
+
+    await expect(getConnectionState()).resolves.toEqual({
+      connected: true,
+      unlocked: true,
+      email: user.email,
+    });
+    expect(storageRemove).not.toHaveBeenCalled();
+    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
+  });
+
+  it("disconnects and clears the key when refresh credentials are rejected", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        jsonResponse(
+          {
+            error: {
+              code: "session_expired",
+              message: "Your session has expired. Sign in again.",
+            },
+          },
+          401,
+        ),
+      ),
+    );
+    const stored = {
+      accessToken: "old-access-token",
+      refreshToken: "old-refresh-token",
+      expiresAt: 1,
+      userId: user.id,
+      email: user.email,
+    };
+
+    await expect(refreshSession(stored)).rejects.toThrow(
+      "Your FavLock session expired. Connect the extension again.",
+    );
+    expect(storageRemove).toHaveBeenCalledWith("favlockAuthSession");
+    expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
   });
 });
