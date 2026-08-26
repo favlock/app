@@ -9,6 +9,14 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "August 26, 2026",
+    changes: [
+      "Export your encrypted library as a .favlock archive and move it to a new, empty FavLock account using your existing recovery key.",
+      "Open Import & export from the sidebar to import browser bookmarks or export your library.",
+    ],
+  },
+  {
+    version: "1.4.2",
     date: "August 25, 2026",
     changes: [
       "Stay signed in and unlocked when a temporary connection problem interrupts session renewal.",
