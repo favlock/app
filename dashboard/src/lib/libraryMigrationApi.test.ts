@@ -15,6 +15,7 @@ const archive: FavLockExport = {
     collections: [{ id: "10000000-0000-4000-8000-000000000001", name: "Work", color: "BLUE", parentId: null, sortOrder: 0, createdAt: timestamp }],
     tags: [{ id: "20000000-0000-4000-8000-000000000001", name: "Ideas", createdAt: timestamp }],
     bookmarks: [{ id: "30000000-0000-4000-8000-000000000001", title: "Example", url: "https://example.com/", collectionIds: ["10000000-0000-4000-8000-000000000001"], tagIds: ["20000000-0000-4000-8000-000000000001"], isFavorite: true, favoritedAt: timestamp, createdAt: timestamp }],
+    lists: [{ id: "40000000-0000-4000-8000-000000000001", name: "Watch later", createdAt: timestamp, updatedAt: timestamp, items: [{ bookmarkId: "30000000-0000-4000-8000-000000000001", position: 0, completedAt: timestamp, createdAt: timestamp }] }],
     notes: [], todos: [], readspace: [],
   },
 };
@@ -31,15 +32,21 @@ describe("encrypted library migration client", () => {
     expect(items).toMatchObject([
       { type: "collection", encryptedName: "migrated:Work" },
       { type: "tag", encryptedName: "migrated:Ideas" },
+      { type: "list", encryptedName: "migrated:Watch later" },
       { type: "bookmark", encryptedTitle: "migrated:Example", encryptedUrl: "migrated:https://example.com/" },
+      { type: "listItem", position: 0, completedAt: timestamp },
     ]);
     expect(JSON.stringify(items)).not.toContain('"name":"Work"');
     expect(items.map(({ id }) => id)).not.toContain(
       archive.data.collections[0].id,
     );
-    expect(items[2]).toMatchObject({
+    expect(items[3]).toMatchObject({
       collectionIds: [items[0].id],
       tagIds: [items[1].id],
+    });
+    expect(items[4]).toMatchObject({
+      listId: items[2].id,
+      bookmarkId: items[3].id,
     });
   });
 
@@ -60,6 +67,8 @@ describe("encrypted library migration client", () => {
       "91000000-0000-4000-8000-000000000001",
       "92000000-0000-4000-8000-000000000001",
       "93000000-0000-4000-8000-000000000001",
+      "94000000-0000-4000-8000-000000000001",
+      "95000000-0000-4000-8000-000000000001",
       migrationId,
     ];
     vi.spyOn(crypto, "randomUUID").mockImplementation(

@@ -26,6 +26,22 @@ export type EncryptedMigrationItem =
       createdAt: string;
     }
   | {
+      type: "list";
+      id: string;
+      encryptedName: string;
+      createdAt: string;
+      updatedAt: string;
+    }
+  | {
+      type: "listItem";
+      id: string;
+      listId: string;
+      bookmarkId: string;
+      position: number;
+      completedAt: string | null;
+      createdAt: string;
+    }
+  | {
       type: "bookmark";
       id: string;
       encryptedTitle: string;
@@ -104,6 +120,9 @@ export async function prepareEncryptedMigrationItems(
   const bookmarkIds = new Map(
     (archive.data.bookmarks ?? []).map(({ id }) => [id, crypto.randomUUID()]),
   );
+  const listIds = new Map(
+    (archive.data.lists ?? []).map(({ id }) => [id, crypto.randomUUID()]),
+  );
   const entryIds = new Map(
     [
       ...(archive.data.notes ?? []),
@@ -137,6 +156,15 @@ export async function prepareEncryptedMigrationItems(
       id: mappedId(tagIds, tag.id),
       encryptedName: await encryptField(tag.name),
       createdAt: tag.createdAt,
+    });
+  }
+  for (const list of archive.data.lists ?? []) {
+    items.push({
+      type: "list",
+      id: mappedId(listIds, list.id),
+      encryptedName: await encryptField(list.name),
+      createdAt: list.createdAt,
+      updatedAt: list.updatedAt,
     });
   }
   for (const bookmark of archive.data.bookmarks ?? []) {
@@ -196,6 +224,19 @@ export async function prepareEncryptedMigrationItems(
     });
   }
   await addEntries(archive.data.readspace ?? [], "read");
+  for (const list of archive.data.lists ?? []) {
+    for (const item of list.items) {
+      items.push({
+        type: "listItem",
+        id: crypto.randomUUID(),
+        listId: mappedId(listIds, list.id),
+        bookmarkId: mappedId(bookmarkIds, item.bookmarkId),
+        position: item.position,
+        completedAt: item.completedAt,
+        createdAt: item.createdAt,
+      });
+    }
+  }
   return items;
 }
 

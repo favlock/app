@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Bookmark, Folder, Note, Tag, Todo } from "../types/bookmark";
+import type {
+  Bookmark,
+  BookmarkList,
+  Folder,
+  Note,
+  Tag,
+  Todo,
+} from "../types/bookmark";
 import { buildFavLockExport, type ExportSourceData } from "./dataExport";
 import {
   parseFavLockExport,
@@ -58,10 +65,24 @@ const todo: Todo = {
   completed_at: timestamp,
   due_date: "2026-08-30",
 };
+const list: BookmarkList = {
+  id: "50000000-0000-4000-8000-000000000001",
+  user_id: "source-user",
+  name: "Watch later",
+  created_at: timestamp,
+  updated_at: timestamp,
+  items: [{
+    bookmark,
+    position: 0,
+    completed_at: timestamp,
+    created_at: timestamp,
+  }],
+};
 const source: ExportSourceData = {
   folders: [rootFolder, childFolder],
   tags: [tag],
   bookmarks: [bookmark],
+  lists: [list],
   notes: [note],
   todos: [todo],
   readspace: [],
@@ -85,10 +106,28 @@ describe("FavLock export validation", () => {
       collections: 2,
       tags: 1,
       bookmarks: 1,
+      lists: 1,
       notes: 1,
       todos: 1,
       readspace: 0,
     });
+  });
+
+  it("rejects List memberships that reference bookmarks outside the archive", () => {
+    const archive = buildFavLockExport(source, selection);
+    archive.data.lists![0].items[0].bookmarkId =
+      "90000000-0000-4000-8000-000000000001";
+
+    expect(() => parseFavLockExport(archive)).toThrow("not a valid");
+  });
+
+  it("keeps version-two archives created before List support compatible", () => {
+    const archive = buildFavLockExport(source, selection);
+    delete archive.data.lists;
+
+    const parsed = parseFavLockExport(archive);
+    expect(parsed.data.lists).toBeUndefined();
+    expect(summarizeFavLockExport(parsed).lists).toBe(0);
   });
 
   it("rejects unknown relationships and unsupported nesting", () => {

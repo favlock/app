@@ -3,6 +3,8 @@ import type {
   ExportedBookmark,
   ExportedCollection,
   ExportedEntry,
+  ExportedList,
+  ExportedListItem,
   ExportedTag,
   ExportedTodo,
   ExportSelection,
@@ -21,6 +23,9 @@ const DUE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_COLLECTIONS = 10_000;
 const MAX_TAGS = 10_000;
 const MAX_BOOKMARKS = 10_000;
+const MAX_LISTS = 10_000;
+const MAX_LIST_ITEMS = 10_000;
+const MAX_MIGRATION_ITEMS = 32_000;
 const MAX_ENTRIES = 1_000;
 const MAX_READSPACE = 250;
 const MAX_RELATION_IDS = 10;
@@ -157,6 +162,31 @@ function parseBookmark(value: unknown): ExportedBookmark {
   };
 }
 
+function parseListItem(value: unknown): ExportedListItem {
+  const item = requireRecord(value);
+  return {
+    bookmarkId: requireUuid(item.bookmarkId),
+    position: requireInteger(item.position),
+    completedAt: requireNullableDate(item.completedAt),
+    createdAt: requireDate(item.createdAt),
+  };
+}
+
+function parseList(value: unknown): ExportedList {
+  const list = requireRecord(value);
+  const items = requireArray(list.items, MAX_LIST_ITEMS).map(parseListItem);
+  if (new Set(items.map((item) => item.bookmarkId)).size !== items.length) {
+    throw invalidArchive();
+  }
+  return {
+    id: requireUuid(list.id),
+    name: requireString(list.name, MAX_NAME_LENGTH).trim(),
+    createdAt: requireDate(list.createdAt),
+    updatedAt: requireDate(list.updatedAt),
+    items,
+  };
+}
+
 function parseEntry(value: unknown): ExportedEntry {
   const entry = requireRecord(value);
   const content = sanitizeEntryHtml(
@@ -212,6 +242,9 @@ function validateRelationships(exported: FavLockExport): void {
     exported.data.collections.map((collection) => [collection.id, collection]),
   );
   const tagIds = new Set(exported.data.tags.map((tag) => tag.id));
+  const bookmarkIds = new Set(
+    (exported.data.bookmarks ?? []).map((bookmark) => bookmark.id),
+  );
 
   for (const collection of exported.data.collections) {
     if (collection.parentId === null) continue;
@@ -238,6 +271,11 @@ function validateRelationships(exported: FavLockExport): void {
   exported.data.notes?.forEach(validateItem);
   exported.data.todos?.forEach(validateItem);
   exported.data.readspace?.forEach(validateItem);
+  for (const list of exported.data.lists ?? []) {
+    if (list.items.some((item) => !bookmarkIds.has(item.bookmarkId))) {
+      throw invalidArchive();
+    }
+  }
 }
 
 function parseOptionalItems<T>(
@@ -276,6 +314,10 @@ export function parseFavLockExport(value: unknown): FavLockExport {
     MAX_BOOKMARKS,
     parseBookmark,
   );
+  const lists = data.lists === undefined
+    ? undefined
+    : requireArray(data.lists, MAX_LISTS).map(parseList);
+  if (lists && !selection.bookmarks) throw invalidArchive();
   const notes = parseOptionalItems(
     data.notes,
     selection.notes,
@@ -301,6 +343,7 @@ export function parseFavLockExport(value: unknown): FavLockExport {
   requireUniqueIds(collections);
   requireUniqueIds(tags);
   if (bookmarks) requireUniqueIds(bookmarks);
+  if (lists) requireUniqueIds(lists);
   if (notes) requireUniqueIds(notes);
   if (todos) requireUniqueIds(todos);
   if (readspace) requireUniqueIds(readspace);
@@ -310,6 +353,14 @@ export function parseFavLockExport(value: unknown): FavLockExport {
     ...(readspace ?? []).map(({ id }) => id),
   ];
   if (new Set(entryIds).size !== entryIds.length) throw invalidArchive();
+  const migrationItemCount =
+    collections.length +
+    tags.length +
+    (bookmarks?.length ?? 0) +
+    entryIds.length +
+    (lists?.length ?? 0) +
+    (lists ?? []).reduce((count, list) => count + list.items.length, 0);
+  if (migrationItemCount > MAX_MIGRATION_ITEMS) throw invalidArchive();
 
   const result: FavLockExport = {
     format: "favlock-export",
@@ -320,6 +371,7 @@ export function parseFavLockExport(value: unknown): FavLockExport {
     data: {
       collections,
       tags,
+      ...(lists ? { lists } : {}),
       ...(bookmarks ? { bookmarks } : {}),
       ...(notes ? { notes } : {}),
       ...(todos ? { todos } : {}),
@@ -335,6 +387,7 @@ export function summarizeFavLockExport(archive: FavLockExport) {
     collections: archive.data.collections.length,
     tags: archive.data.tags.length,
     bookmarks: archive.data.bookmarks?.length ?? 0,
+    lists: archive.data.lists?.length ?? 0,
     notes: archive.data.notes?.length ?? 0,
     todos: archive.data.todos?.length ?? 0,
     readspace: archive.data.readspace?.length ?? 0,

@@ -1,5 +1,6 @@
 import type {
   Bookmark,
+  BookmarkList,
   Folder,
   Note,
   ReadspaceEntry,
@@ -13,6 +14,7 @@ export type ExportSelection = Record<ExportCategory, boolean>;
 
 export type ExportSourceData = {
   bookmarks: Bookmark[];
+  lists: BookmarkList[];
   folders: Folder[];
   tags: Tag[];
   notes: Note[];
@@ -46,6 +48,21 @@ export type ExportedBookmark = {
   createdAt: string;
 };
 
+export type ExportedListItem = {
+  bookmarkId: string;
+  position: number;
+  completedAt: string | null;
+  createdAt: string;
+};
+
+export type ExportedList = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  items: ExportedListItem[];
+};
+
 export type ExportedEntry = {
   id: string;
   title: string;
@@ -71,6 +88,7 @@ export type FavLockExport = {
   data: {
     collections: ExportedCollection[];
     tags: ExportedTag[];
+    lists?: ExportedList[];
     bookmarks?: ExportedBookmark[];
     notes?: ExportedEntry[];
     todos?: ExportedTodo[];
@@ -117,6 +135,18 @@ export function buildFavLockExport(
       })),
       ...(selection.bookmarks
         ? {
+            lists: source.lists.map((list) => ({
+              id: list.id,
+              name: list.name,
+              createdAt: list.created_at,
+              updatedAt: list.updated_at,
+              items: list.items.map((item) => ({
+                bookmarkId: item.bookmark.id,
+                position: item.position,
+                completedAt: item.completed_at,
+                createdAt: item.created_at,
+              })),
+            })),
             bookmarks: source.bookmarks.map((bookmark) => ({
               id: bookmark.id,
               title: bookmark.title,

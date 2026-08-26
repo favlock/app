@@ -165,6 +165,7 @@ export default function FavLockMigrationImportSection() {
           "Collections",
         ],
         [archiveSummary.tags, destinationPlan.limits.tags, "Tags"],
+        [archiveSummary.lists, destinationPlan.limits.lists, "Lists"],
       ] as const;
       const exceeded = checks.find(
         ([count, limit]) => limit > 0 && count > limit,
@@ -207,6 +208,7 @@ export default function FavLockMigrationImportSection() {
         ["notes"],
         ["todos"],
         ["readspace"],
+        ["lists"],
         ["resource-usage"],
       ]) {
         void queryClient.invalidateQueries({ queryKey });

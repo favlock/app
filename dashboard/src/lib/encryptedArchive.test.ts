@@ -11,6 +11,7 @@ import { importRawKey } from "./encryption";
 
 const emptySource: ExportSourceData = {
   bookmarks: [],
+  lists: [],
   folders: [],
   tags: [],
   notes: [],

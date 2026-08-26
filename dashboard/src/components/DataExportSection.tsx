@@ -11,6 +11,7 @@ import {
 import { useEncryption } from "../context/useEncryption";
 import { useAuth } from "../context/useAuth";
 import { useFolders } from "../hooks/useFoldersQuery";
+import { useLists } from "../hooks/useListsQuery";
 import { useNotes } from "../hooks/useNotesQuery";
 import { useReadspace } from "../hooks/useReadspaceQuery";
 import { useTags } from "../hooks/useTagsQuery";
@@ -48,7 +49,7 @@ const CATEGORY_DETAILS: Array<{
   {
     id: "bookmarks",
     label: "Bookmarks",
-    description: "Titles, URLs, favorites, collections, and tags",
+    description: "Titles, URLs, favorites, collections, tags, and Lists",
   },
   {
     id: "notes",
@@ -97,6 +98,9 @@ export default function DataExportSection() {
 
   const foldersQuery = useFolders();
   const tagsQuery = useTags();
+  const listsQuery = useLists({
+    enabled: format === "encrypted" && selection.bookmarks,
+  });
   const notesQuery = useNotes({ enabled: format === "encrypted" });
   const todosQuery = useTodos({ enabled: format === "encrypted" });
   const readspaceQuery = useReadspace(format === "encrypted");
@@ -107,6 +111,7 @@ export default function DataExportSection() {
         ? [
             foldersQuery,
             tagsQuery,
+            ...(selection.bookmarks ? [listsQuery] : []),
             notesQuery,
             todosQuery,
             readspaceQuery,
@@ -115,8 +120,10 @@ export default function DataExportSection() {
     [
       foldersQuery,
       format,
+      listsQuery,
       notesQuery,
       readspaceQuery,
+      selection.bookmarks,
       tagsQuery,
       todosQuery,
     ],
@@ -157,6 +164,7 @@ export default function DataExportSection() {
         const archive = buildFavLockExport(
           {
             bookmarks,
+            lists: listsQuery.data ?? [],
             folders: foldersQuery.data ?? [],
             tags: tagsQuery.data ?? [],
             notes: notesQuery.data ?? [],
@@ -277,7 +285,7 @@ export default function DataExportSection() {
               What to export
             </legend>
             <p className="mt-1 text-xs text-gray-500">
-              Collection and tag details are included to preserve organization.
+              Collection, tag, and List details are included to preserve organization.
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {CATEGORY_DETAILS.map((category) => (

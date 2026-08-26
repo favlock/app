@@ -21,6 +21,7 @@ const archive = {
   },
   data: {
     collections: [],
+    lists: [],
     tags: [
       {
         id: "20000000-0000-4000-8000-000000000001",
@@ -76,6 +77,7 @@ vi.mock("../hooks/useAccountPlanQuery", () => ({
         readspace: 1000,
         collections: 100,
         tags: 100,
+        lists: 3,
       },
     },
     refetch: vi.fn(),
@@ -97,6 +99,7 @@ vi.mock("../lib/favLockExportValidation", () => ({
   parseFavLockExport: mocks.parseFavLockExport,
   summarizeFavLockExport: () => ({
     collections: 0,
+    lists: 0,
     tags: 1,
     bookmarks: 0,
     notes: 0,
