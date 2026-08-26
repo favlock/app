@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import type { Bookmark, Folder, Note, Tag, Todo } from "../types/bookmark";
+import type {
+  Bookmark,
+  BookmarkList,
+  Folder,
+  Note,
+  Tag,
+  Todo,
+} from "../types/bookmark";
 import {
   buildBrowserBookmarksHtml,
   buildFavLockExport,
@@ -54,6 +61,19 @@ const todo: Todo = {
   is_completed: true,
   completed_at: createdAt,
 };
+const list: BookmarkList = {
+  id: "list-1",
+  user_id: "user-1",
+  name: "Watch later",
+  created_at: createdAt,
+  updated_at: createdAt,
+  items: [{
+    bookmark,
+    position: 0,
+    completed_at: createdAt,
+    created_at: createdAt,
+  }],
+};
 
 const selection: ExportSelection = {
   bookmarks: true,
@@ -64,6 +84,7 @@ const selection: ExportSelection = {
 
 const source: ExportSourceData = {
   bookmarks: [bookmark],
+  lists: [list],
   folders: [folder("root", "Root"), folder("child", "Child", "root")],
   tags: [tag],
   notes: [note],
@@ -81,11 +102,15 @@ describe("FavLock data export", () => {
 
     expect(result).toMatchObject({
       format: "favlock-export",
-      version: 1,
+      version: 2,
       exportedAt: "2026-08-06T13:00:00.000Z",
       encrypted: false,
       data: {
         bookmarks: [{ title: "Example <site>", tagIds: ["tag-1"] }],
+        lists: [{
+          name: "Watch later",
+          items: [{ bookmarkId: "bookmark-1", completedAt: createdAt }],
+        }],
         notes: [{ title: "A note", collectionId: null }],
       },
     });

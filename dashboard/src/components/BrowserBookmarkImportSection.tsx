@@ -8,10 +8,11 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getBookmarkExportGuideForUserAgent } from "@favlock/shared";
-import { Upload, LoaderCircle, Check, Download } from "lucide-react";
+import { LoaderCircle, Check, Download } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
+import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { useFolders } from "../hooks/useFoldersQuery";
 import {
   RESOURCE_USAGE_QUERY_KEY,
@@ -40,14 +41,17 @@ import {
 import { Button } from "./ui/button";
 import { Checkbox, CheckboxField } from "./ui/checkbox";
 import {
+  DataTransferActionBar,
+  DataTransferFileControl,
+  DataTransferSectionHeader,
+} from "./DataTransferControls";
+import {
   Dialog,
   DialogActions,
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
-import { Label } from "./ui/fieldset";
-import { Text } from "./ui/text";
-import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import { Description, Field, Label } from "./ui/fieldset";
 
 type ImportStatus = {
   type: "success" | "error" | "info";
@@ -764,22 +768,54 @@ export default function BrowserBookmarkImportSection() {
         </DialogActions>
       </Dialog>
 
-      <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 sm:p-5 shadow-sm  ">
-      <div className="flex items-start gap-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-semibold text-gray-900 ">
-            Import bookmarks
-          </h3>
-          <Text className="mt-1 text-sm text-gray-600 ">
-            {chromeExtensionId
-              ? "Import directly from Chrome, or choose an HTML or Safari ZIP export."
-              : "Import HTML exports from Chrome, Edge, or Firefox, and ZIP exports from Safari."}{" "}
-            Folder nesting is preserved as collections and subcollections.
-          </Text>
-        </div>
+      <section aria-labelledby="bookmark-import-heading">
+        <DataTransferSectionHeader
+          id="bookmark-import-heading"
+          title="Import bookmarks"
+          description={
+            <>
+              {chromeExtensionId
+                ? "Import directly from Chrome, or choose an HTML or Safari ZIP export."
+                : "Import HTML exports from Chrome, Edge, or Firefox, and ZIP exports from Safari."}{" "}
+              Folder nesting is preserved as collections and subcollections.
+            </>
+          }
+        />
 
-        <div className="flex flex-none flex-wrap justify-end gap-2">
-          {chromeExtensionId ? (
+        {chromeExtensionOrigin ? (
+          <iframe
+            ref={chromeBridgeRef}
+            src={`${chromeExtensionOrigin}/bookmark-import-bridge.html`}
+            title="FavLock Chrome bookmark importer"
+            className="hidden"
+            tabIndex={-1}
+            onLoad={handleChromeBridgeLoad}
+          />
+        ) : null}
+
+        <Field className="mt-6">
+          <Label htmlFor="browser-bookmark-import-file">Bookmark export</Label>
+          <Description id="browser-bookmark-import-file-description">
+            Choose an HTML export or Safari ZIP file.
+          </Description>
+          <DataTransferFileControl
+            id="browser-bookmark-import-file"
+            descriptionId="browser-bookmark-import-file-description"
+            inputRef={fileInputRef}
+            accept=".html,.htm,.zip,text/html,application/zip,application/x-zip-compressed"
+            fileName={selectedFileName}
+            emptyLabel="No bookmark file selected"
+            disabled={isImporting || keyLoading || foldersLoading}
+            busy={isImporting}
+            busyLabel="Importing..."
+            onChange={(event) => {
+              void handleImportFile(event);
+            }}
+          />
+        </Field>
+
+        {chromeExtensionId ? (
+          <DataTransferActionBar className="mt-4">
             <Button
               type="button"
               color="emerald"
@@ -787,7 +823,6 @@ export default function BrowserBookmarkImportSection() {
                 isImporting || !cryptoKey || keyLoading || foldersLoading
               }
               onClick={handleChromeImport}
-              className="cursor-pointer whitespace-nowrap"
             >
               {isImporting ? (
                 <LoaderCircle className="size-4 animate-spin" />
@@ -796,122 +831,70 @@ export default function BrowserBookmarkImportSection() {
               )}
               {isImporting ? "Importing..." : "Import from Chrome"}
             </Button>
-          ) : null}
+          </DataTransferActionBar>
+        ) : null}
 
-          {chromeExtensionId ? (
-            <Button
-              type="button"
-              outline
-              disabled={isImporting || keyLoading || foldersLoading}
-              onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer whitespace-nowrap"
-            >
-              <Upload className="size-4" />
-              Choose file
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              color="emerald"
-              disabled={isImporting || keyLoading || foldersLoading}
-              onClick={() => fileInputRef.current?.click()}
-              className="cursor-pointer whitespace-nowrap"
-            >
-              <Upload className="size-4" />
-              Choose file
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {chromeExtensionOrigin ? (
-        <iframe
-          ref={chromeBridgeRef}
-          src={`${chromeExtensionOrigin}/bookmark-import-bridge.html`}
-          title="FavLock Chrome bookmark importer"
-          className="hidden"
-          tabIndex={-1}
-          onLoad={handleChromeBridgeLoad}
-        />
-      ) : null}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".html,.htm,.zip,text/html,application/zip,application/x-zip-compressed"
-        className="hidden"
-        onChange={(event) => {
-          void handleImportFile(event);
-        }}
-      />
-
-      <details className="mt-4 rounded-xl border border-gray-200/80 bg-gray-50/70 px-4 py-3 text-sm text-gray-600">
-        <summary className="cursor-pointer font-medium text-gray-900">
-          {bookmarkExportGuide
-            ? `How to export bookmarks from ${bookmarkExportGuide.label}`
-            : "How to export bookmarks from your browser"}
-        </summary>
-        <div className="mt-3 space-y-2.5 leading-6">
-          {bookmarkExportGuide ? (
-            <p>{bookmarkExportGuide.instructions}</p>
-          ) : (
-            <p>
-              Export your bookmarks as an HTML file, or as a ZIP file from
-              Safari.
+        <details className="mt-4 rounded-xl border border-gray-200/80 bg-gray-50/70 px-4 py-3 text-sm text-gray-600">
+          <summary className="cursor-pointer font-medium text-gray-900">
+            {bookmarkExportGuide
+              ? `How to export bookmarks from ${bookmarkExportGuide.label}`
+              : "How to export bookmarks from your browser"}
+          </summary>
+          <div className="mt-3 space-y-2.5 leading-6">
+            {bookmarkExportGuide ? (
+              <p>{bookmarkExportGuide.instructions}</p>
+            ) : (
+              <p>
+                Export your bookmarks as an HTML file, or as a ZIP file from
+                Safari.
+              </p>
+            )}
+            <p className="border-t border-gray-200/80 pt-2.5 text-gray-500">
+              After exporting, select Choose file above and open the saved HTML
+              or Safari ZIP file. For another browser, see the{" "}
+              <a
+                href={`${WEB_DOCS_URL}/bookmarks#import`}
+                target="_blank"
+                rel="noreferrer"
+                className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700"
+              >
+                complete export guide
+              </a>
+              .
             </p>
-          )}
-          <p className="border-t border-gray-200/80 pt-2.5 text-gray-500">
-            After exporting, select Choose file above and open the saved HTML
-            or Safari ZIP file. For another browser, see the{" "}
-            <a
-              href={`${WEB_DOCS_URL}/bookmarks#import`}
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700"
-            >
-              complete export guide
-            </a>
-            .
-          </p>
-        </div>
-      </details>
-
-      {selectedFileName ? (
-        <p className="mt-3 text-sm text-gray-500 ">
-          Selected file: {selectedFileName}
-        </p>
-      ) : null}
-
-      {progress ? (
-        <p
-          className="mt-3 text-sm text-gray-600 "
-          role="status"
-          aria-live="polite"
-        >
-          {progress}
-        </p>
-      ) : null}
-
-      {status ? (
-        <div
-          role={status.type === "error" ? "alert" : "status"}
-          aria-live="polite"
-          className={`mt-3 rounded-xl px-4 py-3 text-sm ${
-            status.type === "error"
-              ? "bg-red-500/10 text-red-600 "
-              : status.type === "success"
-                ? "bg-emerald-500/10 text-emerald-600 "
-                : "bg-sky-500/10 text-sky-600 "
-          }`}
-        >
-          <div className="flex items-start gap-2">
-            {status.type === "success" ? (
-              <Check className="mt-0.5 size-4" aria-hidden="true" />
-            ) : null}
-            <span>{status.message}</span>
           </div>
-        </div>
-      ) : null}
+        </details>
+
+        {progress ? (
+          <p
+            className="mt-3 text-sm text-gray-600 "
+            role="status"
+            aria-live="polite"
+          >
+            {progress}
+          </p>
+        ) : null}
+
+        {status ? (
+          <div
+            role={status.type === "error" ? "alert" : "status"}
+            aria-live="polite"
+            className={`mt-3 rounded-xl px-4 py-3 text-sm ${
+              status.type === "error"
+                ? "bg-red-500/10 text-red-600 "
+                : status.type === "success"
+                  ? "bg-emerald-500/10 text-emerald-600 "
+                  : "bg-sky-500/10 text-sky-600 "
+            }`}
+          >
+            <div className="flex items-start gap-2">
+              {status.type === "success" ? (
+                <Check className="mt-0.5 size-4" aria-hidden="true" />
+              ) : null}
+              <span>{status.message}</span>
+            </div>
+          </div>
+        ) : null}
       </section>
     </>
   );
