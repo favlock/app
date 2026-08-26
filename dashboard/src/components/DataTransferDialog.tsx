@@ -2,6 +2,7 @@ import {
   ArrowDownToLine,
   ArrowLeft,
   ArrowUpFromLine,
+  FileKey2,
   LoaderCircle,
 } from "lucide-react";
 import { lazy, Suspense } from "react";
@@ -16,9 +17,12 @@ import {
 const BrowserBookmarkImportSection = lazy(
   () => import("./BrowserBookmarkImportSection"),
 );
+const FavLockMigrationImportSection = lazy(
+  () => import("./FavLockMigrationImportSection"),
+);
 const DataExportSection = lazy(() => import("./DataExportSection"));
 
-export type DataTransferView = "chooser" | "import" | "export";
+export type DataTransferView = "chooser" | "import" | "export" | "migrate";
 
 interface DataTransferDialogProps {
   view: DataTransferView | null;
@@ -31,19 +35,17 @@ export default function DataTransferDialog({
   onViewChange,
   onClose,
 }: DataTransferDialogProps) {
-  const size = view === "import" ? "3xl" : view === "export" ? "2xl" : "lg";
-
   return (
-    <Dialog open={view !== null} onClose={onClose} size={size}>
+    <Dialog open={view !== null} onClose={onClose} size="3xl">
       {view === "chooser" ? (
         <>
-          <DialogTitle>Import or export</DialogTitle>
+          <DialogTitle>Data transfer</DialogTitle>
           <DialogDescription>
-            Bring bookmarks into FavLock or download a portable copy of your
-            data.
+            Choose what you want to move into, out of, or between FavLock
+            accounts.
           </DialogDescription>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <button
               type="button"
               onClick={() => onViewChange("import")}
@@ -56,8 +58,7 @@ export default function DataTransferDialog({
                 Import bookmarks
               </span>
               <span className="mt-1 block text-sm leading-5 text-gray-600">
-                Add bookmarks from Chrome, Safari, Edge, or Firefox while
-                preserving their folder structure.
+                Add bookmarks from a browser or an HTML file.
               </span>
             </button>
 
@@ -74,6 +75,22 @@ export default function DataTransferDialog({
               </span>
               <span className="mt-1 block text-sm leading-5 text-gray-600">
                 Download a FavLock archive or browser-compatible bookmark file.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onViewChange("migrate")}
+              className="group rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] hover:bg-[color-mix(in_oklab,var(--app-primary)_4%,white)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
+            >
+              <span className="flex size-10 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--app-primary)_12%,white)] text-[var(--app-primary)] transition group-hover:bg-[color-mix(in_oklab,var(--app-primary)_18%,white)]">
+                <FileKey2 size={19} aria-hidden="true" />
+              </span>
+              <span className="mt-4 block text-sm font-semibold text-gray-900">
+                Migrate account
+              </span>
+              <span className="mt-1 block text-sm leading-5 text-gray-600">
+                Move an encrypted library into a new, empty account.
               </span>
             </button>
           </div>
@@ -105,7 +122,7 @@ export default function DataTransferDialog({
                 role="status"
               >
                 <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
-                Loading {view === "import" ? "import" : "export"} tools...
+                Loading {view === "migrate" ? "migration" : view} tools...
               </div>
             }
           >
@@ -113,6 +130,11 @@ export default function DataTransferDialog({
               <>
                 <DialogTitle className="sr-only">Import bookmarks</DialogTitle>
                 <BrowserBookmarkImportSection />
+              </>
+            ) : view === "migrate" ? (
+              <>
+                <DialogTitle className="sr-only">Migrate account</DialogTitle>
+                <FavLockMigrationImportSection />
               </>
             ) : (
               <>

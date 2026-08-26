@@ -10,6 +10,10 @@ vi.mock("./BrowserBookmarkImportSection", () => ({
   default: () => <div>Existing bookmark import flow</div>,
 }));
 
+vi.mock("./FavLockMigrationImportSection", () => ({
+  default: () => <div>Encrypted FavLock migration flow</div>,
+}));
+
 vi.mock("./DataExportSection", () => ({
   default: () => <div>Existing data export flow</div>,
 }));
@@ -50,19 +54,34 @@ describe("DataTransferDialog", () => {
     container.remove();
   });
 
-  it("lets the user choose import or export and return to the chooser", async () => {
+  it("keeps import, export, and migration in separate focused views", async () => {
     await act(async () => {
       root.render(<Harness onClose={() => undefined} />);
     });
 
-    expect(document.body.textContent).toContain("Import or export");
+    expect(document.body.textContent).toContain("Data transfer");
     expect(findButton("Import bookmarks")).toBeDefined();
     expect(findButton("Export data")).toBeDefined();
+    expect(findButton("Migrate account")).toBeDefined();
 
     await act(async () => {
       findButton("Import bookmarks")?.click();
     });
     expect(document.body.textContent).toContain("Existing bookmark import flow");
+    expect(document.body.textContent).not.toContain(
+      "Encrypted FavLock migration flow",
+    );
+
+    await act(async () => {
+      findButton("Back")?.click();
+    });
+    await act(async () => {
+      findButton("Migrate account")?.click();
+    });
+    expect(document.body.textContent).toContain("Encrypted FavLock migration flow");
+    expect(document.body.textContent).not.toContain(
+      "Existing bookmark import flow",
+    );
 
     await act(async () => {
       findButton("Back")?.click();

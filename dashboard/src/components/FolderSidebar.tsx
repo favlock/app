@@ -124,7 +124,7 @@ interface FolderSidebarProps {
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
   onStartOnboarding?: () => void;
-  onOpenImportExport?: () => void;
+  onOpenDataTransfer?: () => void;
 }
 
 interface SortableCollectionProps {
@@ -234,7 +234,7 @@ export default function FolderSidebar({
   selectedTagId,
   onSelectTag,
   onStartOnboarding,
-  onOpenImportExport,
+  onOpenDataTransfer,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
   const { user, signOut } = useAuth();
@@ -1049,11 +1049,11 @@ export default function FolderSidebar({
 
           <button
             type="button"
-            onClick={onOpenImportExport}
+            onClick={onOpenDataTransfer}
             className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
           >
             <ArrowDownUp size={16} aria-hidden="true" />
-            <span className="text-sm flex-1 text-left">Import &amp; export</span>
+            <span className="text-sm flex-1 text-left">Data transfer</span>
           </button>
 
           <Link

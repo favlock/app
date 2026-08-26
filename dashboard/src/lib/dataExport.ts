@@ -20,7 +20,33 @@ export type ExportSourceData = {
   readspace: ReadspaceEntry[];
 };
 
-type ExportedEntry = {
+export type ExportedCollection = {
+  id: string;
+  name: string;
+  color: Folder["color"];
+  parentId: string | null;
+  sortOrder: number;
+  createdAt: string;
+};
+
+export type ExportedTag = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
+export type ExportedBookmark = {
+  id: string;
+  title: string;
+  url: string;
+  collectionIds: string[];
+  tagIds: string[];
+  isFavorite: boolean;
+  favoritedAt: string | null;
+  createdAt: string;
+};
+
+export type ExportedEntry = {
   id: string;
   title: string;
   content: string;
@@ -28,6 +54,28 @@ type ExportedEntry = {
   tagIds: string[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ExportedTodo = ExportedEntry & {
+  isCompleted: boolean;
+  completedAt: string | null;
+  dueDate: string | null;
+};
+
+export type FavLockExport = {
+  format: "favlock-export";
+  version: 2;
+  exportedAt: string;
+  encrypted: false;
+  selection: ExportSelection;
+  data: {
+    collections: ExportedCollection[];
+    tags: ExportedTag[];
+    bookmarks?: ExportedBookmark[];
+    notes?: ExportedEntry[];
+    todos?: ExportedTodo[];
+    readspace?: ExportedEntry[];
+  };
 };
 
 const mapEntry = (
@@ -46,10 +94,10 @@ export function buildFavLockExport(
   source: ExportSourceData,
   selection: ExportSelection,
   exportedAt = new Date(),
-) {
+): FavLockExport {
   return {
     format: "favlock-export" as const,
-    version: 1,
+    version: 2,
     exportedAt: exportedAt.toISOString(),
     encrypted: false,
     selection,
@@ -92,6 +140,7 @@ export function buildFavLockExport(
               ...mapEntry(todo),
               isCompleted: todo.is_completed,
               completedAt: todo.completed_at,
+              dueDate: todo.due_date ?? null,
             })),
           }
         : {}),

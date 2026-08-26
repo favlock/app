@@ -81,7 +81,7 @@ describe("FavLock data export", () => {
 
     expect(result).toMatchObject({
       format: "favlock-export",
-      version: 1,
+      version: 2,
       exportedAt: "2026-08-06T13:00:00.000Z",
       encrypted: false,
       data: {

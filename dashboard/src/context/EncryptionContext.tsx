@@ -37,6 +37,10 @@ interface EncryptionContextType {
   ) => Promise<void>;
   setKeyRemembered: (rememberDevice: boolean) => Promise<void>;
   clearKey: () => Promise<void>;
+  adoptMigratedKey: (
+    key: CryptoKey,
+    options?: { rememberDevice?: boolean },
+  ) => Promise<boolean>;
   encryptField: (text: string) => Promise<string>;
   decryptField: (text: string) => Promise<string>;
 }
@@ -169,6 +173,31 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
     await deleteKeyFromIDB();
   }, []);
 
+  const adoptMigratedKey = useCallback(
+    async (
+      key: CryptoKey,
+      options?: { rememberDevice?: boolean },
+    ): Promise<boolean> => {
+      const rememberDevice = options?.rememberDevice ?? true;
+      setCryptoKey(key);
+      setNeedsUnlock(false);
+
+      try {
+        if (rememberDevice) {
+          await saveKeyToIDB(key);
+        } else {
+          await deleteKeyFromIDB();
+        }
+        setKeyRememberedState(rememberDevice);
+        return rememberDevice;
+      } catch {
+        setKeyRememberedState(false);
+        return false;
+      }
+    },
+    [],
+  );
+
   const encryptField = useCallback(async (text: string): Promise<string> => {
     if (!cryptoKey) {
       throw new Error("Unlock encryption before saving data.");
@@ -191,6 +220,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       setRawKey,
       setKeyRemembered,
       clearKey,
+      adoptMigratedKey,
       encryptField,
       decryptField,
     }),
@@ -203,6 +233,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       setRawKey,
       setKeyRemembered,
       clearKey,
+      adoptMigratedKey,
       encryptField,
       decryptField,
     ],

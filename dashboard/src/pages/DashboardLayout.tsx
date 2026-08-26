@@ -70,7 +70,9 @@ export default function DashboardLayout() {
       ? "import"
       : location.hash === "#export-data"
         ? "export"
-        : null;
+        : location.hash === "#migrate-account"
+          ? "migrate"
+          : null;
   const activeDataTransferView = dataTransferHashView ?? dataTransferView;
 
   useEffect(() => {
@@ -310,7 +312,7 @@ export default function DashboardLayout() {
                     setIsMobileSidebarOpen(false);
                     setIsOnboardingOpen(true);
                   }}
-                  onOpenImportExport={() => {
+                  onOpenDataTransfer={() => {
                     setIsMobileSidebarOpen(false);
                     setDataTransferView("chooser");
                   }}
@@ -327,7 +329,7 @@ export default function DashboardLayout() {
               selectedTagId={selectedTagId}
               onSelectTag={handleSelectTag}
               onStartOnboarding={() => setIsOnboardingOpen(true)}
-              onOpenImportExport={() => setDataTransferView("chooser")}
+              onOpenDataTransfer={() => setDataTransferView("chooser")}
             />
           </aside>
 
