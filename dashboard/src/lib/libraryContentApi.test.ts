@@ -277,7 +277,7 @@ describe("library content API client", () => {
       fetchEncryptedLibraryFolders("current.jwt.token", ["bad-id"]),
     ).rejects.toThrow("Could not load your encrypted library");
     await expect(fetchEncryptedLibraryEntries("")).rejects.toThrow(
-      "sign in again",
+      "Reconnect to the cloud",
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });

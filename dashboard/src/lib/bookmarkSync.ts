@@ -1,4 +1,5 @@
 import type { Bookmark } from "../types/bookmark";
+import { captureLocalVaultWork, trackLocalVaultWork } from "./localVaultWork";
 import {
   fetchEncryptedLibraryBookmarks,
   type EncryptedLibraryBookmark,
@@ -158,6 +159,7 @@ async function rebuildBookmarkCache(
   userId: string,
   decryptField: DecryptFn,
   initialStatus: BookmarkSyncStatus,
+  assertCurrent: () => void,
 ): Promise<BookmarkSyncResult> {
   const snapshot = await fetchAllBookmarks(
     accessToken,
@@ -170,6 +172,7 @@ async function rebuildBookmarkCache(
   let revision = initialStatus.revision;
 
   for (let pass = 0; pass < MAX_CATCH_UP_PASSES; pass += 1) {
+    assertCurrent();
     const status = await fetchBookmarkSyncStatus(accessToken);
     if (compareRevisions(revision, status.deltaFloor) < 0) {
       throw new Error("Bookmark sync history expired during index rebuild.");
@@ -192,6 +195,7 @@ async function rebuildBookmarkCache(
           userId,
           decryptField,
           await fetchBookmarkSyncStatus(accessToken),
+          assertCurrent,
         );
       }
       throw error;
@@ -204,6 +208,7 @@ async function rebuildBookmarkCache(
   }
 
   const lastSyncedAt = new Date().toISOString();
+  assertCurrent();
   await replaceCachedBookmarksForUser(userId, [...bookmarksById.values()], {
     revision,
     lastSyncedAt,
@@ -215,6 +220,7 @@ async function syncBookmarksOnce(
   accessToken: string,
   userId: string,
   decryptField: DecryptFn,
+  assertCurrent: () => void,
 ): Promise<BookmarkSyncResult> {
   const localMeta = await getBookmarkCacheMeta(userId);
   const initialStatus = await fetchBookmarkSyncStatus(accessToken);
@@ -230,6 +236,7 @@ async function syncBookmarksOnce(
       userId,
       decryptField,
       initialStatus,
+      assertCurrent,
     );
   }
 
@@ -243,7 +250,7 @@ async function syncBookmarksOnce(
         ? initialStatus
         : await fetchBookmarkSyncStatus(accessToken);
     if (compareRevisions(revision, status.deltaFloor) < 0) {
-      return rebuildBookmarkCache(accessToken, userId, decryptField, status);
+      return rebuildBookmarkCache(accessToken, userId, decryptField, status, assertCurrent);
     }
     if (compareRevisions(revision, status.revision) === 0) break;
 
@@ -263,11 +270,13 @@ async function syncBookmarksOnce(
           userId,
           decryptField,
           await fetchBookmarkSyncStatus(accessToken),
+          assertCurrent,
         );
       }
       throw error;
     }
     lastSyncedAt = new Date().toISOString();
+    assertCurrent();
     await applyBookmarkCacheDelta(userId, {
       upserts: delta.upserts,
       deletes: delta.deletes,
@@ -279,6 +288,7 @@ async function syncBookmarksOnce(
   }
 
   if (compareRevisions(revision, initialStatus.revision) === 0 && !changed) {
+    assertCurrent();
     lastSyncedAt = new Date().toISOString();
     await applyBookmarkCacheDelta(userId, {
       upserts: [],
@@ -303,16 +313,18 @@ export function syncBookmarksToLocalCache(
   }
 
   const active = { requested: false } as ActiveBookmarkSync;
+  const assertCurrent = captureLocalVaultWork(userId);
   active.promise = (async () => {
     let result: BookmarkSyncResult;
     do {
       active.requested = false;
-      result = await syncBookmarksOnce(accessToken, userId, decryptField);
+      assertCurrent();
+      result = await syncBookmarksOnce(accessToken, userId, decryptField, assertCurrent);
     } while (active.requested);
     return result;
   })().finally(() => {
     activeBookmarkSyncs.delete(userId);
   });
   activeBookmarkSyncs.set(userId, active);
-  return active.promise;
+  return trackLocalVaultWork(userId, active.promise);
 }

@@ -42,6 +42,48 @@ changes between tabs. Session and PKCE values remain browser-readable, so XSS
 prevention remains essential; credentials and tokens must never be logged or
 persisted by the API.
 
+Automatic refresh rejection and cloud authorization failures do not perform a
+local sign-out. A versioned, token-free local account profile is independent of
+cloud credentials. Existing session records seed that profile without requiring
+a new login. The Auth provider exposes the local user for routing, but exposes
+a cloud session to ordinary dashboard hooks only while cloud access is available.
+Server authentication, current account restrictions, and current entitlements
+remain authoritative for every cloud operation; a cached profile or plan is
+never authorization.
+
+The dashboard retains its existing local cache and remembered encryption key
+after cloud rejection. A per-account encrypted known-value verifier allows
+offline recovery-key validation after this device has initialized it. This does
+not change the encrypted-content format or make the local cache encrypted at
+rest: the current IndexedDB library projection contains decrypted data. Browser
+storage eviction, clearing site data, private browsing, loss of a non-remembered
+key, and missing app-shell assets can still prevent offline access. Lists are
+not yet durably cached. This is not a promise of permanent storage or complete
+offline editing.
+
+Reconnection must match the original account UUID, not its email address. A
+different account, including one recreated with the same email, is rejected
+without replacing the local vault. Users should export their local data before
+explicitly signing out to switch accounts, or use a separate browser profile.
+Malformed or missing cloud credentials detach cloud access without erasing an
+existing local profile. Explicit sign-out and user-requested local-data cleanup
+still clear local keys and caches. Sync work is invalidated and drained before
+cache removal so late responses cannot repopulate the cleared projection.
+
+The Chrome extension retains its local profile and key after refresh rejection.
+Cloud operations require a current session and server approval. Reconnect and
+pairing reject another account UUID; explicit disconnect clears the profile and
+key and invalidates pending authentication work. Refresh uses single-flight and
+Web Locks where supported; storage transitions are serialized. Neither client
+automatically retries a rejected write.
+
+Pro checkout is created by `POST /v1/billing/checkout` with a current bearer and
+an attempt UUID. The client no longer uses a public product link with editable
+identity metadata. Checkout destination validation is HTTPS and host/path
+allowlisted. Returning with a success query parameter does not prove payment or
+grant Pro. The independent billing portal remains available when cloud access
+is unavailable. Deploy compatible backend and API support before this client.
+
 Extension-session token creation sends only the validated Chrome extension ID
 and current bearer token to the FavLock API. The API verifies the user binding
 and returns only the existing one-time token; the dashboard no longer invokes

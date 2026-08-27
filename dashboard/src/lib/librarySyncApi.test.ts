@@ -164,7 +164,7 @@ describe("library sync API client", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchLibrarySyncStatus("")).rejects.toThrow("sign in again");
+    await expect(fetchLibrarySyncStatus("")).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

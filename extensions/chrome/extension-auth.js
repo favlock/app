@@ -11,7 +11,48 @@ import {
 
 export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 const SESSION_KEY = "favlockAuthSession";
+const PROFILE_KEY = "favlockLocalProfile";
+const EPOCH_KEY = "favlockLocalEpoch";
 const ORIGINAL_TAB_KEY = "favlockOriginalTabId";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+let refreshPromise = null;
+let stateQueue = Promise.resolve();
+
+function withStateLock(work) {
+  if (globalThis.navigator?.locks) return navigator.locks.request("favlock-extension-state", work);
+  const next = stateQueue.catch(() => undefined).then(work);
+  stateQueue = next.catch(() => undefined);
+  return next;
+}
+
+function validSession(session) {
+  return session && typeof session.accessToken === "string" && session.accessToken.length > 0 && session.accessToken.length <= 16384 &&
+    typeof session.refreshToken === "string" && session.refreshToken.length > 0 && session.refreshToken.length <= 16384 &&
+    Number.isSafeInteger(session.expiresAt) && session.expiresAt > 0 && UUID.test(session.userId);
+}
+
+export async function readLocalAccount() {
+  const stored = await chrome.storage.local.get([PROFILE_KEY, SESSION_KEY, EPOCH_KEY]);
+  const profile = stored[PROFILE_KEY];
+  const legacy = validSession(stored[SESSION_KEY]) ? stored[SESSION_KEY] : null;
+  const user = profile?.version === 1 && UUID.test(profile.userId) ? profile : legacy;
+  return user ? { userId: user.userId, email: typeof user.email === "string" ? user.email.slice(0, 254) : "", cloudStatus: profile?.cloudStatus || "available", epoch: stored[EPOCH_KEY] || "legacy" } : null;
+}
+
+export async function assertLocalAccount(account) {
+  const current = await readLocalAccount();
+  if (!current || !account || current.userId !== account.userId || current.epoch !== account.epoch) throw new Error("The local account changed. Reopen the extension before continuing.");
+}
+
+export async function reportCloudFailure(accessToken, status) {
+  return withStateLock(async () => {
+    const current = await readSession();
+    if (current?.accessToken !== accessToken) return;
+    const account = await readLocalAccount();
+    if (account?.cloudStatus === "restricted" && status === "unavailable") return;
+    await chrome.storage.local.set({ [PROFILE_KEY]: { version: 1, userId: current.userId, email: current.email, cloudStatus: status } });
+  });
+}
 
 class SessionRequestError extends Error {
   constructor(message, status) {
@@ -90,6 +131,8 @@ async function requestSession(path, body, failureMessage) {
     cache: "no-store",
     credentials: "omit",
     referrerPolicy: "no-referrer",
+    redirect: "error",
+    signal: AbortSignal.timeout(8000),
   });
   const payload = await readJson(response, failureMessage);
   if (!response.ok) {
@@ -106,7 +149,7 @@ async function requestSession(path, body, failureMessage) {
     !session.refreshToken ||
     !Number.isSafeInteger(session.expiresAt) ||
     session.expiresAt < 1 ||
-    typeof session.user?.id !== "string"
+    !UUID.test(session.user?.id)
   ) {
     throw new Error(failureMessage);
   }
@@ -115,11 +158,16 @@ async function requestSession(path, body, failureMessage) {
 
 async function readSession() {
   const stored = await chrome.storage.local.get(SESSION_KEY);
-  return stored[SESSION_KEY] || null;
+  return validSession(stored[SESSION_KEY]) ? stored[SESSION_KEY] : null;
 }
 
 async function writeSession(session) {
-  await chrome.storage.local.set({ [SESSION_KEY]: session });
+  const account = await readLocalAccount();
+  if (account && account.userId !== session.userId) throw new Error("This is a different account. Disconnect explicitly before switching accounts; your saved key was not changed.");
+  await chrome.storage.local.set({
+    [SESSION_KEY]: session,
+    [PROFILE_KEY]: { version: 1, userId: session.userId, email: session.email, cloudStatus: "available" },
+  });
 }
 
 export async function requestUser(accessToken) {
@@ -133,6 +181,8 @@ export async function requestUser(accessToken) {
       cache: "no-store",
       credentials: "omit",
       referrerPolicy: "no-referrer",
+      redirect: "error",
+      signal: AbortSignal.timeout(8000),
     },
   );
   if (!response.ok) throw new Error("FavLock could not verify this session.");
@@ -158,6 +208,7 @@ function createStoredSession(payload, user) {
 }
 
 export async function exchangeAuthorizationCode({ code, codeVerifier }) {
+  const before = await chrome.storage.local.get(EPOCH_KEY);
   const payload = await requestSession(
     "/v1/auth/session/exchange",
     { authCode: code, codeVerifier },
@@ -165,7 +216,11 @@ export async function exchangeAuthorizationCode({ code, codeVerifier }) {
   );
   const user = await requestUser(payload.accessToken);
   const session = createStoredSession(payload, user);
-  await writeSession(session);
+  await withStateLock(async () => {
+    const after = await chrome.storage.local.get(EPOCH_KEY);
+    if (before[EPOCH_KEY] !== after[EPOCH_KEY]) throw new Error("Sign-in was cancelled.");
+    await writeSession(session);
+  });
   return session;
 }
 
@@ -189,7 +244,12 @@ export async function exchangeExtensionSessionToken({ tokenHash, expectedUserId 
   return session;
 }
 
-export async function refreshSession(session) {
+async function performRefresh(session) {
+  const account = await readLocalAccount();
+  if (!account || account.userId !== session.userId) throw new Error("Reconnect to the original account.");
+  const current = await readSession();
+  if (!current) throw new Error("Reconnect to the cloud. Your saved key remains on this device.");
+  if (current.refreshToken !== session.refreshToken && current.expiresAt > Date.now() + 60_000) return current;
   let payload;
   try {
     payload = await requestSession(
@@ -198,15 +258,16 @@ export async function refreshSession(session) {
       "Your FavLock session expired. Connect the extension again.",
     );
   } catch (error) {
-    if (error instanceof SessionRequestError && error.status === 401) {
-      await disconnectExtension();
-      throw new Error("Your FavLock session expired. Connect the extension again.");
+    if (error instanceof SessionRequestError && (error.status === 401 || error.status === 403)) {
+      await reportCloudFailure(session.accessToken, error.status === 401 ? "reconnect_required" : "restricted");
+      throw new Error("Cloud access is unavailable. Reconnect when needed; your saved key remains on this device.");
     }
+    await reportCloudFailure(session.accessToken, "unavailable");
     throw new Error("FavLock is temporarily unavailable. Try again.");
   }
   if (payload.user.id !== session.userId) {
-    await disconnectExtension();
-    throw new Error("Your FavLock session expired. Connect the extension again.");
+    await reportCloudFailure(session.accessToken, "reconnect_required");
+    throw new Error("Reconnect to the original account. Your saved key was not changed.");
   }
   const nextSession = {
     ...session,
@@ -214,13 +275,37 @@ export async function refreshSession(session) {
     refreshToken: payload.refreshToken,
     expiresAt: Number(payload.expiresAt) * 1000,
   };
-  await writeSession(nextSession);
-  return nextSession;
+  return withStateLock(async () => {
+    await assertLocalAccount(account);
+    const latest = await readSession();
+    if (!latest) throw new Error("Sign-in was cancelled.");
+    if (latest.refreshToken !== session.refreshToken) return latest;
+    await writeSession(nextSession);
+    return nextSession;
+  });
+}
+
+export function refreshSession(session) {
+  refreshPromise ??= (globalThis.navigator?.locks
+    ? navigator.locks.request("favlock-extension-refresh", () => performRefresh(session))
+    : performRefresh(session)).finally(() => { refreshPromise = null; });
+  return refreshPromise;
 }
 
 export async function getValidSession() {
   const session = await readSession();
   if (!session) return null;
+  const account = await readLocalAccount();
+  if (account?.userId !== session.userId) throw new Error("Reconnect to the original account.");
+  await withStateLock(async () => {
+    const stored = await chrome.storage.local.get(PROFILE_KEY);
+    if (!stored[PROFILE_KEY]) {
+      await assertLocalAccount(account);
+      await writeSession(session);
+    }
+  });
+  if (globalThis.navigator?.onLine === false) throw new Error("You are offline. Your saved key remains on this device.");
+  if (["restricted", "reconnect_required"].includes(account.cloudStatus)) throw new Error("Reconnect to cloud services when needed. Your saved key remains on this device.");
   if (session.expiresAt > Date.now() + 60_000) return session;
   return refreshSession(session);
 }
@@ -332,6 +417,9 @@ export async function receivePairedKey(message, sender) {
     return { ok: false, error: "Untrusted pairing origin." };
   }
   try {
+    const initialEpoch = (await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY];
+    const localAccount = await readLocalAccount();
+    if (localAccount && localAccount.userId !== message.userId) throw new Error("This is a different account. Disconnect explicitly before switching accounts; your saved key was not changed.");
     let session = null;
     try {
       session = await getValidSession();
@@ -351,11 +439,13 @@ export async function receivePairedKey(message, sender) {
     }
 
     const key = await importLibraryKey(message.rawKey);
-    if (replacingSession) {
-      await deleteLibraryKey();
-      await writeSession(session);
-    }
-    await saveLibraryKey(key);
+    await withStateLock(async () => {
+      if ((await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY] !== initialEpoch) throw new Error("Pairing was cancelled.");
+      const currentAccount = await readLocalAccount();
+      if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The local account changed. Pair again.");
+      if (replacingSession) await writeSession(session);
+      await saveLibraryKey(key);
+    });
     if (Number.isInteger(sender.tab?.id)) {
       const pairingTabId = sender.tab.id;
       setTimeout(() => {
@@ -392,17 +482,22 @@ export async function getConnectionState() {
   } catch {
     session = await readSession();
   }
+  const account = await readLocalAccount();
   return {
-    connected: !!session,
+    connected: !!account,
     unlocked: !!(await loadLibraryKey()),
-    email: session?.email || "",
+    email: account?.email || session?.email || "",
+    cloudStatus: globalThis.navigator?.onLine === false ? "offline" : !session ? "reconnect_required" : account?.cloudStatus || "available",
   };
 }
 
 export async function disconnectExtension() {
-  await Promise.all([
-    chrome.storage.local.remove(SESSION_KEY),
-    chrome.storage.session.remove(ORIGINAL_TAB_KEY),
-    deleteLibraryKey(),
-  ]);
+  await withStateLock(async () => {
+    await chrome.storage.local.set({ [EPOCH_KEY]: crypto.randomUUID() });
+    await Promise.all([
+      chrome.storage.local.remove([SESSION_KEY, PROFILE_KEY]),
+      chrome.storage.session.remove(ORIGINAL_TAB_KEY),
+      deleteLibraryKey(),
+    ]);
+  });
 }

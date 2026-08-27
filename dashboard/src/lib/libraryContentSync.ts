@@ -1,4 +1,5 @@
 import type { Entry, Folder, Tag } from "../types/bookmark";
+import { captureLocalVaultWork, trackLocalVaultWork } from "./localVaultWork";
 import { sanitizeEntryHtml } from "./entryContent";
 import {
   applyLibraryContentCacheDelta,
@@ -250,11 +251,13 @@ async function rebuildContentCache(
   accessToken: string,
   userId: string,
   decryptField: DecryptField,
+  assertCurrent: () => void,
 ): Promise<{ revision: string; lastSyncedAt: string }> {
   const starting = await fetchLibrarySyncStatus(accessToken);
   let snapshot = await fetchSnapshot(accessToken, userId, decryptField);
   let revision = starting.revision;
   for (let pass = 0; pass < MAX_CATCH_UP_PASSES; pass += 1) {
+    assertCurrent();
     const latest = await fetchLibrarySyncStatus(accessToken);
     if (compareRevision(revision, latest.revision) === 0) break;
     const changes = await fetchLibrarySyncChanges(
@@ -269,6 +272,7 @@ async function rebuildContentCache(
     revision = latest.revision;
   }
   const lastSyncedAt = new Date().toISOString();
+  assertCurrent();
   await replaceCachedLibraryContentForUser(userId, snapshot, {
     revision,
     lastSyncedAt,
@@ -280,15 +284,18 @@ async function runSync(
   accessToken: string,
   userId: string,
   decryptField: DecryptField,
+  assertCurrent: () => void,
 ): Promise<{ revision: string; lastSyncedAt: string }> {
+  assertCurrent();
   const [localMeta, status] = await Promise.all([
     getLibraryContentCacheMeta(userId),
     fetchLibrarySyncStatus(accessToken),
   ]);
   if (!localMeta?.revision || compareRevision(localMeta.revision, status.deltaFloor) < 0) {
-    return rebuildContentCache(accessToken, userId, decryptField);
+    return rebuildContentCache(accessToken, userId, decryptField, assertCurrent);
   }
   if (compareRevision(localMeta.revision, status.revision) === 0) {
+    assertCurrent();
     const lastSyncedAt = new Date().toISOString();
     await applyLibraryContentCacheDelta(userId, {
       upserts: emptySnapshot(),
@@ -305,10 +312,11 @@ async function runSync(
       status.revision,
     );
     const delta = await buildDelta(accessToken, userId, changes, status.revision, decryptField);
+    assertCurrent();
     await applyLibraryContentCacheDelta(userId, delta);
     return { revision: status.revision, lastSyncedAt: delta.lastSyncedAt };
   } catch (error) {
-    if (isResetRequired(error)) return rebuildContentCache(accessToken, userId, decryptField);
+    if (isResetRequired(error)) return rebuildContentCache(accessToken, userId, decryptField, assertCurrent);
     throw error;
   }
 }
@@ -321,12 +329,14 @@ export function syncLibraryContentToLocalCache(
   decryptField: DecryptField,
 ): Promise<{ revision: string; lastSyncedAt: string }> {
   const previous = syncQueues.get(userId) ?? Promise.resolve();
+  const assertCurrent = captureLocalVaultWork(userId);
   const next = previous
     .catch(() => undefined)
-    .then(() => runSync(accessToken, userId, decryptField));
+    .then(() => runSync(accessToken, userId, decryptField, assertCurrent));
   syncQueues.set(userId, next);
-  void next.finally(() => {
+  const cleanup = () => {
     if (syncQueues.get(userId) === next) syncQueues.delete(userId);
-  });
-  return next;
+  };
+  void next.then(cleanup, cleanup);
+  return trackLocalVaultWork(userId, next);
 }

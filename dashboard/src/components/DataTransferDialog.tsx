@@ -6,6 +6,8 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { lazy, Suspense } from "react";
+import { useBrowserOnline } from "../hooks/useBrowserOnline";
+import { isBrowserOnline, OFFLINE_EXPORT_MESSAGE } from "../lib/network";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -35,6 +37,7 @@ export default function DataTransferDialog({
   onViewChange,
   onClose,
 }: DataTransferDialogProps) {
+  const online = useBrowserOnline();
   return (
     <Dialog open={view !== null} onClose={onClose} size="3xl">
       {view === "chooser" ? (
@@ -45,7 +48,7 @@ export default function DataTransferDialog({
             accounts.
           </DialogDescription>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <div className={`mt-6 grid gap-3 ${online ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <button
               type="button"
               onClick={() => onViewChange("import")}
@@ -62,9 +65,11 @@ export default function DataTransferDialog({
               </span>
             </button>
 
-            <button
+            {online && <button
               type="button"
-              onClick={() => onViewChange("export")}
+              onClick={() => {
+                if (isBrowserOnline()) onViewChange("export");
+              }}
               className="group rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] hover:bg-[color-mix(in_oklab,var(--app-primary)_4%,white)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
             >
               <span className="flex size-10 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--app-primary)_12%,white)] text-[var(--app-primary)] transition group-hover:bg-[color-mix(in_oklab,var(--app-primary)_18%,white)]">
@@ -76,7 +81,7 @@ export default function DataTransferDialog({
               <span className="mt-1 block text-sm leading-5 text-gray-600">
                 Download a FavLock archive or browser-compatible bookmark file.
               </span>
-            </button>
+            </button>}
 
             <button
               type="button"
@@ -95,6 +100,7 @@ export default function DataTransferDialog({
             </button>
           </div>
 
+          {!online && <p role="status" className="mt-4 text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>}
           <DialogActions>
             <Button type="button" outline onClick={onClose}>
               Close
@@ -115,7 +121,12 @@ export default function DataTransferDialog({
             </Button>
           </div>
 
-          <Suspense
+          {view === "export" && !online ? (
+            <>
+              <DialogTitle>Export unavailable offline</DialogTitle>
+              <DialogDescription>{OFFLINE_EXPORT_MESSAGE}</DialogDescription>
+            </>
+          ) : <Suspense
             fallback={
               <div
                 className="flex min-h-40 items-center justify-center gap-2 text-sm text-gray-600"
@@ -142,7 +153,7 @@ export default function DataTransferDialog({
                 <DataExportSection />
               </>
             )}
-          </Suspense>
+          </Suspense>}
 
           <DialogActions>
             <Button type="button" outline onClick={onClose}>

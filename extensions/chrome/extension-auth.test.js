@@ -8,6 +8,9 @@ import {
   exchangeExtensionSessionToken,
   getConnectionState,
   refreshSession,
+  disconnectExtension,
+  receivePairedKey,
+  PAIR_KEY_MESSAGE,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
 
@@ -49,11 +52,13 @@ function jsonResponse(payload, status = 200) {
 let storageGet;
 let storageSet;
 let storageRemove;
+let localData;
 
 beforeEach(() => {
-  storageGet = vi.fn().mockResolvedValue({});
-  storageSet = vi.fn().mockResolvedValue(undefined);
-  storageRemove = vi.fn().mockResolvedValue(undefined);
+  localData = {};
+  storageGet = vi.fn(async () => ({ ...localData }));
+  storageSet = vi.fn(async (value) => { Object.assign(localData, value); });
+  storageRemove = vi.fn(async (keys) => { for (const key of Array.isArray(keys) ? keys : [keys]) delete localData[key]; });
   cryptoMocks.deleteLibraryKey.mockClear();
   cryptoMocks.loadLibraryKey.mockClear();
   vi.stubGlobal("chrome", {
@@ -77,6 +82,45 @@ afterEach(() => {
 });
 
 describe("extension OAuth helpers", () => {
+  it("rejects reconnecting a different UUID even when the email is unchanged", async () => {
+    localData.favlockAuthSession = { accessToken: "old", refreshToken: "old-refresh", expiresAt: 1_900_000_000_000, userId: "22222222-2222-4222-8222-222222222222", email: user.email };
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(sessionResponse())).mockResolvedValueOnce(jsonResponse({ data: { user } }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(exchangeAuthorizationCode({ code: "code", codeVerifier: "v".repeat(64) })).rejects.toThrow("different account");
+    expect(localData.favlockAuthSession.accessToken).toBe("old");
+    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
+  });
+
+  it("rejects pairing another account before exchanging credentials or replacing a key", async () => {
+    localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await receivePairedKey({ type: PAIR_KEY_MESSAGE, userId: "22222222-2222-4222-8222-222222222222", sessionTokenHash: "token", rawKey: "test" }, { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin });
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("different account") });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
+  });
+
+  it("cannot resurrect credentials after explicit disconnect during refresh", async () => {
+    const stored = { accessToken: "old", refreshToken: "old-refresh", expiresAt: 1, userId: user.id, email: user.email };
+    localData.favlockAuthSession = stored;
+    let finish;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise((resolve) => { finish = resolve; })));
+    const refreshing = refreshSession(stored);
+    const rejected = expect(refreshing).rejects.toThrow("account changed");
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    await disconnectExtension();
+    finish(jsonResponse(sessionResponse()));
+    await rejected;
+    expect(localData.favlockAuthSession).toBeUndefined();
+    expect(localData.favlockLocalProfile).toBeUndefined();
+    expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the local profile visible if cloud credentials are missing", async () => {
+    localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
+    await expect(getConnectionState()).resolves.toMatchObject({ connected: true, unlocked: true, email: user.email, cloudStatus: "reconnect_required" });
+  });
   it("creates URL-safe state and verifier values", () => {
     expect(createRandomUrlToken(32)).toMatch(/^[A-Za-z0-9_-]+$/);
   });
@@ -199,6 +243,7 @@ describe("extension OAuth helpers", () => {
       email: user.email,
     };
 
+    localData.favlockAuthSession = stored;
     await expect(refreshSession(stored)).resolves.toMatchObject({
       accessToken: "access-token",
       refreshToken: "refresh-token",
@@ -224,6 +269,7 @@ describe("extension OAuth helpers", () => {
       email: user.email,
     };
 
+    localData.favlockAuthSession = stored;
     await expect(refreshSession(stored)).rejects.toThrow(
       "FavLock is temporarily unavailable. Try again.",
     );
@@ -239,19 +285,20 @@ describe("extension OAuth helpers", () => {
       userId: user.id,
       email: user.email,
     };
-    storageGet.mockResolvedValue({ favlockAuthSession: stored });
+    localData.favlockAuthSession = stored;
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("offline")));
 
     await expect(getConnectionState()).resolves.toEqual({
       connected: true,
       unlocked: true,
       email: user.email,
+      cloudStatus: "unavailable",
     });
     expect(storageRemove).not.toHaveBeenCalled();
     expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
   });
 
-  it("disconnects and clears the key when refresh credentials are rejected", async () => {
+  it("retains the local account and key when refresh credentials are rejected", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -274,10 +321,12 @@ describe("extension OAuth helpers", () => {
       email: user.email,
     };
 
+    localData.favlockAuthSession = stored;
     await expect(refreshSession(stored)).rejects.toThrow(
-      "Your FavLock session expired. Connect the extension again.",
+      "your saved key remains on this device",
     );
-    expect(storageRemove).toHaveBeenCalledWith("favlockAuthSession");
-    expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
+    expect(storageRemove).not.toHaveBeenCalled();
+    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
+    expect(localData.favlockLocalProfile.cloudStatus).toBe("reconnect_required");
   });
 });

@@ -153,7 +153,7 @@ describe("Trash API commands", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(emptyTrash("")).rejects.toThrow("sign in again");
+    await expect(emptyTrash("")).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -4,30 +4,30 @@ import { AuthLayout } from "../components/ui/auth-layout";
 import { Heading } from "../components/ui/heading";
 import { Text } from "../components/ui/text";
 import { useAuth } from "../context/useAuth";
-import { CREEM_PRO_PRODUCT_URL } from "../lib/appUrls";
-import { buildCreemCheckoutUrl } from "../lib/creemBilling";
+import { createProCheckout } from "../lib/checkoutApi";
+import { favLockAuth } from "../lib/favLockAuth";
 
 export default function ProCheckout() {
-  const { user } = useAuth();
-  const redirectStarted = useRef(false);
+  const { user, session } = useAuth();
+  const checkout = useRef<Promise<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user || redirectStarted.current) return;
-    redirectStarted.current = true;
-
-    try {
-      window.location.assign(
-        buildCreemCheckoutUrl(CREEM_PRO_PRODUCT_URL, user.id),
-      );
-    } catch (checkoutError) {
+    if (!user) return;
+    let active = true;
+    checkout.current ??= createProCheckout(session?.access_token ?? "", crypto.randomUUID());
+    void checkout.current.then((url) => {
+      if (active && favLockAuth.getLocalUser()?.id === user.id) window.location.assign(url);
+    }).catch((checkoutError: unknown) => {
+      if (!active) return;
       setError(
         checkoutError instanceof Error
           ? checkoutError.message
           : "Could not open checkout. Please try again.",
       );
-    }
-  }, [user]);
+    });
+    return () => { active = false; };
+  }, [user, session?.access_token]);
 
   return (
     <AuthLayout>

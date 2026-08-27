@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Outlet, useLocation, useMatch, useNavigate } from "react-router-dom";
 import FolderSidebar from "../components/FolderSidebar";
+import CloudConnectionNotice from "../components/CloudConnectionNotice";
 import { useFolders } from "../hooks/useFoldersQuery";
 import { useTags } from "../hooks/useTagsQuery";
 import {
@@ -339,6 +340,7 @@ export default function DashboardLayout() {
             tabIndex={-1}
             className="w-full min-w-0 pb-[env(safe-area-inset-bottom)] focus:outline-none"
           >
+            <CloudConnectionNotice />
             <Outlet
               context={
                 {
