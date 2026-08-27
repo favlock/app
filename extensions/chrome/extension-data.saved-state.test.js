@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./extension-auth.js", () => ({
+  readLocalAccount: vi.fn(async () => ({ userId: "user-1", epoch: "test" })),
+  assertLocalAccount: vi.fn(async () => undefined),
+  reportCloudFailure: vi.fn(async () => undefined),
   getValidSession: vi.fn(async () => ({
     accessToken: "access-token",
     userId: "user-1",

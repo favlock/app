@@ -1,24 +1,45 @@
 import { FAVLOCK_CONFIG } from "./config.js";
-import { getValidSession } from "./extension-auth.js";
+import { getValidSession, readLocalAccount, assertLocalAccount, reportCloudFailure } from "./extension-auth.js";
 import {
   decryptField,
   encryptField,
   loadLibraryKey,
 } from "./extension-crypto.js";
 
-async function authorizedRequest(path, options = {}) {
+const keyAccounts = new WeakMap();
+
+async function authorizedRequest(path, options = {}, key) {
+  const account = keyAccounts.get(key);
+  await assertLocalAccount(account);
   const session = await getValidSession();
   if (!session) throw new Error("Connect the extension to FavLock first.");
-  const response = await fetch(`${FAVLOCK_CONFIG.apiUrl}${path}`, {
+  await assertLocalAccount(account);
+  if (session.userId !== account.userId) throw new Error("The account changed. Reopen the extension.");
+  let response;
+  try { response = await fetch(`${FAVLOCK_CONFIG.apiUrl}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
       "Content-Type": "application/json",
       ...(options.headers || {}),
     },
-  });
+    credentials: "omit",
+    cache: "no-store",
+    referrerPolicy: "no-referrer",
+    redirect: "error",
+    signal: AbortSignal.timeout(30_000),
+  }); } catch {
+    await reportCloudFailure(session.accessToken, "unavailable");
+    throw new Error("Cloud request could not be confirmed. Check your library before retrying a save.");
+  }
+  await assertLocalAccount(account);
+  if (response.status === 401 || response.status === 403) {
+    await reportCloudFailure(session.accessToken, response.status === 401 ? "reconnect_required" : "restricted");
+    throw new Error("Cloud access is unavailable. Your saved key remains on this device.");
+  }
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => null);
+  await assertLocalAccount(account);
   if (!response.ok) {
     throw new Error(
       payload?.error?.message || "FavLock request failed.",
@@ -27,13 +48,13 @@ async function authorizedRequest(path, options = {}) {
   return payload;
 }
 
-async function loadAllPages(path, limit) {
+async function loadAllPages(path, limit, key) {
   const items = [];
   let cursor = null;
   do {
     const query = new URLSearchParams({ limit: String(limit) });
     if (cursor) query.set("cursor", cursor);
-    const response = await authorizedRequest(`${path}?${query}`);
+    const response = await authorizedRequest(`${path}?${query}`, {}, key);
     if (!response?.data || !Array.isArray(response.data.items)) {
       throw new Error("FavLock returned an invalid response.");
     }
@@ -47,8 +68,11 @@ async function loadAllPages(path, limit) {
 }
 
 async function getKey() {
+  const account = await readLocalAccount();
   const key = await loadLibraryKey();
   if (!key) throw new Error("Unlock the FavLock extension first.");
+  await assertLocalAccount(account);
+  keyAccounts.set(key, account);
   return key;
 }
 
@@ -103,9 +127,9 @@ export function normalizeOpenTabs(
 export async function loadQuickAddData() {
   const key = await getKey();
   const [folderRows, tagRows, listRows] = await Promise.all([
-    loadAllPages("/v1/library/folders", 200),
-    loadAllPages("/v1/library/tags", 200),
-    loadAllPages("/v1/lists", 100),
+    loadAllPages("/v1/library/folders", 200, key),
+    loadAllPages("/v1/library/tags", 200, key),
+    loadAllPages("/v1/lists", 100, key),
   ]);
 
   const [folders, tags, lists] = await Promise.all([
@@ -163,7 +187,7 @@ export function getBookmarkOrganization(bookmark) {
 }
 
 async function loadBookmarkUrlIndex(key) {
-  const rows = await loadAllPages("/v1/library/bookmarks", 200);
+  const rows = await loadAllPages("/v1/library/bookmarks", 200, key);
 
   const decryptedRows = await Promise.all(
     rows.map(async (bookmark) => {
@@ -241,13 +265,13 @@ async function getOrCreateSessionTag(name, tags, key) {
     body: JSON.stringify({
       encryptedName: await encryptField(cleanName, key),
     }),
-  });
+  }, key);
   const tagId = response?.data?.tagId;
   if (!tagId) throw new Error("FavLock could not create the session tag.");
   return tagId;
 }
 
-async function attachTagToBookmarks(bookmarkIds, tagId) {
+async function attachTagToBookmarks(bookmarkIds, tagId, key) {
   if (!bookmarkIds.length) return;
   await authorizedRequest(
     `/v1/tags/${tagId}/bookmarks`,
@@ -255,6 +279,7 @@ async function attachTagToBookmarks(bookmarkIds, tagId) {
       method: "POST",
       body: JSON.stringify({ bookmarkIds }),
     },
+    key,
   );
 }
 
@@ -268,7 +293,7 @@ async function createList(name, key) {
       body: JSON.stringify({
         encryptedName: await encryptField(cleanName.slice(0, 80), key),
       }),
-    });
+    }, key);
   } catch (error) {
     throw new Error(getListCreationErrorMessage(error));
   }
@@ -277,13 +302,13 @@ async function createList(name, key) {
   return listId;
 }
 
-async function setBookmarkListMemberships(bookmarkId, listIds) {
+async function setBookmarkListMemberships(bookmarkId, listIds, key) {
   await authorizedRequest(`/v1/bookmarks/${bookmarkId}/lists`, {
     method: "PUT",
     body: JSON.stringify({
       listIds: [...new Set(listIds)],
     }),
-  });
+  }, key);
 }
 
 export async function saveOpenTabsSession({ tabs, sessionTagName, tags }) {
@@ -332,7 +357,7 @@ export async function saveOpenTabsSession({ tabs, sessionTagName, tags }) {
           existingTagIds: [tagId],
           newEncryptedTagNames: [],
         }),
-      });
+      }, key);
       result.created += 1;
     } catch {
       result.failed += 1;
@@ -340,7 +365,7 @@ export async function saveOpenTabsSession({ tabs, sessionTagName, tags }) {
   }
 
   try {
-    await attachTagToBookmarks(existingIdsToTag, tagId);
+    await attachTagToBookmarks(existingIdsToTag, tagId, key);
     result.tagged = existingIdsToTag.length;
   } catch {
     result.failed += existingIdsToTag.length;
@@ -363,7 +388,7 @@ async function createCollection(name, folders, key) {
       parentId: null,
       sortOrder: rootSortOrders.length ? Math.max(...rootSortOrders) + 1 : 0,
     }),
-  });
+  }, key);
   return response?.data?.folderId || null;
 }
 
@@ -426,8 +451,8 @@ export async function saveCurrentPage({
         existingTagIds: selectedIds,
         newEncryptedTagNames: encryptedNewTagNames,
       }),
-    });
-    await setBookmarkListMemberships(existingBookmarkId, targetListIds);
+    }, key);
+    await setBookmarkListMemberships(existingBookmarkId, targetListIds, key);
     return { bookmarkId: existingBookmarkId, updatedExisting: true };
   }
 
@@ -443,11 +468,12 @@ export async function saveCurrentPage({
         newEncryptedTagNames: encryptedNewTagNames,
       }),
     },
+    key,
   );
   const bookmarkId = created?.data?.bookmarkId;
   if (!bookmarkId) throw new Error("FavLock could not save the bookmark.");
   if (targetListIds.length) {
-    await setBookmarkListMemberships(bookmarkId, targetListIds);
+    await setBookmarkListMemberships(bookmarkId, targetListIds, key);
   }
   return { bookmarkId, updatedExisting: false };
 }

@@ -1,5 +1,6 @@
 export const OFFLINE_WRITE_MESSAGE =
   "You're offline. Reconnect before making changes.";
+export const OFFLINE_EXPORT_MESSAGE = "Reconnect to export your data.";
 
 export function isBrowserOnline(): boolean {
   return typeof navigator === "undefined" || navigator.onLine;

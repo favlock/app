@@ -1,8 +1,10 @@
 import { API_URL, DASHBOARD_URL } from "./appUrls";
 import { captureInitialPasswordRecoveryRedirect } from "./authRecovery";
 import { readAuthUrl } from "./authUrl";
+import { cloudStatusMessage, subscribeToCloudFailures, type CloudStatus } from "./cloudAccess";
 
 const SESSION_STORAGE_KEY = "favlock.auth.session.v1";
+export const LOCAL_PROFILE_STORAGE_KEY = "favlock.local-profile.v1";
 const PKCE_STORAGE_KEY = "favlock.auth.pkce.v1";
 const LEGACY_STORAGE_KEY = "sb-auth";
 const MAX_RESPONSE_BYTES = 64 * 1024;
@@ -40,6 +42,7 @@ export type AuthChangeEvent =
   | "INITIAL_SESSION"
   | "SIGNED_IN"
   | "SIGNED_OUT"
+  | "SESSION_STALE"
   | "TOKEN_REFRESHED"
   | "USER_UPDATED"
   | "PASSWORD_RECOVERY";
@@ -331,7 +334,12 @@ export class FavLockAuthClient {
   readonly #navigate: (url: string) => void;
   readonly #subscribers = new Set<AuthChangeCallback>();
   #session: AuthSession | null = null;
+  #localUser: AuthUser | null = null;
+  #cloudStatus: CloudStatus = "signed_out";
+  #generation = 0;
+  #stopCloudFailures: (() => void) | null = null;
   #initialization: Promise<AuthResult<{ session: AuthSession | null }>> | null = null;
+  #initializationError: Error | null = null;
   #refreshPromise: Promise<AuthSession> | null = null;
   #refreshTimer: number | null = null;
   #synchronizationCount = 0;
@@ -358,6 +366,7 @@ export class FavLockAuthClient {
     accessToken?: string,
   ): Promise<unknown> {
     let response: Response;
+    let text: string;
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(
       () => abortController.abort(),
@@ -375,15 +384,16 @@ export class FavLockAuthClient {
         cache: "no-store",
         credentials: "omit",
         referrerPolicy: "no-referrer",
+        redirect: "error",
         signal: abortController.signal,
       });
+      text = await response.text();
     } catch {
       throw new AuthRequestError("Authentication is temporarily unavailable.");
     } finally {
       window.clearTimeout(timeoutId);
     }
 
-    const text = await response.text();
     if (text.length > MAX_RESPONSE_BYTES) {
       throw new AuthRequestError("Authentication is temporarily unavailable.");
     }
@@ -415,6 +425,14 @@ export class FavLockAuthClient {
   }
 
   #saveSession(session: AuthSession, event: AuthChangeEvent): void {
+    const localUser = this.getLocalUser();
+    if (localUser && localUser.id !== session.user.id) {
+      throw new Error("This is a different account. Your local vault was not changed. Export it before explicitly signing out, or use a separate browser profile.");
+    }
+    this.#localUser = session.user;
+    this.#cloudStatus = "available";
+    this.#initializationError = null;
+    this.#persistLocalProfile();
     this.#session = session;
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
     this.#scheduleRefresh();
@@ -423,10 +441,94 @@ export class FavLockAuthClient {
 
   #removeSession(notify = true): void {
     this.#session = null;
+    this.#initializationError = null;
     localStorage.removeItem(SESSION_STORAGE_KEY);
     if (this.#refreshTimer !== null) window.clearTimeout(this.#refreshTimer);
     this.#refreshTimer = null;
     if (notify) this.#notify("SIGNED_OUT", null);
+  }
+
+  #persistLocalProfile(): void {
+    if (!this.#localUser) return;
+    const user = this.#localUser;
+    localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      user: { id: user.id, email: user.email, created_at: user.created_at, user_metadata: {
+        first_name: readString(user.user_metadata.first_name, 256) ?? "",
+        last_name: readString(user.user_metadata.last_name, 256) ?? "",
+        password_sign_in_enabled: user.user_metadata.password_sign_in_enabled === true,
+      }, app_metadata: {
+        provider: user.app_metadata.provider === "google" ? "google" : "email",
+        providers: Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers.filter((value) => value === "email" || value === "google") : [],
+      }, identities: user.identities?.filter(({ provider }) => provider === "email" || provider === "google") },
+      cloudStatus: this.#cloudStatus,
+    }));
+  }
+
+  getLocalUser(): AuthUser | null {
+    if (this.#localUser) return this.#localUser;
+    try {
+      const stored: unknown = JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY) ?? "null");
+      if (isRecord(stored) && stored.version === 1) {
+        this.#localUser = mapStoredUser(stored.user);
+        if (stored.cloudStatus === "restricted" || stored.cloudStatus === "reconnect_required" || stored.cloudStatus === "available" || stored.cloudStatus === "unavailable") {
+          this.#cloudStatus = stored.cloudStatus;
+        }
+      }
+    } catch { /* A corrupt profile never authorizes cloud requests. */ }
+    if (!this.#localUser) {
+      const legacy = this.#readStoredSession();
+      if (legacy) {
+        this.#localUser = legacy.user;
+        this.#cloudStatus = "available";
+        this.#persistLocalProfile();
+      }
+    }
+    return this.#localUser;
+  }
+
+  getCloudStatus(): CloudStatus {
+    if (!this.getLocalUser()) return "signed_out";
+    if (!navigator.onLine) return "offline";
+    if (this.#cloudStatus === "available" && (!this.#session || this.#session.expires_at * 1000 <= Date.now())) {
+      return "reconnect_required";
+    }
+    return this.#cloudStatus;
+  }
+
+  markCloudFailure(accessToken: string, status: "reconnect_required" | "restricted" | "unavailable"): void {
+    if (accessToken !== this.#session?.access_token) return;
+    // A late network error cannot restart automatic recovery after a denial.
+    if ((this.#cloudStatus === "restricted" || this.#cloudStatus === "reconnect_required") && status === "unavailable") return;
+    this.#cloudStatus = status;
+    this.#persistLocalProfile();
+    this.#scheduleRefresh();
+    this.#notify("SESSION_STALE", this.#session);
+  }
+
+  async retryCloudConnection(): Promise<void> {
+    await this.initialize();
+    if (!navigator.onLine) throw new Error(cloudStatusMessage("offline"));
+    if (!this.#session) throw new Error(cloudStatusMessage("reconnect_required"));
+    try {
+      const session = await this.#refreshSession(true);
+      // Auth refresh does not prove data authorization. The next operation is
+      // still checked by the server; restricted users cannot bypass it.
+      this.#cloudStatus = "available";
+      this.#persistLocalProfile();
+      this.#scheduleRefresh();
+      this.#notify("TOKEN_REFRESHED", session);
+    } catch (error) {
+      this.#recordRefreshFailure(error);
+      throw error;
+    }
+  }
+
+  #recordRefreshFailure(error: unknown): void {
+    if (!this.#session) return;
+    this.markCloudFailure(this.#session.access_token,
+      error instanceof AuthRequestError && error.status === 403 ? "restricted" :
+      isExpiredSessionError(error) ? "reconnect_required" : "unavailable");
   }
 
   #readStoredSession(): AuthSession | null {
@@ -481,6 +583,7 @@ export class FavLockAuthClient {
   }
 
   async #exchangeCallbackCode(code: string): Promise<AuthSession> {
+    const generation = this.#generation;
     const pkce = readStoredPkce();
     if (!pkce) throw new AuthRequestError("The sign-in link is invalid or has expired.");
     try {
@@ -493,6 +596,7 @@ export class FavLockAuthClient {
           ? mapApiSession(value.data.session)
           : null;
       if (!session) throw new AuthRequestError("Authentication is temporarily unavailable.");
+      if (generation !== this.#generation) throw new Error("Sign-in was cancelled.");
       localStorage.removeItem(PKCE_STORAGE_KEY);
       this.#removeCallbackParameters();
       this.#saveSession(
@@ -510,6 +614,18 @@ export class FavLockAuthClient {
 
   async #initializeOnce(): Promise<AuthResult<{ session: AuthSession | null }>> {
     this.#migrateLegacyStorage();
+    this.getLocalUser();
+    this.#session = this.#readStoredSession();
+    if (this.#session && !this.#localUser) {
+      this.#localUser = this.#session.user;
+      this.#cloudStatus = "available";
+      this.#persistLocalProfile();
+    } else if (this.#session && this.#session.user.id !== this.#localUser?.id) {
+      this.#session = null;
+      this.#cloudStatus = "reconnect_required";
+    } else if (this.#localUser && this.#cloudStatus === "signed_out") {
+      this.#cloudStatus = this.#session ? "available" : "reconnect_required";
+    }
     const code = new URL(window.location.href).searchParams.get("code");
     try {
       if (code) {
@@ -517,13 +633,15 @@ export class FavLockAuthClient {
         return { data: { session }, error: null };
       }
 
-      this.#session = this.#readStoredSession();
-      if (this.#session && this.#session.expires_at * 1000 <= Date.now()) {
+      const recovering = this.#cloudStatus === "unavailable";
+      if (this.#session && (recovering || this.#session.expires_at * 1000 <= Date.now()) && navigator.onLine &&
+        this.#cloudStatus !== "restricted" && this.#cloudStatus !== "reconnect_required") {
         try {
-          this.#session = await this.#refreshSession();
+          // A saved transient failure must be rechecked even before token expiry.
+          this.#session = await this.#refreshSession(recovering);
         } catch (error) {
+          this.#recordRefreshFailure(error);
           if (!isExpiredSessionError(error)) {
-            this.#scheduleRefreshRetry();
             this.#notify("INITIAL_SESSION", this.#session);
             return {
               data: { session: this.#session },
@@ -531,9 +649,9 @@ export class FavLockAuthClient {
             };
           }
 
-          this.#removeSession(false);
+          this.#notify("SESSION_STALE", this.#session);
           return {
-            data: { session: null },
+            data: { session: this.#session },
             error: error instanceof Error ? error : new Error("Session expired."),
           };
         }
@@ -543,7 +661,6 @@ export class FavLockAuthClient {
       this.#notify("INITIAL_SESSION", this.#session);
       return { data: { session: this.#session }, error: null };
     } catch (error) {
-      this.#session = this.#readStoredSession();
       return {
         data: { session: this.#session },
         error: error instanceof Error ? error : new Error("Authentication failed."),
@@ -552,12 +669,16 @@ export class FavLockAuthClient {
   }
 
   initialize(): Promise<AuthResult<{ session: AuthSession | null }>> {
-    this.#initialization ??= this.#initializeOnce();
+    this.#initialization ??= this.#initializeOnce().then((result) => {
+      this.#initializationError = result.error;
+      return result;
+    });
     return this.#initialization;
   }
 
   async getSession(): Promise<AuthResult<{ session: AuthSession | null }>> {
-    return this.initialize();
+    await this.initialize();
+    return { data: { session: this.#session }, error: this.#initializationError };
   }
 
   onAuthStateChange(callback: AuthChangeCallback) {
@@ -621,6 +742,7 @@ export class FavLockAuthClient {
     password: string;
     options: { captchaToken: string };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
+    const generation = this.#generation;
     try {
       const value = await this.#request("/v1/auth/sign-in/password", "POST", {
         email,
@@ -632,6 +754,7 @@ export class FavLockAuthClient {
           ? mapApiSession(value.data.session, true)
           : null;
       if (!session) throw new AuthRequestError("Authentication is temporarily unavailable.");
+      if (generation !== this.#generation) throw new Error("Sign-in was cancelled.");
       this.#saveSession(session, "SIGNED_IN");
       return { data: { user: session.user, session }, error: null };
     } catch (error) {
@@ -655,8 +778,10 @@ export class FavLockAuthClient {
       data: { first_name?: string; last_name?: string };
     };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
+    const generation = this.#generation;
     let pkceStored = false;
     try {
+      if (this.getLocalUser()) throw new Error("Reconnect to your existing account. To create another account, use a separate browser profile or explicitly sign out first.");
       const redirectTarget = readRedirectTarget(
         options.emailRedirectTo,
         this.#dashboardUrl,
@@ -680,6 +805,7 @@ export class FavLockAuthClient {
         throw new AuthRequestError("Authentication is temporarily unavailable.");
       }
       if (session) {
+        if (generation !== this.#generation) throw new Error("Sign-up was cancelled.");
         localStorage.removeItem(PKCE_STORAGE_KEY);
         this.#saveSession(session, "SIGNED_IN");
       }
@@ -774,7 +900,8 @@ export class FavLockAuthClient {
     current_password?: string;
     data?: { password_sign_in_enabled?: boolean };
   }): Promise<AuthResult<{ user: AuthUser | null }>> {
-    const initialized = await this.initialize();
+    const generation = this.#generation;
+    const initialized = await this.getSession();
     const session = initialized.data.session;
     if (!session) {
       return { data: { user: null }, error: new Error("Please sign in again.") };
@@ -795,7 +922,8 @@ export class FavLockAuthClient {
           ? mapUser(value.data.user, data?.password_sign_in_enabled === true)
           : null;
       if (!user) throw new AuthRequestError("Authentication is temporarily unavailable.");
-      const nextSession = { ...session, user };
+      if (generation !== this.#generation || this.#session?.user.id !== user.id) throw new Error("The account changed. Please try again.");
+      const nextSession = { ...this.#session, user };
       this.#saveSession(nextSession, "USER_UPDATED");
       return { data: { user }, error: null };
     } catch (error) {
@@ -806,17 +934,36 @@ export class FavLockAuthClient {
     }
   }
 
-  async #performRefresh(): Promise<AuthSession> {
-    const current = this.#readStoredSession() ?? this.#session;
+  async #performRefresh(force = false): Promise<AuthSession> {
+    const generation = this.#generation;
+    const current = this.#readStoredSession();
     if (!current) throw new AuthRequestError("Your session has expired.", 401);
-    if (current.expires_at * 1000 - Date.now() > REFRESH_MARGIN_MS) {
+    if (current.user.id !== this.getLocalUser()?.id) throw new AuthRequestError("Reconnect to the original account.", 401);
+    if (!force && current.expires_at * 1000 - Date.now() > REFRESH_MARGIN_MS) {
       this.#session = current;
       this.#scheduleRefresh();
       return current;
     }
-    const value = await this.#request("/v1/auth/session/refresh", "POST", {
-      refreshToken: current.refresh_token,
-    });
+    let value: unknown;
+    try {
+      value = await this.#request("/v1/auth/session/refresh", "POST", {
+        refreshToken: current.refresh_token,
+      });
+    } catch (error) {
+      if (isExpiredSessionError(error)) {
+        const latest = this.#readStoredSession();
+        if (
+          generation === this.#generation && latest &&
+          latest.user.id === current.user.id &&
+          latest.refresh_token !== current.refresh_token &&
+          latest.expires_at * 1000 > Date.now()
+        ) {
+          this.#saveSession(latest, "TOKEN_REFRESHED");
+          return latest;
+        }
+      }
+      throw error;
+    }
     const session =
       isRecord(value) && isRecord(value.data)
         ? mapApiSession(value.data.session)
@@ -824,60 +971,64 @@ export class FavLockAuthClient {
     if (!session || session.user.id !== current.user.id) {
       throw new AuthRequestError("Your session has expired.", 401);
     }
+    const latest = this.#readStoredSession();
+    if (generation !== this.#generation) throw new AuthRequestError("Sign-in changed while refreshing. Reconnect to continue.", 401);
+    if (!latest || latest.refresh_token !== current.refresh_token) {
+      if (latest && latest.user.id === current.user.id && latest.expires_at * 1000 > Date.now()) {
+        this.#saveSession(latest, "TOKEN_REFRESHED");
+        return latest;
+      }
+      throw new AuthRequestError("Sign-in changed while refreshing. Reconnect to continue.", 401);
+    }
     this.#saveSession(session, "TOKEN_REFRESHED");
     return session;
   }
 
-  async #refreshSession(): Promise<AuthSession> {
+  async #refreshSession(force = false): Promise<AuthSession> {
     if (this.#refreshPromise) return this.#refreshPromise;
     this.#refreshPromise = (async () => {
       if (navigator.locks) {
         return navigator.locks.request(
           "favlock-auth-refresh",
           { mode: "exclusive" },
-          () => this.#performRefresh(),
+          () => this.#performRefresh(force),
         );
       }
-      return this.#performRefresh();
+      return this.#performRefresh(force);
     })().finally(() => {
       this.#refreshPromise = null;
     });
     return this.#refreshPromise;
   }
 
-  #scheduleRefreshRetry(): void {
-    if (this.#refreshTimer !== null) window.clearTimeout(this.#refreshTimer);
-    this.#refreshTimer = null;
-    if (!this.#session || this.#disposed) return;
-    this.#refreshTimer = window.setTimeout(() => {
-      this.#refreshTimer = null;
-      this.#scheduleRefresh();
-    }, REFRESH_RETRY_MS);
-  }
-
   #scheduleRefresh(): void {
     if (this.#refreshTimer !== null) window.clearTimeout(this.#refreshTimer);
     this.#refreshTimer = null;
-    if (!this.#session || this.#disposed) return;
-    const delay = Math.max(
+    if (!this.#session || this.#disposed || !navigator.onLine ||
+      this.#cloudStatus === "restricted" || this.#cloudStatus === "reconnect_required") return;
+    const recovering = this.#cloudStatus === "unavailable";
+    const delay = recovering ? REFRESH_RETRY_MS : Math.max(
       1_000,
       this.#session.expires_at * 1000 - Date.now() - REFRESH_MARGIN_MS,
     );
     this.#refreshTimer = window.setTimeout(() => {
       this.#refreshTimer = null;
-      void this.#refreshSession().catch((error: unknown) => {
-        if (isExpiredSessionError(error)) {
-          this.#removeSession();
-          return;
-        }
-        this.#scheduleRefreshRetry();
+      void this.#refreshSession(recovering).catch((error: unknown) => {
+        this.#recordRefreshFailure(error);
       });
     }, delay);
   }
 
   async signOut(): Promise<AuthResult<Record<string, never>>> {
-    const initialized = await this.initialize();
-    const session = initialized.data.session;
+    // Detach immediately, before waiting for an online logout or pending refresh.
+    const session = this.#session ?? this.#readStoredSession();
+    this.#generation += 1;
+    this.#localUser = null;
+    this.#cloudStatus = "signed_out";
+    localStorage.removeItem(LOCAL_PROFILE_STORAGE_KEY);
+    localStorage.removeItem(PKCE_STORAGE_KEY);
+    clearLegacyCookie(LEGACY_STORAGE_KEY);
+    this.#removeSession();
     let error: Error | null = null;
     if (session) {
       try {
@@ -891,12 +1042,29 @@ export class FavLockAuthClient {
         error = value instanceof Error ? value : new Error("Sign-out failed.");
       }
     }
-    localStorage.removeItem(PKCE_STORAGE_KEY);
-    this.#removeSession();
     return { data: {}, error };
   }
 
   #handleStorage = (event: StorageEvent) => {
+    if (event.key === LOCAL_PROFILE_STORAGE_KEY && !event.newValue) {
+      this.#generation += 1;
+      this.#localUser = null;
+      this.#cloudStatus = "signed_out";
+      this.#removeSession();
+      return;
+    }
+    if (event.key === LOCAL_PROFILE_STORAGE_KEY && event.newValue) {
+      try {
+        const value: unknown = JSON.parse(event.newValue);
+        if (isRecord(value) && value.version === 1 && mapStoredUser(value.user)?.id === this.#localUser?.id &&
+          (value.cloudStatus === "restricted" || value.cloudStatus === "reconnect_required" || value.cloudStatus === "unavailable" || value.cloudStatus === "available")) {
+          this.#cloudStatus = value.cloudStatus;
+          this.#scheduleRefresh();
+          this.#notify("SESSION_STALE", this.#session);
+        }
+      } catch { /* Ignore malformed profile notifications. */ }
+      return;
+    }
     if (event.key !== SESSION_STORAGE_KEY) return;
     const previousUserId = this.#session?.user.id ?? null;
     let session: AuthSession | null = null;
@@ -908,9 +1076,12 @@ export class FavLockAuthClient {
       }
       if (!session) localStorage.removeItem(SESSION_STORAGE_KEY);
     }
+    if (session && this.getLocalUser() && session.user.id !== this.getLocalUser()?.id) session = null;
+    if (!session || session.user.id !== this.#session?.user.id) this.#generation += 1;
     this.#session = session;
+    this.#cloudStatus = session ? "available" : "reconnect_required";
     this.#scheduleRefresh();
-    if (!session) this.#notify("SIGNED_OUT", null);
+    if (!session) this.#notify("SESSION_STALE", null);
     else {
       this.#notify(
         previousUserId === session.user.id ? "TOKEN_REFRESHED" : "SIGNED_IN",
@@ -923,6 +1094,9 @@ export class FavLockAuthClient {
     this.#synchronizationCount += 1;
     if (this.#synchronizationCount === 1) {
       window.addEventListener("storage", this.#handleStorage);
+      window.addEventListener("online", this.#handleConnectivity);
+      window.addEventListener("offline", this.#handleConnectivity);
+      this.#stopCloudFailures = subscribeToCloudFailures(({ accessToken, status }) => this.markCloudFailure(accessToken, status));
     }
     let active = true;
     return () => {
@@ -931,9 +1105,21 @@ export class FavLockAuthClient {
       this.#synchronizationCount = Math.max(0, this.#synchronizationCount - 1);
       if (this.#synchronizationCount === 0) {
         window.removeEventListener("storage", this.#handleStorage);
+        window.removeEventListener("online", this.#handleConnectivity);
+        window.removeEventListener("offline", this.#handleConnectivity);
+        this.#stopCloudFailures?.();
       }
     };
   }
+
+  #handleConnectivity = () => {
+    this.#notify("SESSION_STALE", this.#session);
+    if (navigator.onLine && this.#cloudStatus !== "restricted" && this.#cloudStatus !== "reconnect_required") {
+      void this.retryCloudConnection().catch(() => undefined);
+    } else {
+      this.#scheduleRefresh();
+    }
+  };
 
   dispose(): void {
     this.#disposed = true;
@@ -942,6 +1128,9 @@ export class FavLockAuthClient {
     this.#synchronizationCount = 0;
     this.#subscribers.clear();
     window.removeEventListener("storage", this.#handleStorage);
+    window.removeEventListener("online", this.#handleConnectivity);
+    window.removeEventListener("offline", this.#handleConnectivity);
+    this.#stopCloudFailures?.();
   }
 }
 

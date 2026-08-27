@@ -173,7 +173,7 @@ describe("bookmark sync API client", () => {
     await expect(
       fetchBookmarkSyncChanges("current.jwt.token", "5", "10"),
     ).rejects.toThrow("Could not synchronize");
-    await expect(fetchBookmarkSyncStatus("")).rejects.toThrow("sign in again");
+    await expect(fetchBookmarkSyncStatus("")).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });
