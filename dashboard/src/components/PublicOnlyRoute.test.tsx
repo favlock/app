@@ -47,6 +47,14 @@ describe("PublicOnlyRoute", () => {
     expect(container.textContent).toBe("Checkout");
   });
 
+  it("allows cloud reconnection without signing out the local account", async () => {
+    useAuth.mockReturnValue({ user: { id: "user-1" }, loading: false, cloudStatus: "reconnect_required" });
+    await act(async () => {
+      root.render(<MemoryRouter initialEntries={["/login?reconnect=1"]}><PublicOnlyRoute>Reconnect</PublicOnlyRoute></MemoryRouter>);
+    });
+    expect(container.textContent).toBe("Reconnect");
+  });
+
   it("sends an existing session to the dashboard for untrusted redirects", async () => {
     useAuth.mockReturnValue({ user: { id: "user-1" }, loading: false });
 

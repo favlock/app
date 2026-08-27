@@ -7,7 +7,7 @@ export default function PublicOnlyRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, cloudStatus } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -22,7 +22,9 @@ export default function PublicOnlyRoute({
     );
   }
 
-  if (user) {
+  const reconnecting = location.pathname === "/login" &&
+    new URLSearchParams(location.search).get("reconnect") === "1" && cloudStatus !== "available";
+  if (user && !reconnecting) {
     return (
       <Navigate
         to={getPostAuthPath(new URLSearchParams(location.search))}

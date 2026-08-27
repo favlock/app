@@ -34,8 +34,24 @@ vi.mock("./libraryContentApi", () => ({
 }));
 
 import { syncLibraryContentToLocalCache } from "./libraryContentSync";
+import { cancelLocalVaultWork } from "./localVaultWork";
 
 describe("library content incremental sync", () => {
+  it("cancels queued work and never commits after explicit local cleanup", async () => {
+    mocks.getLibraryContentCacheMeta.mockResolvedValue({ revision: "9", lastSyncedAt: "2026-08-10T09:00:00.000Z" });
+    let finish!: (value: { revision: string; deltaFloor: string }) => void;
+    mocks.fetchLibrarySyncStatus.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const sync = syncLibraryContentToLocalCache("logout-user", "token", async (value) => value);
+    const rejected = expect(sync).rejects.toThrow("cancelled");
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    const queued = syncLibraryContentToLocalCache("logout-user", "token", async (value) => value);
+    const queuedRejected = expect(queued).rejects.toThrow("cancelled");
+    const cleanup = cancelLocalVaultWork("logout-user");
+    finish({ revision: "9", deltaFloor: "0" });
+    await Promise.all([rejected, queuedRejected, cleanup]);
+    expect(mocks.applyLibraryContentCacheDelta).not.toHaveBeenCalled();
+    expect(mocks.replaceCachedLibraryContentForUser).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.applyLibraryContentCacheDelta.mockResolvedValue(undefined);

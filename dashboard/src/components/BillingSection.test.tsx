@@ -15,9 +15,8 @@ vi.mock("../hooks/useAccountPlanQuery", () => ({ useAccountPlan }));
 vi.mock("../hooks/useBillingSubscriptionQuery", () => ({
   useBillingSubscription,
 }));
-vi.mock("../lib/appUrls", () => ({
-  CREEM_PRO_PRODUCT_URL: "https://creem.io/payment/prod_pro",
-}));
+vi.mock("../lib/checkoutApi", () => ({ createProCheckout: vi.fn() }));
+vi.mock("../lib/favLockAuth", () => ({ favLockAuth: { getLocalUser: vi.fn() } }));
 
 describe("BillingSection", () => {
   let container: HTMLDivElement;

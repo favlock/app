@@ -47,6 +47,7 @@ export default function EncryptionSetup() {
     if (!user || !session?.access_token) {
       setupRef.current = null;
       setEncryptionKey(null);
+      setSetupError(null);
       setSigningOut(false);
       return;
     }
@@ -193,7 +194,7 @@ export default function EncryptionSetup() {
           }
         }}
       />
-      <Dialog open={!!setupError} onClose={() => {}} size="sm">
+      <Dialog open={!!setupError && !!session} onClose={() => setSetupError(null)} size="sm">
         <DialogTitle>Encryption setup needs attention</DialogTitle>
         <DialogDescription>{setupError}</DialogDescription>
         <DialogActions>

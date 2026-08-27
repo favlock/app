@@ -25,6 +25,7 @@ vi.mock("./bookmarkCache", () => ({
 }));
 
 import { syncBookmarksToLocalCache } from "./bookmarkSync";
+import { cancelLocalVaultWork } from "./localVaultWork";
 
 const bookmarkId = "11111111-1111-4111-8111-111111111111";
 const deletedBookmarkId = "22222222-2222-4222-8222-222222222222";
@@ -43,6 +44,20 @@ function encryptedBookmark(id: string) {
 }
 
 describe("bookmark incremental sync", () => {
+  it("cannot commit a late cloud response after local cleanup begins", async () => {
+    mocks.getBookmarkCacheMeta.mockResolvedValue({ revision: "10", lastSyncedAt: "2026-08-10T09:00:00.000Z" });
+    let finish!: (value: { revision: string; deltaFloor: string }) => void;
+    mocks.fetchBookmarkSyncStatus.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const sync = syncBookmarksToLocalCache("logout-user", "token", async (value) => value);
+    const rejected = expect(sync).rejects.toThrow("cancelled");
+    await vi.waitFor(() => expect(finish).toBeTypeOf("function"));
+    const cleanup = cancelLocalVaultWork("logout-user");
+    finish({ revision: "10", deltaFloor: "0" });
+    await rejected;
+    await cleanup;
+    expect(mocks.applyBookmarkCacheDelta).not.toHaveBeenCalled();
+    expect(mocks.replaceCachedBookmarksForUser).not.toHaveBeenCalled();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.fetchBookmarkSyncChanges.mockResolvedValue([]);

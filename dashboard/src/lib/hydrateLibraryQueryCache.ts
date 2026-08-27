@@ -9,11 +9,13 @@ import {
 import { sortFolders } from "./folderOrder";
 import { countRelations } from "./relationCounts";
 import type { Note, ReadspaceEntry, Todo } from "../types/bookmark";
+import { captureLocalVaultWork } from "./localVaultWork";
 
 export async function hydrateLibraryQueryCache(
   queryClient: QueryClient,
   userId: string,
 ): Promise<void> {
+  const assertCurrent = captureLocalVaultWork(userId);
   const [bookmarks, entries, folders, tags, cachedTrash] = await Promise.all([
     getCachedBookmarksForUser(userId),
     getCachedEntriesForUser(userId),
@@ -55,6 +57,7 @@ export async function hydrateLibraryQueryCache(
     ),
   ];
 
+  assertCurrent();
   queryClient.setQueryData(["bookmarks", "local-cache", userId], bookmarks);
   queryClient.setQueryData(["folders", userId], sortFolders(folders));
   queryClient.setQueryData(
