@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
@@ -10,20 +10,24 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
+import { createLazyPage } from "./components/createLazyPage";
 
-const AuthPage = lazy(() => import("./pages/Register"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const ProCheckout = lazy(() => import("./pages/ProCheckout"));
-const DashboardLayout = lazy(() => import("./pages/DashboardLayout"));
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Notes = lazy(() => import("./pages/Notes"));
-const Tasks = lazy(() => import("./pages/Todos"));
-const Readspace = lazy(() => import("./pages/Readspace"));
-const Lists = lazy(() => import("./pages/Lists"));
-const Trash = lazy(() => import("./pages/Trash"));
-const Settings = lazy(() => import("./pages/Settings"));
-const Support = lazy(() => import("./pages/Support"));
-const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
+const AuthPage = createLazyPage(() => import("./pages/Register"));
+const ResetPassword = createLazyPage(() => import("./pages/ResetPassword"));
+const ProCheckout = createLazyPage(() => import("./pages/ProCheckout"));
+const DashboardLayout = createLazyPage(
+  () => import("./pages/DashboardLayout"),
+  <RouteFallback />,
+);
+const Dashboard = createLazyPage(() => import("./pages/Dashboard"));
+const Notes = createLazyPage(() => import("./pages/Notes"));
+const Tasks = createLazyPage(() => import("./pages/Todos"));
+const Readspace = createLazyPage(() => import("./pages/Readspace"));
+const Lists = createLazyPage(() => import("./pages/Lists"));
+const Trash = createLazyPage(() => import("./pages/Trash"));
+const Settings = createLazyPage(() => import("./pages/Settings"));
+const Support = createLazyPage(() => import("./pages/Support"));
+const ExtensionPair = createLazyPage(() => import("./pages/ExtensionPair"));
 
 function RouteFallback() {
   if (window.location.pathname === "/") {
