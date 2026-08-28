@@ -76,7 +76,7 @@ describe("ResourceUsageSection", () => {
     expect((meters[0].firstElementChild as HTMLElement).style.width).toBe("25%");
 
     expect(meters[1].getAttribute("aria-label")).toBe(
-      "Notes and tasks used",
+      "Documents and tasks used",
     );
     expect(meters[1].getAttribute("aria-valuenow")).toBe("5");
     expect(meters[1].getAttribute("aria-valuemax")).toBe("10");
@@ -158,7 +158,7 @@ describe("ResourceUsageSection", () => {
       '[aria-label="Bookmarks limit exceeded"]',
     )!;
     const reached = container.querySelector<HTMLElement>(
-      '[aria-label="Notes and tasks limit reached"]',
+      '[aria-label="Documents and tasks limit reached"]',
     )!;
     const readspaceExceeded = container.querySelector<HTMLElement>(
       '[aria-label="Saved articles limit exceeded"]',

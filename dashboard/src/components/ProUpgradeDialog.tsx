@@ -21,7 +21,7 @@ const comparisonRows = [
     pro: PLANS.pro.limits.bookmarks.toLocaleString("en-US"),
   },
   {
-    label: "Notes and tasks",
+    label: "Documents and tasks",
     free: PLANS.free.limits.entries.toLocaleString("en-US"),
     pro: PLANS.pro.limits.entries.toLocaleString("en-US"),
   },

@@ -9,6 +9,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Note, Todo } from "../types/bookmark";
 import EntriesPage from "./EntriesPage";
+import LegacyNotesRedirect from "../components/LegacyNotesRedirect";
+import EntrySearchResults from "../components/EntrySearchResults";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -63,7 +65,11 @@ function createTestRouter(
       {
         path: "/",
         element: <TestLayout />,
-        children: [{ path: "*", element: page }],
+        children: [
+          { index: true, element: page },
+          { path: "notes", element: <LegacyNotesRedirect /> },
+          { path: "*", element: page },
+        ],
       },
     ],
     { initialEntries: [initialEntry] },
@@ -85,7 +91,7 @@ describe("EntriesPage", () => {
     document.body.innerHTML = "";
   });
 
-  it("opens a deep-linked note and consumes the open parameter", async () => {
+  it.each(["/write", "/notes"])("opens a deep-linked document from %s and consumes the open parameter", async (path) => {
     const entries = [note("note-1", "First note"), note("note-2", "Target note")];
     const router = createTestRouter(
       <EntriesPage
@@ -100,7 +106,7 @@ describe("EntriesPage", () => {
           open ? <div data-testid="editor">Editing {entry?.title}</div> : null
         }
       />,
-      "/notes?open=note-2",
+      `${path}?open=note-2`,
     );
 
     await act(async () => root.render(<RouterProvider router={router} />));
@@ -109,6 +115,7 @@ describe("EntriesPage", () => {
       "Editing Target note",
     );
     expect(router.state.location.search).toBe("");
+    expect(router.state.location.pathname).toBe("/write");
   });
 
   it("applies and updates todo completion filters through the URL", async () => {
@@ -245,17 +252,55 @@ describe("EntriesPage", () => {
           open ? <div data-testid="editor">{entry ? entry.title : "New entry"}</div> : null
         }
       />,
-      "/notes",
+      "/write",
     );
 
     await act(async () => root.render(<RouterProvider router={router} />));
     const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
-      (button) => button.textContent?.includes("New note"),
+      (button) => button.getAttribute("aria-label") === "New document",
     )!;
     await act(async () => createButton.click());
 
     expect(document.querySelector('[data-testid="editor"]')?.textContent).toBe(
       "New entry",
     );
+  });
+
+  it("redirects old links with query, hash and navigation state using replacement history", async () => {
+    const router = createTestRouter(<h1>Write</h1>, "/notes?q=ideas%20%26%20drafts&open=note-1#writing");
+    await act(async () => root.render(<RouterProvider router={router} />));
+    expect(router.state.location).toMatchObject({
+      pathname: "/write", search: "?q=ideas%20%26%20drafts&open=note-1", hash: "#writing",
+    });
+    expect(router.state.historyAction).toBe("REPLACE");
+
+    await act(async () => router.navigate("/notes?q=another#draft", { state: { from: "search" } }));
+    expect(router.state.location).toMatchObject({
+      pathname: "/write", search: "?q=another", hash: "#draft", state: { from: "search" },
+    });
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+
+  it("uses Write and document labels in the empty page", async () => {
+    const router = createTestRouter(
+      <EntriesPage kind="note" entries={[]} fullTextSearchEnabled={false}
+        isLoading={false} error={null} onRetry={() => {}}
+        renderCard={() => null} renderEditor={() => null} />,
+      "/write",
+    );
+    await act(async () => root.render(<RouterProvider router={router} />));
+    expect(container.querySelector("h1")?.textContent).toBe("Write");
+    expect(container.querySelector('[aria-label="Search documents"]')).not.toBeNull();
+    expect(container.textContent).toContain("Write your first document");
+    expect(container.textContent).toContain("Create a document");
+  });
+
+  it("links document search results directly to Write without changing entry IDs", async () => {
+    const match = { entry: note("note-1", "Fictional document"), excerpt: "Writing", score: 1 };
+    const router = createTestRouter(<EntrySearchResults kind="note" matches={[match]} query="idea & draft" />, "/");
+    await act(async () => root.render(<RouterProvider router={router} />));
+    expect(container.textContent).toContain("Matching documents");
+    const links = [...container.querySelectorAll("a")].map((link) => link.getAttribute("href"));
+    expect(links).toEqual(["/write?q=idea+%26+draft", "/write?q=idea+%26+draft&open=note-1"]);
   });
 });

@@ -78,7 +78,7 @@ export default function HomeLibraryGrid({
             {bookmarks.length}{" "}
             {bookmarks.length === 1 ? "bookmark" : "bookmarks"}
             {" · "}
-            {notes.length} {notes.length === 1 ? "note" : "notes"}
+            {notes.length} {notes.length === 1 ? "document" : "documents"}
             {" · "}
             {todos.length} {todos.length === 1 ? "task" : "tasks"}
             {" · "}

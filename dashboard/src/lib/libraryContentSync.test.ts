@@ -173,7 +173,9 @@ describe("library content incremental sync", () => {
       },
     ]);
 
-    const decryptField = vi.fn(async (value: string) => `decrypted:${value}`);
+    const decryptField = vi.fn(async (value: string) => value === "enc:content"
+      ? '<h2>Writing</h2><p><mark>Keep this</mark><script>bad()</script></p>'
+      : `decrypted:${value}`);
     await syncLibraryContentToLocalCache(
       "user-1",
       "current.jwt.token",
@@ -193,6 +195,7 @@ describe("library content incremental sync", () => {
               id: entryId,
               user_id: "user-1",
               title: "decrypted:enc:title",
+              content: '<h2>Writing</h2><p><mark>Keep this</mark></p>',
             }),
           ],
         }),

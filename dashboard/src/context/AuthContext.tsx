@@ -30,6 +30,7 @@ import {
 } from "../lib/userInfo";
 import { STORAGE_KEY } from "../lib/encryption";
 import { clearLocalSearchHistoryForUser } from "../lib/searchHistory";
+import { clearEntryDraftsForUser } from "../lib/entryDrafts";
 import { hydrateLibraryQueryCache } from "../lib/hydrateLibraryQueryCache";
 import { updateAccountProfile } from "../lib/accountSettingsApi";
 import { startLibraryRevalidation } from "../lib/libraryRevalidation";
@@ -85,6 +86,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearKey(),
         clearBookmarkCacheForUser(userId),
         clearLibraryContentCacheForUser(userId),
+        clearEntryDraftsForUser(userId),
       ]);
       if (results.some((result) => result.status === "rejected")) {
         throw new Error(

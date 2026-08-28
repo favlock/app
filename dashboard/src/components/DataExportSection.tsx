@@ -53,8 +53,8 @@ const CATEGORY_DETAILS: Array<{
   },
   {
     id: "notes",
-    label: "Notes",
-    description: "Titles, note content, collections, and tags",
+    label: "Documents",
+    description: "Titles, document content, collections, and tags",
   },
   {
     id: "todos",

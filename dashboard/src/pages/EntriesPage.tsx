@@ -77,9 +77,9 @@ export default function EntriesPage<TEntry extends Entry>({
   const [editingEntry, setEditingEntry] = useState<TEntry | null>(null);
   const isTodo = kind === "todo";
   const [todoSearchOpen, setTodoSearchOpen] = useState(false);
-  const singular = isTodo ? "task" : "note";
-  const plural = isTodo ? "tasks" : "notes";
-  const title = isTodo ? "Tasks" : "Notes";
+  const singular = isTodo ? "task" : "document";
+  const plural = isTodo ? "tasks" : "documents";
+  const title = isTodo ? "Tasks" : "Write";
   const Icon = isTodo ? ListTodo : StickyNote;
   const searchQuery = searchParams.get("q") ?? "";
   const filterParam = searchParams.get("filter");
@@ -262,7 +262,7 @@ export default function EntriesPage<TEntry extends Entry>({
                 <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
                   {isTodo
                     ? "Keep next actions clear and easy to finish"
-                    : "Keep ideas and context close to what you save"}
+                    : "A space for your ideas and writing"}
                 </p>
               </div>
             </div>
@@ -271,6 +271,7 @@ export default function EntriesPage<TEntry extends Entry>({
               type="button"
               color="emerald"
               onClick={openCreate}
+              aria-label={`New ${singular}`}
               className="min-h-11 gap-2 whitespace-nowrap"
             >
               <PlusIcon data-slot="icon" aria-hidden="true" />
@@ -412,16 +413,8 @@ export default function EntriesPage<TEntry extends Entry>({
                     type="search"
                     value={searchQuery}
                     onChange={(event) => updateParams({ q: event.target.value })}
-                    placeholder={
-                      fullTextSearchEnabled
-                        ? "Search note titles and full text..."
-                        : "Search note titles, tags, and collections..."
-                    }
-                    aria-label={
-                      fullTextSearchEnabled
-                        ? "Search note titles and full text"
-                        : "Search note titles, tags, and collections"
-                    }
+                    placeholder="Search documents..."
+                    aria-label="Search documents"
                     className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm text-[var(--app-ink)] outline-none placeholder:text-[var(--app-muted)] sm:text-base [&::-webkit-search-cancel-button]:hidden"
                   />
                   {searchQuery ? (
@@ -432,7 +425,7 @@ export default function EntriesPage<TEntry extends Entry>({
                         searchInputRef.current?.focus();
                       }}
                       className="theme-button-icon inline-flex size-10 flex-none"
-                      aria-label="Clear note search"
+                      aria-label="Clear document search"
                     >
                       <X size={16} aria-hidden="true" />
                     </button>
@@ -447,9 +440,9 @@ export default function EntriesPage<TEntry extends Entry>({
                   aria-live="polite"
                 >
                   {debouncedSearchQuery
-                    ? `${searchedEntries.length} ${searchedEntries.length === 1 ? "note" : "notes"} matching “${debouncedSearchQuery}”`
+                    ? `${searchedEntries.length} ${searchedEntries.length === 1 ? "document" : "documents"} matching “${debouncedSearchQuery}”`
                     : fullTextSearchEnabled
-                      ? "Search runs privately across every decrypted note."
+                      ? "Search runs privately across every decrypted document."
                       : "Search titles, tags, and collections. Full-text search is a Pro feature."}
                 </p>
               </>
@@ -503,12 +496,12 @@ export default function EntriesPage<TEntry extends Entry>({
                 <Icon size={30} aria-hidden="true" />
               </span>
               <h3 className="mt-5 text-xl font-bold tracking-tight text-[var(--app-ink)] sm:text-2xl">
-                {isTodo ? "Add your first task" : "Write your first note"}
+                {isTodo ? "Add your first task" : "Write your first document"}
               </h3>
               <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--app-muted)] sm:text-base">
                 {isTodo
                   ? "Capture the next action, organize it with collections and tags, then check it off."
-                  : "Capture research, reminders, and ideas with just enough formatting to keep them clear."}
+                  : "Write ideas, drafts, and research with formatting that keeps them clear."}
               </p>
               <Button
                 type="button"
@@ -534,13 +527,13 @@ export default function EntriesPage<TEntry extends Entry>({
             <h3 className="mt-3 text-lg font-bold text-[var(--app-ink)]">
               {isTodo
                 ? "No tasks here"
-                : `No notes match “${debouncedSearchQuery}”`}
+                : `No documents match “${debouncedSearchQuery}”`}
             </h3>
             <p className="mt-1 text-sm text-[var(--app-muted)]">
               {isTodo
                 ? "Try another filter or a shorter search."
                 : fullTextSearchEnabled
-                  ? "Try fewer words or a phrase from the note body."
+                  ? "Try fewer words or a phrase from the document."
                   : "Try fewer words from the title, tags, or collection."}
             </p>
             <Button

@@ -458,19 +458,19 @@ export default function FolderSidebar({
           </li>
           <li>
             <Link
-              to="/notes"
-              aria-current={location.pathname === "/notes" ? "page" : undefined}
+              to="/write"
+              aria-current={location.pathname === "/write" ? "page" : undefined}
               className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/notes" ? "theme-nav-button-active" : ""
+                location.pathname === "/write" ? "theme-nav-button-active" : ""
               }`}
             >
               <span className="flex items-center gap-2">
                 <StickyNote size={16} aria-hidden="true" />
-                Notes
+                Write
               </span>
               <span
                 className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/notes"
+                  location.pathname === "/write"
                     ? "theme-nav-count-active"
                     : "text-[var(--app-muted)]"
                 }`}

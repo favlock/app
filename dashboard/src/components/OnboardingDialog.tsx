@@ -114,7 +114,7 @@ const STEPS: OnboardingStep[] = [
       {
         icon: Inbox,
         title: "Your essential views",
-        description: "Open Home, Notes, Favorites, and Unsorted from the top of Collections.",
+        description: "Open Home, Write, Favorites, and Unsorted from the top of Collections.",
       },
     ],
   },

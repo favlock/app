@@ -32,7 +32,7 @@ describe("HomeAddMenu", () => {
 
   it.each([
     ["Bookmark", "bookmark"],
-    ["Note", "note"],
+    ["Document", "note"],
     ["Task", "todo"],
   ])("lets the user choose %s from one add button", async (label, type) => {
     const callbacks = {

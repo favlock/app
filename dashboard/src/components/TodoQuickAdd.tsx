@@ -31,7 +31,7 @@ export default function TodoQuickAdd() {
     }
     if (accountPlan && entryCount >= accountPlan.limits.entries) {
       setError(
-        `Entry limit reached. You can have at most ${accountPlan.limits.entries} notes and tasks combined.`,
+        `Entry limit reached. You can have at most ${accountPlan.limits.entries} documents and tasks combined.`,
       );
       return;
     }

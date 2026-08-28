@@ -10,6 +10,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
+import LegacyNotesRedirect from "./components/LegacyNotesRedirect";
 
 const AuthPage = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -100,7 +101,8 @@ function App() {
                     <Route path="/t/:tagSlug" element={<Dashboard />} />
                     <Route path="/favorites" element={<Dashboard />} />
                     <Route path="/unsorted" element={<Dashboard />} />
-                    <Route path="/notes" element={<Notes />} />
+                    <Route path="/write" element={<Notes />} />
+                    <Route path="/notes" element={<LegacyNotesRedirect />} />
                     <Route path="/tasks" element={<Tasks />} />
                     <Route
                       path="/todos"
