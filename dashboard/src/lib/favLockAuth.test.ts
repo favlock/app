@@ -1123,6 +1123,8 @@ describe("FavLockAuthClient", () => {
     expect(window.location.pathname).toBe("/checkout");
     expect(window.location.search).toBe("");
     expect(returned.getCloudStatus()).toBe("available");
+    await returned.getSession();
+    expect(listener.mock.calls.filter(([event]) => event === "SIGNED_IN")).toHaveLength(1);
     expect(listener).not.toHaveBeenCalledWith("PASSWORD_RECOVERY", expect.anything());
     expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBeNull();
   });
@@ -1197,7 +1199,7 @@ describe("FavLockAuthClient", () => {
     expect(window.location.search).toBe("?code=auth-code");
   });
 
-  it("clears callback PKCE after the API definitively rejects the exchange", async () => {
+  it("keeps the latest verifier but removes a rejected callback code", async () => {
     localStorage.setItem(
       PKCE_STORAGE_KEY,
       JSON.stringify({ verifier: "x".repeat(64), redirectType: "sign-in" }),
@@ -1214,7 +1216,127 @@ describe("FavLockAuthClient", () => {
 
     await client.getSession();
 
-    expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
+    expect(window.location.search).toBe("");
+    expect(client.getCallbackFailure()).toBe("invalid_link");
+  });
+
+  it.each([
+    ["#error=access_denied&error_description=private-provider-message", "cancelled"],
+    ["#error=server_error&error_description=private-provider-message", "provider_error"],
+    ["?error_code=otp_expired&error_description=private-provider-message", "invalid_link"],
+    ["#error_description=Disposable%20email%20addresses%20are%20not%20allowed%20private-provider-message", "email_rejected"],
+    ["#access_token=fake-token&refresh_token=fake-refresh", "unsupported_callback"],
+    ["?code=one&code=two", "invalid_link"],
+    ["?code=fake-code", "missing_state"],
+  ])("handles callback %s without exchanging or reflecting provider text", async (suffix, failure) => {
+    window.history.replaceState({}, "", `/checkout${suffix}`);
+    const fetchMock = vi.fn();
+    const client = trackedClient(fetchMock);
+    const result = await client.getSession();
+    expect(result.data.session).toBeNull();
+    expect(result.error?.message).not.toContain("private-provider-message");
+    expect(client.getCallbackFailure()).toBe(failure);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(window.location.pathname).toBe("/checkout");
+    expect(window.location.search + window.location.hash).toBe("");
+  });
+
+  it("retains the original callback and verifier when exchange is rate limited", async () => {
+    localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify({ verifier: "v".repeat(64), redirectType: "sign-in" }));
+    window.history.replaceState({}, "", "/checkout?code=fake-code");
+    const fetchMock = vi.fn().mockResolvedValue(response({ error: { code: "rate_limited", message: "Wait and try again." } }, 429));
+    const client = trackedClient(fetchMock);
+    await client.getSession();
+    expect(client.getCallbackFailure()).toBe("temporarily_unavailable");
+    expect(window.location.search).toBe("?code=fake-code");
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it.each([400, 429])("restores the previous verifier after a rejected resend (%s)", async (status) => {
+    const previous = { verifier: "v".repeat(64), redirectType: "sign-in", localAccountEpoch: null };
+    localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify(previous));
+    const client = trackedClient(vi.fn().mockResolvedValue(response({ error: { code: "rate_limited", message: "Try later." } }, status)));
+    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    expect(result.error).not.toBeNull();
+    expect(JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!)).toEqual(previous);
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("exchanges the new confirmation after a successful resend with its matching verifier", async () => {
+    const previous = { verifier: "v".repeat(64), redirectType: "sign-in", localAccountEpoch: null };
+    localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify(previous));
+    const start = trackedClient(vi.fn().mockResolvedValue(response({ data: { accepted: true } }, 202)));
+    expect((await start.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } })).error).toBeNull();
+    const next = JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!);
+    expect(next.verifier).not.toBe(previous.verifier);
+    start.dispose();
+    window.history.replaceState({}, "", "/checkout?code=resent-code");
+    const exchange = vi.fn().mockResolvedValue(response({ data: { session: apiSession() } }));
+    const returned = trackedClient(exchange);
+    expect((await returned.getSession()).error).toBeNull();
+    expect(JSON.parse(exchange.mock.calls[0][1].body)).toEqual({ authCode: "resent-code", codeVerifier: next.verifier });
+    expect(returned.getCloudStatus()).toBe("available");
+    expect(window.location.pathname).toBe("/checkout");
+  });
+
+  it("keeps the resend verifier when delivery may have succeeded despite a network interruption", async () => {
+    localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify({ verifier: "v".repeat(64), redirectType: "sign-in" }));
+    const client = trackedClient(vi.fn().mockRejectedValue(new TypeError("offline")));
+    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    expect(result.error).not.toBeNull();
+    expect(JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!).verifier).not.toBe("v".repeat(64));
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("does not roll back a newer OAuth verifier when an earlier resend fails", async () => {
+    const pending = deferredResponse();
+    const fetchMock = vi.fn().mockReturnValue(pending.promise);
+    const client = trackedClient(fetchMock);
+    const resend = client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    await client.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } });
+    const newer = localStorage.getItem(PKCE_STORAGE_KEY);
+    pending.resolve(response({ error: { message: "Too many requests." } }, 429));
+    await resend;
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBe(newer);
+  });
+
+  it("does not accept an old in-flight callback after a new OAuth attempt", async () => {
+    localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify({ verifier: "v".repeat(64), redirectType: "sign-in" }));
+    window.history.replaceState({}, "", "/checkout?code=old-code");
+    const pending = deferredResponse();
+    const fetchMock = vi.fn().mockReturnValue(pending.promise);
+    const client = trackedClient(fetchMock);
+    const initialization = client.getSession();
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    await client.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } });
+    const newer = localStorage.getItem(PKCE_STORAGE_KEY);
+    pending.resolve(response({ data: { session: apiSession() } }));
+    expect((await initialization).data.session).toBeNull();
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBe(newer);
+    expect(client.getCallbackFailure()).toBe("account_changed");
+  });
+
+  it("does not treat an inconsistent signup response as a usable account", async () => {
+    const client = trackedClient(vi.fn().mockResolvedValue(response({ data: { confirmationRequired: true, session: apiSession() } })));
+    const result = await client.signUp({ email: "ada@example.com", password: "fake-password", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    expect(result.error).not.toBeNull();
+    expect(result.data.session).toBeNull();
+    expect(client.getLocalUser()).toBeNull();
+  });
+
+  it("does not publish an immediate signup session after another tab signs out", async () => {
+    const pending = deferredResponse();
+    const fetchMock = vi.fn().mockReturnValue(pending.promise);
+    const client = trackedClient(fetchMock);
+    const signup = client.signUp({ email: "ada@example.com", password: "fake-password", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    localStorage.setItem("favlock.local-account-epoch.v1", JSON.stringify({ id: crypto.randomUUID(), signedOut: true }));
+    pending.resolve(response({ data: { confirmationRequired: false, session: apiSession() } }));
+    expect((await signup).data.session).toBeNull();
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
 
   it("refreshes an expired session and requires the same authenticated user", async () => {

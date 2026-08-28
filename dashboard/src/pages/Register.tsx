@@ -31,6 +31,7 @@ import {
 } from "../lib/authNavigation";
 import { WEB_TERMS_URL } from "../lib/appUrls";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
+import { isPasswordRecoveryRedirectUrl } from "../lib/authRecovery";
 
 const SUPPORT_EMAIL = "support@favlock.app";
 const DISPOSABLE_EMAIL_TERMS_URL = `${WEB_TERMS_URL}#disposable-email-addresses`;
@@ -79,11 +80,13 @@ function AuthErrorNotice({ message }: { message: string }) {
 function EmailConfirmation({
   email,
   emailRedirectTo,
+  initiallySent,
   onUseDifferentEmail,
   onBackToSignIn,
 }: {
   email: string;
   emailRedirectTo: string;
+  initiallySent: boolean;
   onUseDifferentEmail: () => void;
   onBackToSignIn: () => void;
 }) {
@@ -91,9 +94,28 @@ function EmailConfirmation({
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const [resendEmail, setResendEmail] = useState(email);
+  const [retryAt, setRetryAt] = useState(() => initiallySent ? Date.now() + 60_000 : 0);
+  const [now, setNow] = useState(Date.now);
+  const remainingSeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
+  const resendingRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
+  useEffect(() => { panelRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!retryAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
+
   const handleResend = async () => {
+    if (resendingRef.current || Date.now() < retryAt) return;
+    const normalizedEmail = resendEmail.trim();
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
+      setResendError("Enter the email address you used to sign up.");
+      return;
+    }
     if (!captchaToken) {
       setResendError(
         "Complete the security verification before requesting another email.",
@@ -101,46 +123,55 @@ function EmailConfirmation({
       return;
     }
 
+    resendingRef.current = true;
     setResending(true);
     setResendError(null);
     setResent(false);
 
-    const { error } = await favLockAuth.resend({
-      type: "signup",
-      email,
-      options: { captchaToken, emailRedirectTo },
-    });
-
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
-    setResending(false);
-
-    if (error) {
-      setResendError(error.message);
-      return;
+    setNow(Date.now());
+    setRetryAt(Date.now() + 60_000);
+    try {
+      const { error } = await favLockAuth.resend({
+        type: "signup",
+        email: normalizedEmail,
+        options: { captchaToken, emailRedirectTo },
+      });
+      if (error) {
+        setResendError("code" in error && error.code === "rate_limited"
+          ? "Too many email requests. Wait at least a minute before trying again. The email service may require a longer wait."
+          : error.message);
+        return;
+      }
+      setResent(true);
+    } catch {
+      setResendError("We could not confirm the request. Check your inbox before trying again.");
+    } finally {
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
+      resendingRef.current = false;
+      setResending(false);
     }
-
-    setResent(true);
   };
 
   return (
-    <div className="w-full text-center">
+    <div ref={panelRef} tabIndex={-1} aria-labelledby="confirmation-heading" className="w-full text-center outline-none">
       <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-emerald-700/20 bg-emerald-500/12 text-emerald-700 shadow-[0_4px_0_rgba(15,118,110,0.12)]">
         <MailCheck className="size-7" aria-hidden="true" />
       </div>
 
-      <Heading className="mt-5">Check your inbox</Heading>
-      <Text className="mt-2">We sent a confirmation link to</Text>
-      <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>
+      <Heading id="confirmation-heading" className="mt-5">{initiallySent || resent ? "Check your inbox" : "Confirm your email"}</Heading>
+      <Text className="mt-2">{initiallySent ? "Your signup request was accepted. Check for a confirmation email at" : "Request a new link for the email you used to sign up."}</Text>
+      {email && <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>}
 
       <div className="mt-5 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 px-4 py-3 text-left">
         <p className="text-sm font-semibold text-[#202229]">
           Confirm your email to finish signing up
         </p>
         <p className="mt-1 text-sm leading-5 text-[#555b6b]">
-          Open the email and select the confirmation link. You can close this
-          tab afterward—we’ll sign you in when you return.
+          You are not signed in yet. Open the latest confirmation link in this
+          browser and profile to continue. Check your spam folder too.
         </p>
+        <p className="mt-2 text-sm leading-5 text-[#555b6b]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
       </div>
 
       <div className="mt-5 border-t border-[#1d2230]/10 pt-5 text-left">
@@ -148,9 +179,13 @@ function EmailConfirmation({
           Didn’t receive it?
         </p>
         <p className="mt-1 text-sm leading-5 text-[#555b6b]">
-          Check your spam folder, or complete the security check to send a new
-          link.
+          If the link expired, request a new one below. Wait at least 60 seconds
+          between requests; the email service may apply longer limits.
         </p>
+        {!email && <Field className="mt-4">
+          <Label>Email</Label>
+          <Input name="confirmationEmail" type="email" autoComplete="email" required value={resendEmail} disabled={resending} onChange={(event) => setResendEmail(event.target.value)} />
+        </Field>}
 
         {resendError && (
           <div
@@ -167,7 +202,7 @@ function EmailConfirmation({
             role="status"
             aria-live="polite"
           >
-            A new confirmation email is on its way.
+            Request accepted. If this address needs confirmation, a new email will arrive. Open the latest link in this browser.
           </div>
         )}
 
@@ -180,11 +215,11 @@ function EmailConfirmation({
           type="button"
           outline
           className="mt-3 w-full"
-          disabled={resending || !captchaToken}
+          disabled={resending || !captchaToken || remainingSeconds > 0}
           onClick={() => void handleResend()}
         >
           <Mail data-slot="icon" aria-hidden="true" />
-          {resending ? "Sending..." : "Resend confirmation email"}
+          {resending ? "Sending..." : remainingSeconds > 0 ? `Resend available in ${remainingSeconds}s` : "Resend confirmation email"}
         </Button>
       </div>
 
@@ -193,6 +228,7 @@ function EmailConfirmation({
           type="button"
           className="font-medium text-emerald-700 hover:underline"
           onClick={onUseDifferentEmail}
+          disabled={resending}
         >
           Use a different email
         </button>
@@ -203,6 +239,7 @@ function EmailConfirmation({
           type="button"
           className="font-medium text-emerald-700 hover:underline"
           onClick={onBackToSignIn}
+          disabled={resending}
         >
           Back to sign in
         </button>
@@ -215,6 +252,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reconnecting = searchParams.get("reconnect") === "1";
+  const requestingConfirmation = searchParams.get("confirmation") === "1";
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
   const [email, setEmail] = useState("");
@@ -228,6 +266,7 @@ export default function AuthPage() {
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
     null,
   );
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
   useEffect(() => {
@@ -235,21 +274,14 @@ export default function AuthPage() {
     setPassword("");
     setInvalidField(null);
     setConfirmationEmail(null);
+    setConfirmationSent(false);
     captchaRef.current?.reset();
     setCaptchaToken(null);
-  }, [emailMode]);
+  }, [emailMode, requestingConfirmation]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
-    const currentSearchParams = url.searchParams;
-
-    const isRecoveryLink =
-      hashParams.get("type") === "recovery" ||
-      currentSearchParams.get("type") === "recovery" ||
-      currentSearchParams.has("code");
-
-    if (isRecoveryLink) {
+    if (isPasswordRecoveryRedirectUrl(url)) {
       navigate(
         `/reset-password${window.location.search}${window.location.hash}`,
         { replace: true },
@@ -257,10 +289,6 @@ export default function AuthPage() {
       return;
     }
 
-    const authError =
-      hashParams.get("error_description") ||
-      currentSearchParams.get("error_description");
-    if (authError) setError(authError);
   }, [navigate]);
 
   const resetCaptcha = () => {
@@ -361,6 +389,11 @@ export default function AuthPage() {
       resetCaptcha();
 
       if (signInError) {
+        if ("code" in signInError && signInError.code === "email_not_confirmed") {
+          setPassword("");
+          setConfirmationSent(false);
+          setConfirmationEmail(normalizedEmail);
+        }
         setError(signInError.message);
         setLoading(false);
         return;
@@ -394,24 +427,28 @@ export default function AuthPage() {
     }
 
     setPassword("");
+    setConfirmationSent(true);
     setConfirmationEmail(normalizedEmail);
   };
 
-  if (confirmationEmail) {
+  if (confirmationEmail || requestingConfirmation) {
     return (
       <AuthLayout>
         <EmailConfirmation
-          email={confirmationEmail}
+          email={confirmationEmail ?? ""}
+          initiallySent={confirmationSent}
           emailRedirectTo={emailRedirectTo}
           onUseDifferentEmail={() => {
             setConfirmationEmail(null);
             setEmail("");
             setError(null);
             resetCaptcha();
+            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting ? "sign-in" : "sign-up", reconnect: reconnecting }));
           }}
           onBackToSignIn={() => {
             setConfirmationEmail(null);
-            switchEmailMode("sign-in");
+            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting }));
+            setShowEmailForm(true);
             setError(null);
             resetCaptcha();
           }}
@@ -635,6 +672,16 @@ export default function AuthPage() {
           </Text>
         )}
         <AuthLegalNotice />
+        {!reconnecting && (
+          <p className="mt-2 text-center text-xs leading-5">
+            <Link
+              className="inline-flex min-h-11 items-center rounded px-2 text-[#686d78] underline decoration-[#686d78]/30 underline-offset-2 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              to={`${buildAuthPath("/login", nextPath)}${nextPath === "/" ? "?" : "&"}confirmation=1`}
+            >
+              Need another confirmation email?
+            </Link>
+          </p>
+        )}
       </div>
     </AuthLayout>
   );

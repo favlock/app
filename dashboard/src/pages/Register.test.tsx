@@ -76,6 +76,7 @@ describe("AuthPage", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
   });
 
   const renderAuthPage = async (initialEntry = "/login") => {
@@ -253,6 +254,17 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("Create your account");
   });
 
+  it.each(["sign-in", "sign-up"])("places confirmation recovery after the legal notice in %s", async (mode) => {
+    await renderAuthPage(`/login?mode=${mode}&next=%2Fcheckout`);
+    const links = Array.from(container.querySelectorAll("a"));
+    const confirmation = links.find((link) => link.textContent === "Need another confirmation email?")!;
+    const privacy = links.find((link) => link.textContent?.includes("Privacy Policy"))!;
+    expect(privacy.compareDocumentPosition(confirmation) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await act(async () => confirmation.click());
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout&confirmation=1");
+    expect(container.textContent).toContain("Request a new link for the email you used to sign up.");
+  });
+
   it("follows browser history without reusing passwords or CAPTCHA across modes", async () => {
     await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
     await openEmailSignIn();
@@ -378,6 +390,7 @@ describe("AuthPage", () => {
   });
 
   it("creates an email account and supports confirmation-email resend", async () => {
+    vi.useFakeTimers();
     signUp.mockResolvedValue({
       data: { user: { id: "user-1" }, session: null },
       error: null,
@@ -400,8 +413,14 @@ describe("AuthPage", () => {
     });
     expect(container.textContent).toContain("Check your inbox");
     expect(container.textContent).toContain("ada@example.com");
+    expect(container.textContent).toContain("You are not signed in yet");
+    expect(container.textContent).toContain("browser and profile");
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/login?mode=sign-up&next=%2Fcheckout");
+    expect(findButton(container, "Resend available in 60s").disabled).toBe(true);
 
     await completeSecurityCheck();
+    expect(resend).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     await act(async () => {
       findButton(container, "Resend confirmation email").click();
     });
@@ -415,8 +434,9 @@ describe("AuthPage", () => {
       },
     });
     expect(container.textContent).toContain(
-      "A new confirmation email is on its way.",
+      "Request accepted. If this address needs confirmation",
     );
+    expect(findButton(container, "Resend available in 60s").disabled).toBe(true);
     await act(async () => findButton(container, "Back to sign in").click());
     expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout");
     expect(container.querySelector("#email-sign-in-tab")?.getAttribute("aria-selected")).toBe("true");
@@ -488,7 +508,7 @@ describe("AuthPage", () => {
     expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: expect.stringMatching(/^https?:\/\/[^/]+\/$/) } });
   });
 
-  it("renders Terms and support links for an OAuth disposable-email error", async () => {
+  it("does not render raw OAuth descriptions (the callback boundary handles safe categories)", async () => {
     window.history.replaceState(
       {},
       "",
@@ -497,20 +517,56 @@ describe("AuthPage", () => {
 
     await renderAuthPage();
 
-    const alert = container.querySelector('[role="alert"]')!;
-    expect(alert.textContent).toContain(
-      "Disposable email addresses are not allowed",
-    );
-    expect(
-      alert.querySelector<HTMLAnchorElement>(
-        'a[href$="/terms#disposable-email-addresses"]',
-      ),
-    ).not.toBeNull();
-    expect(
-      alert.querySelector<HTMLAnchorElement>(
-        'a[href="mailto:support@favlock.app"]',
-      ),
-    ).not.toBeNull();
-    expect(alert.querySelectorAll("p")).toHaveLength(1);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+  });
+
+  it("offers confirmation recovery after unconfirmed password sign-in without claiming email delivery", async () => {
+    signInWithPassword.mockResolvedValue({ data: { session: null }, error: { code: "email_not_confirmed", message: "Confirm your email address before signing in." } });
+    await renderAuthPage("/login?next=%2Fcheckout&reconnect=1");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    await completeSecurityCheck();
+    await submitForm();
+    expect(container.textContent).toContain("Confirm your email");
+    expect(container.textContent).not.toContain("Check your inbox");
+    expect(container.querySelector('input[type="password"]')).toBeNull();
+    expect(resend).not.toHaveBeenCalled();
+    await act(async () => findButton(container, "Back to sign in").click());
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout&reconnect=1");
+  });
+
+  it.each(["rate_limited", "interrupted"])("recovers a lost waiting screen and handles resend %s safely", async (failure) => {
+    vi.useFakeTimers();
+    if (failure === "rate_limited") resend.mockResolvedValue({ error: { code: failure, message: "Too many requests." } });
+    else resend.mockRejectedValue(new Error("private network details"));
+    await renderAuthPage("/login?confirmation=1&next=%2Fcheckout");
+    const input = container.querySelector<HTMLInputElement>('input[name="confirmationEmail"]')!;
+    await act(async () => setInputValue(input, "ada@example.com"));
+    await completeSecurityCheck();
+    await act(async () => findButton(container, "Resend confirmation email").click());
+    expect(resend).toHaveBeenCalledOnce();
+    expect(resend).toHaveBeenCalledWith(expect.objectContaining({ email: "ada@example.com", options: expect.objectContaining({ emailRedirectTo: expect.stringMatching(/\/checkout$/) }) }));
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(failure === "rate_limited" ? "Wait at least a minute" : "Check your inbox before trying again");
+    expect(container.textContent).not.toContain("private network details");
+    await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+    expect(findButton(container, "Resend confirmation email").disabled).toBe(true);
+    await completeSecurityCheck();
+    expect(findButton(container, "Resend confirmation email").disabled).toBe(false);
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("blocks repeated resend and changing email while the request is in flight", async () => {
+    let finish!: (value: unknown) => void;
+    resend.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    await renderAuthPage("/login?confirmation=1");
+    await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[name="confirmationEmail"]')!, "ada@example.com"));
+    await completeSecurityCheck();
+    await act(async () => findButton(container, "Resend confirmation email").click());
+    expect(findButton(container, "Sending...").disabled).toBe(true);
+    expect(findButton(container, "Use a different email").disabled).toBe(true);
+    await act(async () => findButton(container, "Sending...").click());
+    expect(resend).toHaveBeenCalledOnce();
+    await act(async () => finish({ data: {}, error: null }));
+    expect(container.querySelector('[role="status"]')?.textContent).toContain("Request accepted");
   });
 });

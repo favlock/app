@@ -1,4 +1,5 @@
 import { DASHBOARD_HOME_URL, DASHBOARD_URL } from "./appUrls";
+import { withoutAuthCallback } from "./authCallback";
 
 export const PRO_CHECKOUT_PATH = "/checkout";
 
@@ -26,7 +27,7 @@ export function normalizePostAuthPath(nextPath: string | null): string {
 
   try {
     const dashboardUrl = new URL(`${DASHBOARD_URL}/`);
-    const destination = new URL(nextPath, dashboardUrl);
+    const destination = withoutAuthCallback(new URL(nextPath, dashboardUrl));
     const pathname = destination.pathname.replace(/\/$/, "") || "/";
     const knownPath = POST_AUTH_PATHS.has(pathname) || /^\/(c|t)\/[^/]+$/.test(pathname);
 

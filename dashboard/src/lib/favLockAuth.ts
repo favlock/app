@@ -1,6 +1,7 @@
 import { API_URL, DASHBOARD_URL } from "./appUrls";
 import { captureInitialPasswordRecoveryRedirect } from "./authRecovery";
 import { readAuthUrl } from "./authUrl";
+import { hasAuthCallback, readAuthCallbackFailure, withoutAuthCallback, type AuthCallbackFailure } from "./authCallback";
 import { CloudAccessError, cloudStatusMessage, subscribeToCloudFailures, type CloudStatus } from "./cloudAccess";
 
 const SESSION_STORAGE_KEY = "favlock.auth.session.v1";
@@ -91,11 +92,13 @@ type AuthChangeCallback = (
 
 class AuthRequestError extends Error {
   readonly status: number;
+  readonly code: string | null;
 
-  constructor(message: string, status = 0) {
+  constructor(message: string, status = 0, code: string | null = null) {
     super(message);
     this.name = "AuthRequestError";
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -435,6 +438,7 @@ export class FavLockAuthClient {
   #stopCloudFailures: (() => void) | null = null;
   #initialization: Promise<AuthResult<{ session: AuthSession | null }>> | null = null;
   #initializationError: Error | null = null;
+  #callbackFailure: AuthCallbackFailure | null = null;
   #storageError: AuthStorageError | null = null;
   #profileNeedsRepair = false;
   #pendingLocalAccountActivation = false;
@@ -513,6 +517,9 @@ export class FavLockAuthClient {
       throw new AuthRequestError(
         message || "The authentication request could not be completed.",
         response.status,
+        isRecord(value) && isRecord(value.error) &&
+          ["rate_limited", "email_not_confirmed", "invalid_auth_link"].includes(String(value.error.code))
+          ? String(value.error.code) : null,
       );
     }
     return value;
@@ -585,6 +592,7 @@ export class FavLockAuthClient {
     this.#cloudStatus = "available";
     this.#refreshRejected = false;
     this.#initializationError = null;
+    this.#callbackFailure = null;
     this.#session = session;
     this.#rememberAccessToken(session.access_token);
     this.#profileNeedsRepair = true;
@@ -1041,10 +1049,12 @@ export class FavLockAuthClient {
   }
 
   #removeCallbackParameters(): void {
-    const url = new URL(window.location.href);
-    url.searchParams.delete("code");
-    url.searchParams.delete("sb_flow_id");
+    const url = withoutAuthCallback(new URL(window.location.href));
     window.history.replaceState(window.history.state, "", url.toString());
+  }
+
+  getCallbackFailure(): AuthCallbackFailure | null {
+    return this.#callbackFailure;
   }
 
   #isPkceCurrent(pkce: StoredPkce): boolean {
@@ -1057,7 +1067,10 @@ export class FavLockAuthClient {
   async #exchangeCallbackCode(code: string): Promise<AuthSession> {
     const generation = this.#generation;
     const pkce = readStoredPkce();
-    if (!pkce || !this.#isPkceCurrent(pkce)) throw new AuthRequestError("The sign-in link is invalid or has expired.");
+    if (!pkce || !this.#isPkceCurrent(pkce)) {
+      this.#callbackFailure = "missing_state";
+      throw new AuthRequestError("The sign-in link is invalid or has expired.");
+    }
     let session: AuthSession | null = null;
     try {
       const value = await this.#request("/v1/auth/session/exchange", "POST", {
@@ -1069,16 +1082,17 @@ export class FavLockAuthClient {
           ? mapApiSession(value.data.session)
           : null;
       if (!session) throw new AuthRequestError("Authentication is temporarily unavailable.");
-      if (generation !== this.#generation || !this.#isPkceCurrent(pkce)) throw new Error("Sign-in was cancelled.");
+      if (generation !== this.#generation || !this.#isPkceCurrent(pkce) || readStoredPkce()?.verifier !== pkce.verifier) throw new Error("Sign-in was cancelled.");
       this.#saveSession(
         session,
         pkce.redirectType === "recovery" ? "PASSWORD_RECOVERY" : "SIGNED_IN",
       );
       return session;
     } catch (error) {
-      if (isDefinitiveClientError(error) && readStoredPkce()?.verifier === pkce.verifier) {
-        removeStorageItem(PKCE_STORAGE_KEY);
-      }
+      // A rejected old code must not destroy the verifier for the latest link.
+      this.#callbackFailure = error instanceof AuthStorageError ? "storage_unavailable"
+        : error instanceof AuthRequestError ? (isDefinitiveClientError(error) && error.status !== 429 ? "invalid_link" : "temporarily_unavailable")
+          : "account_changed";
       throw error;
     } finally {
       // A profile-write failure can leave the credential safely persisted. Do
@@ -1094,6 +1108,9 @@ export class FavLockAuthClient {
     if (this.#localAccountState !== "active") {
       return { data: { session: null }, error: this.#initializationError };
     }
+    const callbackUrl = new URL(window.location.href);
+    const isCallback = hasAuthCallback(callbackUrl);
+    this.#callbackFailure = null;
     try {
       this.#storageError = null;
       this.#migrateLegacyStorage();
@@ -1118,7 +1135,12 @@ export class FavLockAuthClient {
       if (this.isLocalAccountInvalidated()) {
         return { data: { session: null }, error: this.#initializationError };
       }
-      const code = new URL(window.location.href).searchParams.get("code");
+      const callbackFailure = readAuthCallbackFailure(callbackUrl);
+      if (callbackFailure) {
+        this.#callbackFailure = callbackFailure;
+        throw new AuthRequestError("Sign-in could not be completed. Please try again.");
+      }
+      const code = callbackUrl.searchParams.get("code");
       if (code) {
         const session = await this.#exchangeCallbackCode(code);
         return { data: { session }, error: null };
@@ -1155,6 +1177,10 @@ export class FavLockAuthClient {
       return { data: { session: this.#session }, error: null };
     } catch (error) {
       if (error instanceof AuthStorageError) this.#recordStorageFailure(error);
+      if (isCallback) {
+        this.#callbackFailure ??= error instanceof AuthStorageError ? "storage_unavailable" : "account_changed";
+        if (!["temporarily_unavailable", "storage_unavailable"].includes(this.#callbackFailure)) this.#removeCallbackParameters();
+      }
       return {
         data: { session: this.#session },
         error: error instanceof Error ? error : new Error("Authentication failed."),
@@ -1295,7 +1321,7 @@ export class FavLockAuthClient {
     };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
     const generation = this.#generation;
-    let pkceStored = false;
+    let attemptVerifier: string | null = null;
     try {
       if (this.getLocalUser()) throw new Error("Reconnect to your existing account. To create another account, use a separate browser profile or explicitly sign out first.");
       const redirectTarget = readRedirectTarget(
@@ -1303,8 +1329,8 @@ export class FavLockAuthClient {
         this.#dashboardUrl,
       );
       if (!redirectTarget) throw new Error("The confirmation destination is invalid.");
-      const { challenge } = await this.#storePkce("sign-in");
-      pkceStored = true;
+      const { challenge, verifier } = await this.#storePkce("sign-in");
+      attemptVerifier = verifier;
       const firstName = options.data?.first_name?.trim();
       const lastName = options.data?.last_name?.trim();
       const value = await this.#request("/v1/auth/sign-up", "POST", {
@@ -1319,18 +1345,23 @@ export class FavLockAuthClient {
       });
       const data = isRecord(value) && isRecord(value.data) ? value.data : null;
       const session = data ? mapApiSession(data.session, true) : null;
-      if (!data || (data.confirmationRequired !== true && !session)) {
+      if (!data || (data.confirmationRequired === true ? data.session !== null : data.confirmationRequired !== false || !session)) {
         throw new AuthRequestError("Authentication is temporarily unavailable.");
       }
+      const pendingPkce = readStoredPkce();
+      if (generation !== this.#generation || !pendingPkce || pendingPkce.verifier !== attemptVerifier || !this.#isPkceCurrent(pendingPkce)) throw new Error("Sign-up was cancelled.");
       if (session) {
-        if (generation !== this.#generation) throw new Error("Sign-up was cancelled.");
         removeStorageItem(PKCE_STORAGE_KEY);
         this.#saveSession(session, "SIGNED_IN");
       }
       return { data: { user: session?.user ?? null, session }, error: null };
     } catch (error) {
-      if (pkceStored && isDefinitiveClientError(error)) {
-        removeStorageItem(PKCE_STORAGE_KEY);
+      if (attemptVerifier && isDefinitiveClientError(error)) {
+        try {
+          if (readStoredPkce()?.verifier === attemptVerifier) removeStorageItem(PKCE_STORAGE_KEY);
+        } catch {
+          // Storage failure must not turn a rejected signup into success.
+        }
       }
       return {
         data: { user: null, session: null },
@@ -1348,7 +1379,8 @@ export class FavLockAuthClient {
     email: string;
     options: { captchaToken: string; emailRedirectTo: string };
   }): Promise<AuthResult<Record<string, never>>> {
-    let pkceStored = false;
+    let attemptVerifier: string | null = null;
+    let previousPkce: StoredPkce | null = null;
     try {
       if (type !== "signup") throw new Error("Unsupported resend request.");
       const redirectTarget = readRedirectTarget(
@@ -1356,8 +1388,9 @@ export class FavLockAuthClient {
         this.#dashboardUrl,
       );
       if (!redirectTarget) throw new Error("The confirmation destination is invalid.");
-      const { challenge } = await this.#storePkce("sign-in");
-      pkceStored = true;
+      previousPkce = readStoredPkce();
+      const { challenge, verifier } = await this.#storePkce("sign-in");
+      attemptVerifier = verifier;
       await this.#request("/v1/auth/sign-up/resend", "POST", {
         email,
         captchaToken: options.captchaToken,
@@ -1367,8 +1400,15 @@ export class FavLockAuthClient {
       });
       return { data: {}, error: null };
     } catch (error) {
-      if (pkceStored && isDefinitiveClientError(error)) {
-        removeStorageItem(PKCE_STORAGE_KEY);
+      if (attemptVerifier && isDefinitiveClientError(error)) {
+        try {
+          if (readStoredPkce()?.verifier === attemptVerifier) {
+            if (previousPkce && this.#isPkceCurrent(previousPkce)) writeStorageItem(PKCE_STORAGE_KEY, JSON.stringify(previousPkce));
+            else removeStorageItem(PKCE_STORAGE_KEY);
+          }
+        } catch {
+          // Keep the original request error; a later attempt checks storage again.
+        }
       }
       return {
         data: {},
