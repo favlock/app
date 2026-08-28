@@ -4,6 +4,8 @@ import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthPage from "./Register";
 
+(globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
 function NavigationProbe() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -120,16 +122,109 @@ describe("AuthPage", () => {
     });
   };
 
-  const fillSignUpForm = async (email = "ada@example.com") => {
+  const fillSignUpForm = async (email = "ada@example.com", password = "secret123") => {
     const inputs = container.querySelectorAll<HTMLInputElement>("input");
     await act(async () => {
-      setInputValue(inputs[0], "Ada");
-      setInputValue(inputs[1], "Lovelace");
-      setInputValue(inputs[2], email);
-      setInputValue(inputs[3], "secret123");
-      setInputValue(inputs[4], "secret123");
+      setInputValue(inputs[0], email);
+      setInputValue(inputs[1], password);
     });
   };
+
+  it("asks for just email and one pasteable password with labels and a visibility toggle", async () => {
+    await renderAuthPage("/login?mode=sign-up");
+    await openEmailSignIn();
+    const inputs = container.querySelectorAll<HTMLInputElement>("input");
+    expect(inputs).toHaveLength(2);
+    expect(inputs[0].name).toBe("email");
+    expect(inputs[0].autocomplete).toBe("email");
+    const password = inputs[1];
+    expect(password.name).toBe("password");
+    expect(password.autocomplete).toBe("new-password");
+    expect(password.minLength).toBe(8);
+    for (const input of inputs) expect(input.labels?.length).toBeGreaterThan(0);
+    expect(password.getAttribute("aria-describedby")).toContain("signup-password-requirements");
+    expect(container.textContent).toContain("At least 8 characters");
+    expect(container.textContent).toContain("By continuing");
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    expect(password.dispatchEvent(paste)).toBe(true);
+    await act(async () => setInputValue(password, "pasted generated password"));
+    const toggle = container.querySelector<HTMLButtonElement>('button[aria-label="Show password"]')!;
+    expect(toggle.type).toBe("button");
+    toggle.focus();
+    await act(async () => toggle.click());
+    expect(password.type).toBe("text");
+    expect(password.value).toBe("pasted generated password");
+    expect(toggle.getAttribute("aria-label")).toBe("Hide password");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(document.activeElement).toBe(toggle);
+    await act(async () => toggle.click());
+    expect(password.type).toBe("password");
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["", "secret123", "email", "Enter your email address."],
+    ["not-an-email", "secret123", "email", "Enter a valid email address."],
+    ["ada@example.com", "", "password", "Enter your password."],
+    ["ada@example.com", "short", "password", "Password must be at least 8 characters."],
+    ["ada@example.com", "x".repeat(1025), "password", "Password must be no more than 1024 characters."],
+  ])("rejects invalid signup input with a focused, described field (%#)", async (email, password, field, message) => {
+    await renderAuthPage("/login?mode=sign-up");
+    await openEmailSignIn();
+    await fillSignUpForm(email, password);
+    await completeSecurityCheck();
+    await submitForm();
+    const input = container.querySelector<HTMLInputElement>(`input[name="${field}"]`)!;
+    expect(input.getAttribute("aria-invalid")).toBe("true");
+    expect(input.getAttribute("aria-describedby")).toContain("email-auth-error");
+    expect(document.activeElement).toBe(input);
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(message);
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it("blocks signup without security verification, including direct form submissions", async () => {
+    await renderAuthPage("/login?mode=sign-up");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    expect(findButton(container, "Create account with email").disabled).toBe(true);
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Complete the security verification");
+    expect(signUp).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    "Security verification failed. Please try again.",
+    "Too many requests. Try again later.",
+    "The account request could not be completed.",
+    "Choose a stronger password and try again.",
+  ])("shows the safe signup error and requires fresh CAPTCHA: %s", async (message) => {
+    signUp.mockResolvedValue({ data: { session: null }, error: { message } });
+    await renderAuthPage("/login?mode=sign-up");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    await completeSecurityCheck();
+    await submitForm();
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(message);
+    expect(findButton(container, "Create account with email").disabled).toBe(true);
+    expect(container.textContent).not.toContain("Check your inbox");
+    await completeSecurityCheck();
+    expect(findButton(container, "Create account with email").disabled).toBe(false);
+  });
+
+  it("does not submit again while signup is pending", async () => {
+    let finish!: (value: unknown) => void;
+    signUp.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
+    await renderAuthPage("/login?mode=sign-up");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    await completeSecurityCheck();
+    await submitForm();
+    expect(findButton(container, "Creating account...").disabled).toBe(true);
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(signUp).toHaveBeenCalledOnce();
+    await act(async () => finish({ data: { session: null }, error: null }));
+    expect(container.textContent).toContain("Check your inbox");
+  });
 
   it("shows Google and email authentication in the unified production flow", async () => {
     await renderAuthPage();
@@ -215,7 +310,7 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("Create account with email");
     expect(
       container.querySelector('input[autocomplete="given-name"]'),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       container.querySelector('[role="meter"]')?.getAttribute("aria-valuenow"),
     ).toBe("0");
@@ -301,7 +396,6 @@ describe("AuthPage", () => {
       options: {
         captchaToken: "turnstile-token",
         emailRedirectTo: expect.stringMatching(/\/checkout$/),
-        data: { first_name: "Ada", last_name: "Lovelace" },
       },
     });
     expect(container.textContent).toContain("Check your inbox");

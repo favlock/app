@@ -6,10 +6,11 @@ import {
   type SubmitEvent,
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Description } from "@headlessui/react";
 import { ArrowLeft, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
 import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "../components/ui/button";
-import { Field, FieldGroup, Label } from "../components/ui/fieldset";
+import { ErrorMessage, Field, FieldGroup, Label } from "../components/ui/fieldset";
 import { Input } from "../components/ui/input";
 import { Heading } from "../components/ui/heading";
 import { Text } from "../components/ui/text";
@@ -45,6 +46,7 @@ function AuthErrorNotice({ message }: { message: string }) {
     <div
       className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3"
       role="alert"
+      id="email-auth-error"
     >
       <Text className="text-sm text-red-600!">
         {isDisposableEmailError ? (
@@ -215,13 +217,11 @@ export default function AuthPage() {
   const reconnecting = searchParams.get("reconnect") === "1";
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const emailMode = getAuthMode(searchParams);
   const [error, setError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<"email" | "password" | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
@@ -233,7 +233,7 @@ export default function AuthPage() {
   useEffect(() => {
     setError(null);
     setPassword("");
-    setConfirmPassword("");
+    setInvalidField(null);
     setConfirmationEmail(null);
     captchaRef.current?.reset();
     setCaptchaToken(null);
@@ -301,41 +301,43 @@ export default function AuthPage() {
 
   const handleEmailSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loading) return;
     setError(null);
+    setInvalidField(null);
+
+    const rejectField = (field: "email" | "password", message: string) => {
+      setError(message);
+      setInvalidField(field);
+      const input = event.currentTarget.elements.namedItem(field);
+      if (input instanceof HTMLInputElement) input.focus();
+    };
 
     const normalizedEmail = email.trim();
     if (!normalizedEmail) {
-      setError("Enter your email address.");
+      rejectField("email", "Enter your email address.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
-      setError("Enter a valid email address.");
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
+      rejectField("email", "Enter a valid email address.");
       return;
     }
 
     if (!password) {
-      setError("Enter your password.");
-      return;
-    }
-
-    if (
-      emailMode === "sign-up" &&
-      (!firstName.trim() || !lastName.trim())
-    ) {
-      setError("Enter your first and last name.");
-      return;
-    }
-
-    if (emailMode === "sign-up" && password !== confirmPassword) {
-      setError("Passwords do not match.");
+      rejectField("password", "Enter your password.");
       return;
     }
 
     if (emailMode === "sign-up" && password.length < MIN_PASSWORD_LENGTH) {
-      setError(
+      rejectField(
+        "password",
         `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
       );
+      return;
+    }
+
+    if (emailMode === "sign-up" && password.length > 1024) {
+      rejectField("password", "Password must be no more than 1024 characters.");
       return;
     }
 
@@ -375,10 +377,6 @@ export default function AuthPage() {
       options: {
         captchaToken,
         emailRedirectTo,
-        data: {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-        },
       },
     });
     resetCaptcha();
@@ -396,7 +394,6 @@ export default function AuthPage() {
     }
 
     setPassword("");
-    setConfirmPassword("");
     setConfirmationEmail(normalizedEmail);
   };
 
@@ -441,7 +438,7 @@ export default function AuthPage() {
         <Text className="mt-1">{description}</Text>
         {reconnecting && <Text className="mt-3">Reconnect to the original account to use cloud services. Your local library stays on this device. <Link className="underline" to="/">Back to local library</Link></Text>}
 
-        {error && <AuthErrorNotice message={error} />}
+        {error && !invalidField && <AuthErrorNotice message={error} />}
 
         {!showEmailForm ? (
           <div className="mt-5 space-y-3">
@@ -457,6 +454,7 @@ export default function AuthPage() {
               className="w-full"
               onClick={() => {
                 setError(null);
+                setInvalidField(null);
                 resetCaptcha();
                 setShowEmailForm(true);
               }}
@@ -473,6 +471,7 @@ export default function AuthPage() {
               className="-ml-2 mb-3"
               onClick={() => {
                 setError(null);
+                setInvalidField(null);
                 resetCaptcha();
                 setShowEmailForm(false);
               }}
@@ -536,48 +535,28 @@ export default function AuthPage() {
             >
               <form noValidate onSubmit={handleEmailSubmit}>
                 <FieldGroup className="space-y-4!">
-                  {emailMode === "sign-up" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field>
-                        <Label>First name</Label>
-                        <Input
-                          type="text"
-                          placeholder="John"
-                          autoComplete="given-name"
-                          value={firstName}
-                          onChange={(event) => setFirstName(event.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field>
-                        <Label>Last name</Label>
-                        <Input
-                          type="text"
-                          placeholder="Doe"
-                          autoComplete="family-name"
-                          value={lastName}
-                          onChange={(event) => setLastName(event.target.value)}
-                          required
-                        />
-                      </Field>
-                    </div>
-                  )}
-
                   <Field>
                     <Label>Email</Label>
                     <Input
                       type="email"
+                      name="email"
+                      invalid={invalidField === "email"}
                       placeholder="email@example.com"
                       autoComplete="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       required
                     />
+                    {error && invalidField === "email" && (
+                      <ErrorMessage id="email-auth-error" role="alert">{error}</ErrorMessage>
+                    )}
                   </Field>
 
                   <Field>
                     <Label>Password</Label>
                     <PasswordInput
+                      name="password"
+                      invalid={invalidField === "password"}
                       placeholder={
                         emailMode === "sign-up"
                           ? `Minimum ${MIN_PASSWORD_LENGTH} characters`
@@ -598,26 +577,14 @@ export default function AuthPage() {
                       }
                     />
                     {emailMode === "sign-up" && (
-                      <PasswordStrengthMeter password={password} />
+                      <Description as="div" id="signup-password-requirements">
+                        <PasswordStrengthMeter password={password} />
+                      </Description>
+                    )}
+                    {error && invalidField === "password" && (
+                      <ErrorMessage id="email-auth-error" role="alert">{error}</ErrorMessage>
                     )}
                   </Field>
-
-                  {emailMode === "sign-up" && (
-                    <Field>
-                      <Label>Confirm password</Label>
-                      <PasswordInput
-                        visibilityLabel="confirm password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(event) =>
-                          setConfirmPassword(event.target.value)
-                        }
-                        required
-                        minLength={MIN_PASSWORD_LENGTH}
-                        autoComplete="new-password"
-                      />
-                    </Field>
-                  )}
                 </FieldGroup>
 
                 <CloudflareTurnstile

@@ -6,8 +6,9 @@ import { queryClient } from "../lib/queryClient";
 
 const TEST_KEY = "1234 5678 9012 3456 7890 1234 5678 9012";
 
-const { fetchAccountSettings, fetchEncryptionVerifier, setKeyRemembered, setRawKey, signOut, updateAccountProfile } =
+const { userMetadata, fetchAccountSettings, fetchEncryptionVerifier, setKeyRemembered, setRawKey, signOut, updateAccountProfile } =
   vi.hoisted(() => ({
+    userMetadata: { current: { given_name: "Google", family_name: "User" } as Record<string, string> },
     fetchAccountSettings: vi.fn(),
     fetchEncryptionVerifier: vi.fn(),
     setKeyRemembered: vi.fn(),
@@ -27,7 +28,7 @@ vi.mock("../context/useAuth", () => ({
       created_at: "2026-07-20T10:00:00.000Z",
       last_sign_in_at: "2026-07-20T10:00:01.000Z",
       app_metadata: { provider: "google" },
-      user_metadata: { given_name: "Google", family_name: "User" },
+      user_metadata: userMetadata.current,
     },
   }),
 }));
@@ -80,6 +81,7 @@ describe("EncryptionSetup", () => {
   let root: Root;
 
   beforeEach(() => {
+    userMetadata.current = { given_name: "Google", family_name: "User" };
     queryClient.clear();
     fetchAccountSettings.mockReset().mockResolvedValue({
       firstName: "Google",
@@ -125,6 +127,15 @@ describe("EncryptionSetup", () => {
       "current.jwt.token",
       { firstName: "Google", lastName: "User" },
     );
+  });
+
+  it("prepares a nameless account without inventing a profile or changing key setup", async () => {
+    userMetadata.current = {};
+    fetchAccountSettings.mockResolvedValue(null);
+    await act(async () => root.render(<StrictMode><EncryptionSetup /></StrictMode>));
+    expect(updateAccountProfile).toHaveBeenCalledExactlyOnceWith("current.jwt.token", { firstName: "", lastName: "" });
+    expect(setRawKey).toHaveBeenCalledExactlyOnceWith(TEST_KEY);
+    expect(container.textContent).toContain(TEST_KEY);
   });
 
   it("generates and saves a key when key_verifier is missing", async () => {

@@ -43,7 +43,7 @@ export function getProfileNamesFromUser(user: AuthUser): {
   }
 
   return {
-    firstName: user.email?.split("@")[0] ?? "",
+    firstName: "",
     lastName: "",
   };
 }
@@ -66,4 +66,15 @@ export function hasPasswordSignIn(user: AuthUser): boolean {
     provider === "email" ||
     providers.some((value) => readString(value) === "email")
   );
+}
+
+// Display only: never persist the email-derived fallback as profile metadata.
+export function getAccountDisplayName(
+  profile: { first_name?: string | null; last_name?: string | null } | null | undefined,
+  email: string | undefined,
+): string {
+  const name = [readString(profile?.first_name), readString(profile?.last_name)]
+    .filter(Boolean)
+    .join(" ");
+  return name || readString(email).split("@")[0] || "User";
 }

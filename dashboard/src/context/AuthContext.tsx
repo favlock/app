@@ -280,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { firstName, lastName } = getProfileNamesFromUser(user);
+      if (data && !firstName && !lastName) return;
       try {
         await updateAccountProfile(session.access_token, {
           firstName,
