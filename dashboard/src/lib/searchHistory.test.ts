@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   addSearchHistoryEntry,
   clearCloudSearchHistoryForUser,
@@ -135,7 +137,7 @@ describe("search history", () => {
     ).rejects.toThrow("Could not load");
     await expect(
       clearCloudSearchHistoryForUser(""),
-    ).rejects.toThrow("sign in again");
+    ).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).toHaveBeenCalledOnce();
   });
 });

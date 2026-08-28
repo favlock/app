@@ -11,6 +11,14 @@ interface ThemeContextType {
   dismissThemeSaveError: () => void;
 }
 
+function persistThemeVariant(variant: ThemeVariant): void {
+  try {
+    localStorage.setItem("themeVariant", variant);
+  } catch {
+    // A local preference must not block the app or cloud authorization errors.
+  }
+}
+
 // eslint-disable-next-line react-refresh/only-export-components
 export const ThemeContext = createContext<ThemeContextType | undefined>(
   undefined,
@@ -21,9 +29,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const { data: userInfo } = useUserInfo();
   const updateThemeVariant = useUpdateThemeVariant();
   const [themeVariant, setThemeVariantState] = useState<ThemeVariant>(() => {
-    const saved = localStorage.getItem("themeVariant");
-    if (saved === "current") return "sunset";
-    return isThemeVariant(saved) ? saved : "sunset";
+    try {
+      const saved = localStorage.getItem("themeVariant");
+      if (saved === "current") return "sunset";
+      return isThemeVariant(saved) ? saved : "sunset";
+    } catch {
+      return "sunset";
+    }
   });
   const [failedThemeVariant, setFailedThemeVariant] =
     useState<ThemeVariant | null>(null);
@@ -37,7 +49,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!isThemeVariant(userInfo?.theme_variant)) return;
 
     setThemeVariantState(userInfo.theme_variant);
-    localStorage.setItem("themeVariant", userInfo.theme_variant);
+    persistThemeVariant(userInfo.theme_variant);
   }, [userInfo?.theme_variant]);
 
   const saveThemeVariant = (variant: ThemeVariant) => {
@@ -60,7 +72,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const setThemeVariant = (variant: ThemeVariant) => {
     setThemeVariantState(variant);
-    localStorage.setItem("themeVariant", variant);
+    persistThemeVariant(variant);
     saveThemeVariant(variant);
   };
 

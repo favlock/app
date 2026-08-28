@@ -9,6 +9,15 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "August 27, 2026",
+    changes: [
+      "More reliable sign-in, session renewal, and recovery-key unlocking.",
+      "Preserve your saved local library when cloud access needs to be restored.",
+      "Security and reliability improvements, including Pro checkout.",
+    ],
+  },
+  {
+    version: "1.5.0",
     date: "August 26, 2026",
     changes: [
       "Export your encrypted library as a .favlock archive and move it to a new, empty FavLock account using your existing recovery key.",

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -24,6 +25,7 @@ import {
   saveEncryptionVerifier,
 } from "../lib/encryptionMetadataApi";
 import { canDecryptExistingData } from "../lib/encryptionDataProbe";
+import { createLocalKeyVerifier, matchesLocalKey, readLocalKeyVerifier, saveLocalKeyVerifier } from "../lib/localKeyVerifier";
 
 interface EncryptionContextType {
   cryptoKey: CryptoKey | null;
@@ -36,6 +38,7 @@ interface EncryptionContextType {
     options?: { rememberDevice?: boolean },
   ) => Promise<void>;
   setKeyRemembered: (rememberDevice: boolean) => Promise<void>;
+  lockKey: () => void;
   clearKey: () => Promise<void>;
   adoptMigratedKey: (
     key: CryptoKey,
@@ -55,36 +58,42 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
   const [keyLoading, setKeyLoading] = useState(true);
   const [keyRemembered, setKeyRememberedState] = useState(false);
   const [needsUnlock, setNeedsUnlock] = useState(false);
+  const keyGeneration = useRef(0);
 
   useEffect(() => {
-    // Migrate from localStorage
-    if (localStorage.getItem(STORAGE_KEY)) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
+    let cancelled = false;
+    const generation = keyGeneration.current;
+    void (async () => {
+      // Migrate from localStorage
+      if (localStorage.getItem(STORAGE_KEY)) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
 
-    // Migrate from sessionStorage → IDB
-    const raw = sessionStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      sessionStorage.removeItem(STORAGE_KEY);
-      importRawKey(raw)
-        .then(async (key) => {
-          await saveKeyToIDB(key);
-          setCryptoKey(key);
-          setKeyRememberedState(true);
-        })
-        .catch(console.error)
-        .finally(() => setKeyLoading(false));
-      return;
-    }
-
-    // Load from IDB
-    loadKeyFromIDB()
-      .then((key) => {
-        setCryptoKey(key);
-        setKeyRememberedState(!!key);
-      })
-      .catch(console.error)
-      .finally(() => setKeyLoading(false));
+      // Migrate from sessionStorage → IDB
+      const raw = sessionStorage.getItem(STORAGE_KEY);
+      await favLockAuth.getSession();
+      const userId = favLockAuth.getLocalUser()?.id;
+      if (!userId) return;
+      const key = raw ? await importRawKey(raw) : await loadKeyFromIDB();
+      const current = () => !cancelled && generation === keyGeneration.current && favLockAuth.getLocalUser()?.id === userId;
+      if (!current()) return;
+      if (key) {
+        if (readLocalKeyVerifier(userId) && !await matchesLocalKey(userId, key)) return;
+        const verifier = await createLocalKeyVerifier(key);
+        if (!current()) return;
+        saveLocalKeyVerifier(userId, verifier);
+        if (raw) {
+          await saveKeyToIDB(key, () => { if (!current()) throw new Error("Key loading was cancelled."); });
+          if (current() && sessionStorage.getItem(STORAGE_KEY) === raw) sessionStorage.removeItem(STORAGE_KEY);
+        }
+        if (!current()) return;
+      }
+      setCryptoKey(key);
+      setKeyRememberedState(!!key);
+    })()
+      .catch(() => { console.error("Could not load the saved encryption key. Check this browser's storage settings."); })
+      .finally(() => { if (!cancelled) setKeyLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const triggerUnlock = useCallback(() => setNeedsUnlock(true), []);
@@ -93,13 +102,19 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       raw: string,
       options?: { rememberDevice?: boolean },
     ) => {
+    const generation = keyGeneration.current;
+    const userId = favLockAuth.getLocalUser()?.id;
+    if (!userId) throw new Error("Open your local account before unlocking.");
+    const assertCurrent = () => {
+      if (generation !== keyGeneration.current || favLockAuth.getLocalUser()?.id !== userId) throw new Error("The local account changed. Unlock again.");
+    };
     const clean = normalizeRawKey(raw);
     const key = await importRawKey(clean);
 
     const {
       data: { session },
     } = await favLockAuth.getSession();
-    if (session) {
+    if (session && favLockAuth.getCloudStatus() === "available") {
       let savedVerifier: string | null;
       try {
         savedVerifier = await fetchEncryptionVerifier(session.access_token);
@@ -144,34 +159,54 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (options?.rememberDevice) {
-      await saveKeyToIDB(key);
-    } else {
-      await deleteKeyFromIDB();
+    if ((!session || favLockAuth.getCloudStatus() !== "available") && !await matchesLocalKey(userId, key)) {
+      throw new Error(readLocalKeyVerifier(userId)
+        ? "This key does not match your saved local library."
+        : "This device has no saved key verifier. Reconnect once to verify your key; no local data was changed.");
     }
+    const localVerifier = await createLocalKeyVerifier(key);
+    assertCurrent();
+    saveLocalKeyVerifier(userId, localVerifier);
+    if (options?.rememberDevice) {
+      await saveKeyToIDB(key, assertCurrent);
+    } else {
+      await deleteKeyFromIDB(assertCurrent);
+    }
+    assertCurrent();
     setCryptoKey(key);
     setKeyRememberedState(!!options?.rememberDevice);
     setNeedsUnlock(false);
     }, []);
 
   const setKeyRemembered = useCallback(async (rememberDevice: boolean) => {
+    const generation = keyGeneration.current;
+    const userId = favLockAuth.getLocalUser()?.id;
+    const assertCurrent = () => {
+      if (!userId || generation !== keyGeneration.current || favLockAuth.getLocalUser()?.id !== userId) throw new Error("The account changed. Unlock again.");
+    };
     if (rememberDevice) {
       if (!cryptoKey) {
         throw new Error("Unlock encryption before remembering this device.");
       }
-      await saveKeyToIDB(cryptoKey);
+      await saveKeyToIDB(cryptoKey, assertCurrent);
     } else {
-      await deleteKeyFromIDB();
+      await deleteKeyFromIDB(assertCurrent);
     }
+    assertCurrent();
     setKeyRememberedState(rememberDevice);
   }, [cryptoKey]);
 
-  const clearKey = useCallback(async () => {
+  const lockKey = useCallback(() => {
+    keyGeneration.current += 1;
     setCryptoKey(null);
     setKeyRememberedState(false);
     setNeedsUnlock(false);
-    await deleteKeyFromIDB();
   }, []);
+
+  const clearKey = useCallback(async () => {
+    lockKey();
+    await deleteKeyFromIDB();
+  }, [lockKey]);
 
   const adoptMigratedKey = useCallback(
     async (
@@ -179,15 +214,25 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       options?: { rememberDevice?: boolean },
     ): Promise<boolean> => {
       const rememberDevice = options?.rememberDevice ?? true;
+      const userId = favLockAuth.getLocalUser()?.id;
+      const generation = keyGeneration.current;
+      if (!userId) return false;
+      const assertCurrent = () => {
+        if (generation !== keyGeneration.current || favLockAuth.getLocalUser()?.id !== userId) throw new Error("The account changed. Unlock again.");
+      };
+      const verifier = await createLocalKeyVerifier(key);
+      if (generation !== keyGeneration.current || favLockAuth.getLocalUser()?.id !== userId) return false;
+      saveLocalKeyVerifier(userId, verifier);
       setCryptoKey(key);
       setNeedsUnlock(false);
 
       try {
         if (rememberDevice) {
-          await saveKeyToIDB(key);
+          await saveKeyToIDB(key, assertCurrent);
         } else {
-          await deleteKeyFromIDB();
+          await deleteKeyFromIDB(assertCurrent);
         }
+        assertCurrent();
         setKeyRememberedState(rememberDevice);
         return rememberDevice;
       } catch {
@@ -219,6 +264,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       triggerUnlock,
       setRawKey,
       setKeyRemembered,
+      lockKey,
       clearKey,
       adoptMigratedKey,
       encryptField,
@@ -232,6 +278,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       triggerUnlock,
       setRawKey,
       setKeyRemembered,
+      lockKey,
       clearKey,
       adoptMigratedKey,
       encryptField,

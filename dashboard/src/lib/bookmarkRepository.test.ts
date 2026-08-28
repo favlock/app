@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   cleanupDuplicateBookmarks,
   createBookmark,
@@ -185,7 +187,7 @@ describe("bookmarkRepository", () => {
       ]),
     ).rejects.toThrow("Could not clean up duplicate bookmarks.");
     await expect(createBookmark("", values)).rejects.toThrow(
-      "Please sign in again before continuing.",
+      "Reconnect to the cloud",
     );
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });

@@ -1,23 +1,16 @@
 import { PLANS } from "@favlock/shared";
 import { CreditCard, ExternalLink, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { useBillingSubscription } from "../hooks/useBillingSubscriptionQuery";
-import { CREEM_PRO_PRODUCT_URL } from "../lib/appUrls";
+import { createProCheckout } from "../lib/checkoutApi";
+import { favLockAuth } from "../lib/favLockAuth";
 import {
-  buildCreemCheckoutUrl,
   getCreemCustomerPortalUrl,
 } from "../lib/creemBilling";
 import { Button } from "./ui/button";
-
-const ACTIVE_STATUSES = new Set([
-  "active",
-  "trialing",
-  "scheduled_cancel",
-  "past_due",
-]);
 
 function formatDate(value: string | null): string | null {
   if (!value) return null;
@@ -29,7 +22,9 @@ function formatDate(value: string | null): string | null {
 }
 
 export default function BillingSection() {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
+  const [checkoutPending, setCheckoutPending] = useState(false);
+  const checkoutAttempt = useRef<string | null>(null);
   const [searchParams] = useSearchParams();
   const checkoutReturned = searchParams.get("billing") === "success";
   const { data: accountPlan, refetch: refetchPlan } = useAccountPlan();
@@ -42,12 +37,12 @@ export default function BillingSection() {
   const [actionError, setActionError] = useState<string | null>(null);
   const hasPro = accountPlan?.id === "pro";
   const hasActiveBilling = subscription
-    ? ACTIVE_STATUSES.has(subscription.status)
+    ? subscription.status !== "canceled"
     : false;
   const periodEnd = formatDate(subscription?.currentPeriodEnd ?? null);
 
   useEffect(() => {
-    if (!checkoutReturned || hasPro) return;
+    if (!checkoutReturned || hasPro || !session) return;
 
     let attempts = 0;
     const refresh = () => {
@@ -58,20 +53,25 @@ export default function BillingSection() {
     refresh();
     const intervalId = window.setInterval(refresh, 2000);
     return () => window.clearInterval(intervalId);
-  }, [checkoutReturned, hasPro, refetchPlan, refetchSubscription]);
+  }, [checkoutReturned, hasPro, refetchPlan, refetchSubscription, session]);
 
-  const openCheckout = () => {
+  const openCheckout = async () => {
+    if (checkoutAttempt.current) return;
+    checkoutAttempt.current = crypto.randomUUID();
+    setCheckoutPending(true);
     setActionError(null);
     try {
       if (!user) throw new Error("Sign in before upgrading to Pro.");
-      const url = buildCreemCheckoutUrl(CREEM_PRO_PRODUCT_URL, user.id);
-      window.location.assign(url);
+      const url = await createProCheckout(session?.access_token ?? "", checkoutAttempt.current);
+      if (favLockAuth.getLocalUser()?.id === user.id) window.location.assign(url);
     } catch (error) {
       setActionError(
         error instanceof Error
           ? error.message
           : "Could not open billing. Please try again.",
       );
+    } finally {
+      setCheckoutPending(false);
     }
   };
 
@@ -105,7 +105,7 @@ export default function BillingSection() {
         >
           {hasPro
             ? "Pro is active. Your new limits are ready."
-            : "Payment received. We are confirming your Pro access with Creem; this usually takes a few seconds."}
+            : "Checking payment status. Pro access is confirmed only after the billing service updates your account."}
         </div>
       ) : null}
 
@@ -144,23 +144,21 @@ export default function BillingSection() {
               <Button
                 type="button"
                 color="emerald"
-                disabled={isLoading}
+                disabled={isLoading || checkoutPending || !!actionError || !session || hasActiveBilling}
                 onClick={openCheckout}
               >
                 <CreditCard data-slot="icon" aria-hidden="true" />
                 Upgrade to Pro
               </Button>
             ) : null}
-            {subscription ? (
-              <Button
+            <Button
                 type="button"
                 outline
                 onClick={openCustomerPortal}
               >
                 <ExternalLink data-slot="icon" aria-hidden="true" />
                 Receipts &amp; billing
-              </Button>
-            ) : null}
+            </Button>
           </div>
         </div>
 
@@ -187,8 +185,8 @@ export default function BillingSection() {
         ) : null}
         <p className="mt-4 text-xs liquid-muted">
           Creem is the merchant of record and handles checkout, tax collection,
-          receipts, refunds, and subscription billing. Use the same email as
-          your FavLock account at checkout.
+          receipts, refunds, and subscription billing. Checkout is linked to
+          your account by FavLock's server. Billing remains available if cloud access is restricted.
         </p>
       </div>
     </section>

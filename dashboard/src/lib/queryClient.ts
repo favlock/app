@@ -1,9 +1,10 @@
 import { QueryClient } from '@tanstack/react-query';
+import { CloudAccessError } from './cloudAccess';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => !(error instanceof CloudAccessError) && failureCount < 1,
       refetchOnWindowFocus: false,
     },
   },

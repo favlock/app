@@ -68,13 +68,24 @@ async function loadCurrentTabPreview() {
   }
 }
 
-function setConnectionView({ connected, unlocked, email = "" }) {
+function setConnectionView({ connected, unlocked, email = "", cloudStatus = "available" }) {
   const panel = document.getElementById("connectionPanel");
   const form = document.getElementById("quickAddForm");
   const button = document.getElementById("connectButton");
   const emailButton = document.getElementById("emailConnectButton");
   document.getElementById("disconnectButton").hidden = !connected;
 
+  if (connected && cloudStatus !== "available") {
+    panel.hidden = false;
+    form.hidden = true;
+    document.getElementById("connectionTitle").textContent = "Local connection saved";
+    document.getElementById("connectionDescription").textContent =
+      `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to use your saved local library.`;
+    button.textContent = "Reconnect with Google";
+    button.dataset.action = "connect";
+    emailButton.hidden = false;
+    return;
+  }
   if (connected && unlocked) {
     panel.hidden = true;
     form.hidden = false;
@@ -257,7 +268,7 @@ async function initializeConnection() {
     return false;
   }
   setConnectionView(response);
-  if (!response.connected || !response.unlocked) {
+  if (!response.connected || !response.unlocked || (response.cloudStatus && response.cloudStatus !== "available")) {
     setPageStateBadge(response.connected ? "Locked" : "Not connected", "neutral");
     return false;
   }
@@ -560,3 +571,8 @@ document.getElementById("developmentBadge").hidden =
   FAVLOCK_CONFIG.target !== "development";
 await loadCurrentTabPreview();
 await initializeConnection();
+
+// Close stale forms when this device explicitly switches or clears its account.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === "local" && changes.favlockLocalEpoch) window.close();
+});

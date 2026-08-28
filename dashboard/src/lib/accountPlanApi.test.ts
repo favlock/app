@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import { fetchAccountPlan } from "./accountPlanApi";
 
 const responseBody = {
@@ -49,18 +51,29 @@ describe("fetchAccountPlan", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchAccountPlan("")).rejects.toThrow("sign in again");
+    await expect(fetchAccountPlan("")).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("returns a session-specific error for an unauthorized response", async () => {
+  it("keeps an unauthorized cloud response separate from local access", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(new Response(null, { status: 401 })),
     );
 
     await expect(fetchAccountPlan("expired.jwt.token")).rejects.toThrow(
-      "session expired",
+      "Reconnect to the cloud",
+    );
+  });
+
+  it("keeps a cloud restriction separate from local access", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(null, { status: 403 })),
+    );
+
+    await expect(fetchAccountPlan("restricted.jwt.token")).rejects.toThrow(
+      "Cloud access is restricted",
     );
   });
 

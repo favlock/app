@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   createEntry,
   createReadspaceEntry,
@@ -238,7 +240,7 @@ describe("entryRepository", () => {
       "Could not create the encrypted entry.",
     );
     await expect(createEntry("", "note", values)).rejects.toThrow(
-      "Please sign in again before continuing.",
+      "Reconnect to the cloud",
     );
     expect(fetchMock).toHaveBeenCalledOnce();
   });

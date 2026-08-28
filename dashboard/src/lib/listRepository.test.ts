@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   addListItem,
   createEncryptedList,
@@ -181,7 +183,7 @@ describe("List API repository", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(fetchEncryptedLists("")).rejects.toThrow("sign in again");
+    await expect(fetchEncryptedLists("")).rejects.toThrow("Reconnect to the cloud");
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

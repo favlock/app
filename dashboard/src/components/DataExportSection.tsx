@@ -16,6 +16,8 @@ import { useNotes } from "../hooks/useNotesQuery";
 import { useReadspace } from "../hooks/useReadspaceQuery";
 import { useTags } from "../hooks/useTagsQuery";
 import { useTodos } from "../hooks/useTodosQuery";
+import { useBrowserOnline } from "../hooks/useBrowserOnline";
+import { isBrowserOnline, OFFLINE_EXPORT_MESSAGE } from "../lib/network";
 import {
   buildBrowserBookmarksHtml,
   buildFavLockExport,
@@ -87,7 +89,9 @@ function downloadFile(contents: string, filename: string, type: string) {
 }
 
 export default function DataExportSection() {
-  const { user } = useAuth();
+  const online = useBrowserOnline();
+  const { user, cloudStatus } = useAuth();
+  const localOnly = !!cloudStatus && cloudStatus !== "available";
   const { cryptoKey, keyLoading, triggerUnlock } = useEncryption();
   const [format, setFormat] = useState<ExportFormat>("encrypted");
   const [selection, setSelection] =
@@ -99,7 +103,7 @@ export default function DataExportSection() {
   const foldersQuery = useFolders();
   const tagsQuery = useTags();
   const listsQuery = useLists({
-    enabled: format === "encrypted" && selection.bookmarks,
+    enabled: !localOnly && format === "encrypted" && selection.bookmarks,
   });
   const notesQuery = useNotes({ enabled: format === "encrypted" });
   const todosQuery = useTodos({ enabled: format === "encrypted" });
@@ -111,7 +115,7 @@ export default function DataExportSection() {
         ? [
             foldersQuery,
             tagsQuery,
-            ...(selection.bookmarks ? [listsQuery] : []),
+            ...(selection.bookmarks && !localOnly ? [listsQuery] : []),
             notesQuery,
             todosQuery,
             readspaceQuery,
@@ -121,6 +125,7 @@ export default function DataExportSection() {
       foldersQuery,
       format,
       listsQuery,
+      localOnly,
       notesQuery,
       readspaceQuery,
       selection.bookmarks,
@@ -140,6 +145,7 @@ export default function DataExportSection() {
   };
 
   const handleExport = async () => {
+    if (!isBrowserOnline()) return;
     if (!cryptoKey) {
       triggerUnlock();
       return;
@@ -154,6 +160,7 @@ export default function DataExportSection() {
           ? await loadAllBookmarksForExport(user?.id ?? "")
           : [];
       const date = new Date().toISOString().slice(0, 10);
+      if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
       if (format === "html") {
         downloadFile(
           buildBrowserBookmarksHtml(bookmarks, foldersQuery.data ?? []),
@@ -174,6 +181,7 @@ export default function DataExportSection() {
           selection,
         );
         const encryptedArchive = await encryptFavLockArchive(archive, cryptoKey);
+        if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
         downloadFile(
           serializeEncryptedFavLockArchive(encryptedArchive),
           `favlock-export-${date}.favlock`,
@@ -182,7 +190,7 @@ export default function DataExportSection() {
       }
       setExported(true);
     } catch {
-      setExportError("FavLock could not prepare the export. Please try again.");
+      setExportError(isBrowserOnline() ? "FavLock could not prepare the export. Please try again." : OFFLINE_EXPORT_MESSAGE);
     } finally {
       setIsPreparing(false);
     }
@@ -196,12 +204,17 @@ export default function DataExportSection() {
     (format === "encrypted" && !hasSelection);
 
   const downloadOfflineDecryptor = () => {
+    if (!isBrowserOnline()) return;
     downloadFile(
       buildOfflineDecryptorHtml(),
       OFFLINE_DECRYPTOR_FILENAME,
       "text/html;charset=utf-8",
     );
   };
+
+  if (!online) {
+    return <p role="status" className="text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>;
+  }
 
   return (
     <section aria-labelledby="favlock-export-heading">
@@ -210,6 +223,7 @@ export default function DataExportSection() {
         title="Export data"
         description="Download a portable copy of your FavLock data. The export is created locally in this browser."
       />
+      {localOnly && <p role="note" className="mt-4 text-sm text-amber-800">This export contains only data saved on this device. Lists and changes not yet synchronized may be missing. Keep your existing backups.</p>}
 
       <fieldset className="mt-6">
         <legend className="text-sm font-semibold text-gray-900">

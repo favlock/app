@@ -211,6 +211,7 @@ function EmailConfirmation({
 export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const reconnecting = searchParams.get("reconnect") === "1";
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
   const [firstName, setFirstName] = useState("");
@@ -258,6 +259,7 @@ export default function AuthPage() {
   };
 
   const switchEmailMode = (mode: EmailMode) => {
+    if (reconnecting && mode === "sign-up") return;
     setEmailMode(mode);
     setError(null);
     setPassword("");
@@ -430,6 +432,7 @@ export default function AuthPage() {
       <div className="w-full">
         <Heading>{heading}</Heading>
         <Text className="mt-1">{description}</Text>
+        {reconnecting && <Text className="mt-3">Reconnect to the original account to use cloud services. Your local library stays on this device. <Link className="underline" to="/">Back to local library</Link></Text>}
 
         {error && <AuthErrorNotice message={error} />}
 
@@ -499,6 +502,7 @@ export default function AuthPage() {
               </button>
               <button
                 id="email-sign-up-tab"
+                disabled={reconnecting}
                 type="button"
                 role="tab"
                 aria-selected={emailMode === "sign-up"}

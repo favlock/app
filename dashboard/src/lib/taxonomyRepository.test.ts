@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   arrangeFolders,
   createFolder,
@@ -149,7 +151,7 @@ describe("taxonomyRepository", () => {
       }),
     ).rejects.toThrow("Could not create the encrypted collection.");
     await expect(deleteTag("", tagId)).rejects.toThrow(
-      "Please sign in again before continuing.",
+      "Reconnect to the cloud",
     );
     expect(fetchMock).toHaveBeenCalledOnce();
   });

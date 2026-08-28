@@ -31,8 +31,9 @@ function openEncDB(): Promise<IDBDatabase> {
   });
 }
 
-export async function saveKeyToIDB(key: CryptoKey): Promise<void> {
+export async function saveKeyToIDB(key: CryptoKey, assertCurrent?: () => void): Promise<void> {
   const db = await openEncDB();
+  assertCurrent?.();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
     tx.objectStore(IDB_STORE_NAME).put(key, STORAGE_KEY);
@@ -51,8 +52,9 @@ export async function loadKeyFromIDB(): Promise<CryptoKey | null> {
   });
 }
 
-export async function deleteKeyFromIDB(): Promise<void> {
+export async function deleteKeyFromIDB(assertCurrent?: () => void): Promise<void> {
   const db = await openEncDB();
+  assertCurrent?.();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(IDB_STORE_NAME, 'readwrite');
     tx.objectStore(IDB_STORE_NAME).delete(STORAGE_KEY);

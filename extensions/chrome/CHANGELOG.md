@@ -1,5 +1,12 @@
 # Chrome extension changelog
 
+## 1.5.1 — August 27, 2026
+
+Recommended FavLock dashboard version: **1.5.1** for the updated reconnection experience.
+
+- Improved session renewal and reconnection handling without clearing saved local account data.
+- Security and reliability improvements.
+
 ## 1.5.0 — August 26, 2026
 
 Minimum supported FavLock dashboard version: **1.5.0**.

@@ -7,7 +7,7 @@ export default function PublicOnlyRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, cloudStatus, connectionError } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -22,7 +22,9 @@ export default function PublicOnlyRoute({
     );
   }
 
-  if (user) {
+  const reconnecting = location.pathname === "/login" &&
+    new URLSearchParams(location.search).get("reconnect") === "1" && cloudStatus !== "available";
+  if (user && !reconnecting) {
     return (
       <Navigate
         to={getPostAuthPath(new URLSearchParams(location.search))}
@@ -31,5 +33,13 @@ export default function PublicOnlyRoute({
     );
   }
 
-  return <>{children}</>;
+  return <>
+    {connectionError && (
+      <section role="alert" aria-label="Account connection" className="mx-auto mt-4 max-w-lg rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4 text-sm">
+        <p>{connectionError}</p>
+        <button type="button" className="mt-3 underline" onClick={() => window.location.reload()}>Reload FavLock</button>
+      </section>
+    )}
+    {children}
+  </>;
 }
