@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
+import { getAccountDisplayName } from "../lib/auth";
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import {
   PRESET_COLORS,
@@ -246,6 +247,7 @@ export default function FolderSidebar({
     dismissThemeSaveError,
   } = useTheme();
   const { data: userInfo } = useUserInfo();
+  const accountDisplayName = getAccountDisplayName(userInfo, user?.email);
   const { data: accountPlan } = useAccountPlan();
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
@@ -943,18 +945,13 @@ export default function FolderSidebar({
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
-                {userInfo?.first_name?.[0]?.toUpperCase() ??
-                  user?.email?.[0]?.toUpperCase() ??
-                  userInfo?.last_name?.[0]?.toUpperCase() ??
-                  "U"}
+                {accountDisplayName[0]?.toUpperCase() ?? "U"}
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--app-ink)]">
-                  {userInfo
-                    ? `${userInfo.first_name} ${userInfo.last_name}`.trim()
-                    : "User"}
+                  {accountDisplayName}
                 </p>
                 {accountPlan ? (
                   <span

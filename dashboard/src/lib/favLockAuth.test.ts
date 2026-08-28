@@ -1038,6 +1038,69 @@ describe("FavLockAuthClient", () => {
     expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
   });
 
+  it.each([undefined, {}, { first_name: " ", last_name: "" }])("omits absent or blank signup names and retains confirmation PKCE (%#)", async (data) => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ data: { confirmationRequired: true, session: null } }));
+    const client = trackedClient(fetchMock);
+    const result = await client.signUp({
+      email: "ada@example.com", password: "fake-test-password",
+      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout`, data },
+    });
+    expect(result.error).toBeNull();
+    const [url, options] = fetchMock.mock.calls[0];
+    expect(url).toBe(`${API_URL}/v1/auth/sign-up`);
+    const body = JSON.parse(options.body);
+    expect(body).not.toHaveProperty("firstName");
+    expect(body).not.toHaveProperty("lastName");
+    expect(body).toMatchObject({ captchaToken: "fake-captcha", redirectTarget: "/checkout", pkceCodeChallengeMethod: "s256" });
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+  });
+
+  it("retains confirmation PKCE after an interrupted nameless signup without creating a session", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+    const client = trackedClient(fetchMock);
+    const result = await client.signUp({
+      email: "ada@example.com", password: "fake-test-password",
+      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` },
+    });
+    expect(result.error).not.toBeNull();
+    expect(result.data).toEqual({ user: null, session: null });
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("does not alter an existing local account when a signup is attempted", async () => {
+    const existing = storedSession();
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(existing));
+    const fetchMock = vi.fn();
+    const client = trackedClient(fetchMock);
+    const result = await client.signUp({
+      email: "new@example.com", password: "fake-test-password",
+      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/` },
+    });
+    expect(result.error?.message).toContain("Reconnect to your existing account");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!)).toEqual(existing);
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBeNull();
+  });
+
+  it.each([
+    [400, "captcha_failed"], [400, "password_rejected"], [400, "email_rejected"],
+    [400, "invalid_request"], [429, "rate_limited"],
+  ])("leaves no session after rejected signup (%s/%s)", async (status, code) => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ error: { code, message: "Safe signup failure." } }, status));
+    const client = trackedClient(fetchMock);
+    const result = await client.signUp({
+      email: "ada@example.com", password: "fake-test-password",
+      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/` },
+    });
+    expect(result.error?.message).toBe("Safe signup failure.");
+    expect(result.data).toEqual({ user: null, session: null });
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
   it.each(["google", "email"] as const)("returns a %s signup attempt to checkout after a reload using the existing PKCE flow", async (method) => {
     window.history.replaceState({}, "", "/login?mode=sign-up&next=%2Fcheckout");
     const start = trackedClient(vi.fn().mockResolvedValue(response({ data: { confirmationRequired: true, session: null } }, 202)));
@@ -1045,7 +1108,6 @@ describe("FavLockAuthClient", () => {
       ? await start.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } })
       : await start.signUp({ email: "ada@example.com", password: "fake-test-password", options: {
         captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout`,
-        data: { first_name: "Ada", last_name: "Lovelace" },
       } });
     expect(result.error).toBeNull();
     const pkce = JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!);

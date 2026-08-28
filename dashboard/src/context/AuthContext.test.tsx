@@ -13,7 +13,7 @@ import { useBookmarkStore } from "../store/bookmarkStore";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(), getLocalUser: vi.fn(), getCloudStatus: vi.fn(), getConnectionError: vi.fn(), isLocalAccountInvalidated: vi.fn(), signOut: vi.fn(), onAuthStateChange: vi.fn(),
   clearKey: vi.fn(), lockKey: vi.fn(), triggerUnlock: vi.fn(), clearBookmarks: vi.fn(), clearContent: vi.fn(), hydrate: vi.fn(), clearQueries: vi.fn(),
-  fetchQuery: vi.fn(), clearDrafts: vi.fn(),
+  fetchQuery: vi.fn(), clearDrafts: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
 }));
 vi.mock("../lib/favLockAuth", () => ({ favLockAuth: {
   getSession: mocks.getSession, getLocalUser: mocks.getLocalUser, getCloudStatus: mocks.getCloudStatus,
@@ -29,7 +29,8 @@ vi.mock("../lib/bookmarkCache", () => ({
 }));
 vi.mock("../lib/entryDrafts", () => ({ clearEntryDraftsForUser: mocks.clearDrafts }));
 vi.mock("../lib/hydrateLibraryQueryCache", () => ({ hydrateLibraryQueryCache: mocks.hydrate }));
-vi.mock("../lib/queryClient", () => ({ queryClient: { clear: mocks.clearQueries, fetchQuery: mocks.fetchQuery } }));
+vi.mock("../lib/queryClient", () => ({ queryClient: { clear: mocks.clearQueries, fetchQuery: mocks.fetchQuery, invalidateQueries: mocks.invalidateQueries } }));
+vi.mock("../lib/accountSettingsApi", () => ({ updateAccountProfile: mocks.updateAccountProfile }));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -76,6 +77,7 @@ describe("local routing through cloud failure", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.clearDrafts.mockReset().mockResolvedValue(undefined);
+    mocks.updateAccountProfile.mockReset().mockResolvedValue({});
     localStorage.clear();
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
     mocks.fetchQuery.mockResolvedValue({ first_name: "Local" });
@@ -93,6 +95,29 @@ describe("local routing through cloud failure", () => {
     root = createRoot(container);
   });
   afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
+
+  it.each([
+    [null, {}, { firstName: "", lastName: "" }],
+    [null, { first_name: "Ada", last_name: "Lovelace" }, { firstName: "Ada", lastName: "Lovelace" }],
+    [{ first_name: "", last_name: "" }, {}, null],
+    [{ first_name: "Existing", last_name: "Name" }, {}, null],
+    [{ first_name: "Existing", last_name: "" }, { first_name: "Other", last_name: "Name" }, null],
+  ])("prepares optional profile names without replacing existing account data (%#)", async (profile, metadata, expectedWrite) => {
+    const fresh = createSession("fake-current-token");
+    fresh.user.user_metadata = metadata;
+    mocks.getSession.mockResolvedValue({ data: { session: fresh }, error: null });
+    mocks.getLocalUser.mockReturnValue(fresh.user);
+    mocks.getCloudStatus.mockReturnValue("available");
+    mocks.fetchQuery.mockResolvedValue(profile);
+    await act(async () => root.render(<AuthProvider><Probe /></AuthProvider>));
+    if (expectedWrite) {
+      expect(mocks.updateAccountProfile).toHaveBeenCalledExactlyOnceWith(fresh.access_token, expectedWrite);
+    } else {
+      expect(mocks.updateAccountProfile).not.toHaveBeenCalled();
+    }
+    expect(mocks.clearKey).not.toHaveBeenCalled();
+    expect(mocks.clearBookmarks).not.toHaveBeenCalled();
+  });
 
   it.each(["offline", "restricted", "reconnect_required", "unavailable"])("keeps cached local routing during %s without cleanup", async (status) => {
     await act(async () => { root.render(<AuthProvider><Probe /></AuthProvider>); });

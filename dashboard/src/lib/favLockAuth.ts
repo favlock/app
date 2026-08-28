@@ -1291,7 +1291,7 @@ export class FavLockAuthClient {
     options: {
       captchaToken: string;
       emailRedirectTo: string;
-      data: { first_name?: string; last_name?: string };
+      data?: { first_name?: string; last_name?: string };
     };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
     const generation = this.#generation;
@@ -1305,11 +1305,13 @@ export class FavLockAuthClient {
       if (!redirectTarget) throw new Error("The confirmation destination is invalid.");
       const { challenge } = await this.#storePkce("sign-in");
       pkceStored = true;
+      const firstName = options.data?.first_name?.trim();
+      const lastName = options.data?.last_name?.trim();
       const value = await this.#request("/v1/auth/sign-up", "POST", {
         email,
         password,
-        firstName: options.data.first_name?.trim() ?? "",
-        lastName: options.data.last_name?.trim() ?? "",
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
         captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
