@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "./context/AuthContext";
@@ -42,6 +42,13 @@ function RouteFallback() {
   );
 }
 
+function RegisterRedirect() {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  searchParams.set("mode", "sign-up");
+  return <Navigate to={{ pathname: "/login", search: `?${searchParams}`, hash: location.hash }} replace />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -61,12 +68,7 @@ function App() {
                   />
                   <Route
                     path="/register"
-                    element={
-                      <Navigate
-                        to={`/login${window.location.search}${window.location.hash}`}
-                        replace
-                      />
-                    }
+                    element={<RegisterRedirect />}
                   />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route

@@ -22,8 +22,11 @@ import CloudflareTurnstile, {
   type CloudflareTurnstileHandle,
 } from "../components/CloudflareTurnstile";
 import {
+  buildAuthPath,
+  getAuthMode,
   getDashboardRedirectUrl,
   getPostAuthPath,
+  type AuthMode,
 } from "../lib/authNavigation";
 import { WEB_TERMS_URL } from "../lib/appUrls";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
@@ -31,9 +34,7 @@ import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
 const SUPPORT_EMAIL = "support@favlock.app";
 const DISPOSABLE_EMAIL_TERMS_URL = `${WEB_TERMS_URL}#disposable-email-addresses`;
 
-type EmailMode = "sign-in" | "sign-up";
-
-const EMAIL_MODES: EmailMode[] = ["sign-in", "sign-up"];
+const EMAIL_MODES: AuthMode[] = ["sign-in", "sign-up"];
 
 function AuthErrorNotice({ message }: { message: string }) {
   const isDisposableEmailError = message.includes(
@@ -219,7 +220,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [emailMode, setEmailMode] = useState<EmailMode>("sign-in");
+  const emailMode = getAuthMode(searchParams);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
@@ -228,6 +229,15 @@ export default function AuthPage() {
     null,
   );
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+
+  useEffect(() => {
+    setError(null);
+    setPassword("");
+    setConfirmPassword("");
+    setConfirmationEmail(null);
+    captchaRef.current?.reset();
+    setCaptchaToken(null);
+  }, [emailMode]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -258,19 +268,16 @@ export default function AuthPage() {
     setCaptchaToken(null);
   };
 
-  const switchEmailMode = (mode: EmailMode) => {
-    if (reconnecting && mode === "sign-up") return;
-    setEmailMode(mode);
-    setError(null);
-    setPassword("");
-    setConfirmPassword("");
-    resetCaptcha();
+  const switchEmailMode = (mode: AuthMode) => {
+    if (mode === emailMode || (reconnecting && mode === "sign-up")) return;
+    navigate(buildAuthPath("/login", nextPath, { mode, reconnect: reconnecting }));
   };
 
   const selectEmailModeFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
-    currentMode: EmailMode,
+    currentMode: AuthMode,
   ) => {
+    if (reconnecting) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
@@ -407,7 +414,7 @@ export default function AuthPage() {
           }}
           onBackToSignIn={() => {
             setConfirmationEmail(null);
-            setEmailMode("sign-in");
+            switchEmailMode("sign-in");
             setError(null);
             resetCaptcha();
           }}
@@ -417,12 +424,12 @@ export default function AuthPage() {
   }
 
   const heading = !showEmailForm
-    ? "Welcome to FavLock"
+    ? emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
     : emailMode === "sign-up"
       ? "Create account"
       : "Sign in with email";
   const description = !showEmailForm
-    ? "Choose how you want to continue"
+    ? emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
     : emailMode === "sign-up"
       ? "Create your account using a permanent email address"
       : "Enter your FavLock account details";
@@ -450,7 +457,6 @@ export default function AuthPage() {
               className="w-full"
               onClick={() => {
                 setError(null);
-                setEmailMode("sign-in");
                 resetCaptcha();
                 setShowEmailForm(true);
               }}
@@ -650,6 +656,17 @@ export default function AuthPage() {
           </div>
         )}
 
+        {!reconnecting && (
+          <Text className="mt-5 text-center">
+            {emailMode === "sign-up" ? "Already have an account? " : "New to FavLock? "}
+            <Link
+              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up" })}
+              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+            >
+              {emailMode === "sign-up" ? "Sign in" : "Create account"}
+            </Link>
+          </Text>
+        )}
         <AuthLegalNotice />
       </div>
     </AuthLayout>
