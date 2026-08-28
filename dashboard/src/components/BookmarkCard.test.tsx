@@ -121,6 +121,42 @@ describe("BookmarkCard", () => {
     );
   });
 
+  it("preserves full bookmark, tag, and collection labels when truncated", async () => {
+    const title = "A long bookmark title ".repeat(12).trim();
+    const tagName = "LongTag".repeat(30);
+    const folderName = "LongCollection".repeat(20);
+    await act(async () => {
+      root.render(
+        <BookmarkCard
+          bookmark={{
+            ...bookmark,
+            title,
+            tags: [{ id: "long-tag", user_id: "user-1", name: tagName, created_at: bookmark.created_at }],
+            folders: [{ ...folders[0], id: "long-folder", name: folderName }],
+          }}
+          onDeleted={() => {}}
+        />,
+      );
+    });
+
+    const link = container.querySelector<HTMLAnchorElement>("h3 a")!;
+    const tag = container.querySelector('[aria-label="Tags"] [title]')!;
+    const collection = container.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')!;
+    expect(link.title).toBe(title);
+    expect(link.textContent).toBe(`${title} (opens in a new tab)`);
+    expect(tag.textContent).toBe(`#${tagName}`);
+    expect(tag.getAttribute("title")).toBe(`#${tagName}`);
+    expect(collection.title).toBe(folderName);
+    expect(collection.textContent).toBe(folderName);
+
+    await act(async () => collection.click());
+    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    const option = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]'))
+      .find((button) => button.textContent === "New collection")!;
+    await act(async () => option.click());
+    expect(mocks.moveBookmark).toHaveBeenCalledWith({ bookmarkId: bookmark.id, folderId: "new-folder" });
+  });
+
   it("uses Control for numbered shortcuts in Safari on macOS", () => {
     expect(
       getBookmarkShortcutModifier(

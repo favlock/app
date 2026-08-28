@@ -258,7 +258,7 @@ export default function BookmarkCard({
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}
-            className="block max-w-full truncate rounded-sm decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35"
+            className="relative block max-w-full truncate rounded-sm decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35"
           >
             {bookmark.title}
             <span className="sr-only"> (opens in a new tab)</span>
@@ -297,9 +297,11 @@ export default function BookmarkCard({
                   const tagBadge = (
                     <Badge
                       color="violet"
-                      className="bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                      className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
                     >
-                      #{tag.name}
+                      <span className="truncate" title={`#${tag.name}`}>
+                        #{tag.name}
+                      </span>
                     </Badge>
                   );
 
@@ -307,12 +309,14 @@ export default function BookmarkCard({
                     <Link
                       key={tag.id}
                       to={`/t/${tagSlug}`}
-                      className="rounded-md transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30"
+                      className="min-w-0 max-w-full rounded-md transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/30"
                     >
                       {tagBadge}
                     </Link>
                   ) : (
-                    <span key={tag.id}>{tagBadge}</span>
+                    <span key={tag.id} className="min-w-0 max-w-full">
+                      {tagBadge}
+                    </span>
                   );
                 })}
               </div>
@@ -345,10 +349,13 @@ export default function BookmarkCard({
                     ? getCollectionBadgeColor(currentFolder.color)
                     : "zinc"
                 }
-                className="cursor-pointer text-sm transition-opacity hover:opacity-85"
+                className="max-w-full cursor-pointer text-sm transition-opacity hover:opacity-85"
+                title={currentFolder ? currentFolder.name : "No collection"}
               >
-                <FolderIcon size={12} aria-hidden="true" />
-                {currentFolder ? currentFolder.name : "No collection"}
+                <FolderIcon size={12} className="shrink-0" aria-hidden="true" />
+                <span className="truncate">
+                  {currentFolder ? currentFolder.name : "No collection"}
+                </span>
               </BadgeButton>
 
               {showFolderMenu && (
@@ -422,7 +429,9 @@ export default function BookmarkCard({
                           : "text-[#4f5566] hover:bg-[#ffefcb]/70  "
                       }`}
                     >
-                      {folder.parent_id ? `↳ ${folder.name}` : folder.name}
+                      <span className="truncate" title={folder.name}>
+                        {folder.parent_id ? `↳ ${folder.name}` : folder.name}
+                      </span>
                     </Button>
                   ))}
                   {folders.length === 0 && (

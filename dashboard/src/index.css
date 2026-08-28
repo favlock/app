@@ -121,6 +121,10 @@ body::before {
   transform: translateZ(0);
 }
 
+.entry-card-preview {
+  overflow-wrap: anywhere;
+}
+
 .entry-editor:empty::before {
   content: attr(data-placeholder);
   color: color-mix(in oklab, var(--app-muted) 68%, transparent);
