@@ -7,7 +7,7 @@ export default function PublicOnlyRoute({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading, cloudStatus } = useAuth();
+  const { user, loading, cloudStatus, connectionError } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -33,5 +33,13 @@ export default function PublicOnlyRoute({
     );
   }
 
-  return <>{children}</>;
+  return <>
+    {connectionError && (
+      <section role="alert" aria-label="Account connection" className="mx-auto mt-4 max-w-lg rounded-xl border border-[var(--app-line)] bg-[var(--app-bg)] p-4 text-sm">
+        <p>{connectionError}</p>
+        <button type="button" className="mt-3 underline" onClick={() => window.location.reload()}>Reload FavLock</button>
+      </section>
+    )}
+    {children}
+  </>;
 }

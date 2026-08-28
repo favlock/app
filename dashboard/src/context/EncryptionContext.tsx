@@ -38,6 +38,7 @@ interface EncryptionContextType {
     options?: { rememberDevice?: boolean },
   ) => Promise<void>;
   setKeyRemembered: (rememberDevice: boolean) => Promise<void>;
+  lockKey: () => void;
   clearKey: () => Promise<void>;
   adoptMigratedKey: (
     key: CryptoKey,
@@ -62,14 +63,14 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     const generation = keyGeneration.current;
-    // Migrate from localStorage
-    if (localStorage.getItem(STORAGE_KEY)) {
-      localStorage.removeItem(STORAGE_KEY);
-    }
-
-    // Migrate from sessionStorage → IDB
-    const raw = sessionStorage.getItem(STORAGE_KEY);
     void (async () => {
+      // Migrate from localStorage
+      if (localStorage.getItem(STORAGE_KEY)) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+
+      // Migrate from sessionStorage → IDB
+      const raw = sessionStorage.getItem(STORAGE_KEY);
       await favLockAuth.getSession();
       const userId = favLockAuth.getLocalUser()?.id;
       if (!userId) return;
@@ -90,7 +91,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       setCryptoKey(key);
       setKeyRememberedState(!!key);
     })()
-      .catch(console.error)
+      .catch(() => { console.error("Could not load the saved encryption key. Check this browser's storage settings."); })
       .finally(() => { if (!cancelled) setKeyLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -195,13 +196,17 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
     setKeyRememberedState(rememberDevice);
   }, [cryptoKey]);
 
-  const clearKey = useCallback(async () => {
+  const lockKey = useCallback(() => {
     keyGeneration.current += 1;
     setCryptoKey(null);
     setKeyRememberedState(false);
     setNeedsUnlock(false);
-    await deleteKeyFromIDB();
   }, []);
+
+  const clearKey = useCallback(async () => {
+    lockKey();
+    await deleteKeyFromIDB();
+  }, [lockKey]);
 
   const adoptMigratedKey = useCallback(
     async (
@@ -259,6 +264,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       triggerUnlock,
       setRawKey,
       setKeyRemembered,
+      lockKey,
       clearKey,
       adoptMigratedKey,
       encryptField,
@@ -272,6 +278,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       triggerUnlock,
       setRawKey,
       setKeyRemembered,
+      lockKey,
       clearKey,
       adoptMigratedKey,
       encryptField,

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FavLockAuthClient, LOCAL_PROFILE_STORAGE_KEY, type AuthSession } from "./favLockAuth";
+import { CloudAccessError } from "./cloudAccess";
 
 const API_URL = "https://api.favlock.example";
 const AUTH_URL = "https://auth.favlock.example";
@@ -7,12 +8,31 @@ const DASHBOARD_URL = "https://dashboard.favlock.example";
 const SESSION_STORAGE_KEY = "favlock.auth.session.v1";
 const PKCE_STORAGE_KEY = "favlock.auth.pkce.v1";
 const USER_ID = "11111111-1111-4111-8111-111111111111";
+const SESSION_ID = "33333333-3333-4333-8333-333333333333";
+const OTHER_USER_ID = "22222222-2222-4222-8222-222222222222";
+const OTHER_SESSION_ID = "44444444-4444-4444-8444-444444444444";
 
 function response(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function deferredResponse() {
+  let resolve!: (value: Response) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<Response>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
+
+function fakeAccessToken(claims: Record<string, unknown>): string {
+  const encode = (value: Record<string, unknown>) => btoa(JSON.stringify(value))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `${encode({ alg: "HS256", typ: "JWT" })}.${encode(claims)}.fake-test-signature`;
 }
 
 function apiSession(overrides: Record<string, unknown> = {}) {
@@ -88,6 +108,7 @@ describe("FavLockAuthClient", () => {
     clients.length = 0;
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   function trackedClient(fetchImplementation = vi.fn()) {
@@ -136,6 +157,146 @@ describe("FavLockAuthClient", () => {
     await client.getSession();
     expect(client.getCloudStatus()).toBe("available");
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("renews an expired session on demand after timers were suspended overnight", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T20:00:00.000Z"));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    localStorage.setItem("local-vault-sentinel", "preserved");
+    const fetchMock = vi.fn().mockImplementation(async () => response({
+      data: { session: apiSession({ accessToken: "resumed-access", refreshToken: "resumed-refresh" }) },
+    }));
+    const client = trackedClient(fetchMock);
+    const listener = vi.fn();
+    client.onAuthStateChange(listener);
+    await client.getSession();
+
+    // Advancing the clock without running timers models a suspended browser.
+    vi.setSystemTime(new Date("2026-08-28T08:00:00.000Z"));
+    const results = await Promise.all([client.getSession(), client.getSession(), client.getSession()]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock.mock.calls[0][0]).toBe(`${API_URL}/v1/auth/session/refresh`);
+    for (const result of results) {
+      expect(result.error).toBeNull();
+      expect(result.data.session?.access_token).toBe("resumed-access");
+      expect(result.data.session!.expires_at * 1000).toBeGreaterThan(Date.now());
+    }
+    expect(client.getCloudStatus()).toBe("available");
+    expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+    expect(listener).not.toHaveBeenCalledWith("SIGNED_OUT", null);
+  });
+
+  it.each(["focus", "visibilitychange", "pageshow"] as const)(
+    "silently renews an expired session on %s without a network transition",
+    async (eventName) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-08-27T20:00:00.000Z"));
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+      const fetchMock = vi.fn().mockImplementation(async () => response({
+        data: { session: apiSession({ accessToken: "wake-access", refreshToken: "wake-refresh" }) },
+      }));
+      const client = trackedClient(fetchMock);
+      const stop = client.startCrossTabSynchronization();
+      await client.getSession();
+      vi.setSystemTime(new Date("2026-08-28T08:00:00.000Z"));
+
+      const target = eventName === "visibilitychange" ? document : window;
+      target.dispatchEvent(new Event(eventName));
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Assert the event itself started recovery, not a subsequent getSession().
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(client.getCloudStatus()).toBe("available");
+      expect((await client.getSession()).data.session?.access_token).toBe("wake-access");
+      stop();
+    },
+  );
+
+  it("does not rotate a healthy session for repeated wake events", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    const fetchMock = vi.fn();
+    const client = trackedClient(fetchMock);
+    const stop = client.startCrossTabSynchronization();
+    await client.getSession();
+
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("pageshow"));
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(client.getCloudStatus()).toBe("available");
+    stop();
+  });
+
+  it("does not refresh on a hidden visibility change or while offline", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T20:00:00.000Z"));
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    const online = vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    const fetchMock = vi.fn();
+    const client = trackedClient(fetchMock);
+    const stop = client.startCrossTabSynchronization();
+    await client.getSession();
+    vi.setSystemTime(new Date("2026-08-28T08:00:00.000Z"));
+
+    visibility.mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    visibility.mockReturnValue("visible");
+    online.mockReturnValue(false);
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("pageshow"));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(client.getCloudStatus()).toBe("offline");
+    expect(client.getLocalUser()?.id).toBe(USER_ID);
+    expect(localStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull();
+    stop();
+  });
+
+  it("shares one token rotation between clients waiting for the same browser lock", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-08-27T20:00:00.000Z"));
+    let queue = Promise.resolve();
+    const request = vi.fn((_name: string, _options: unknown, callback: () => Promise<AuthSession>) => {
+      const result = queue.then(callback);
+      queue = result.then(() => undefined, () => undefined);
+      return result;
+    });
+    vi.stubGlobal("navigator", new Proxy(navigator, {
+      get(target, property) {
+        return property === "locks" ? { request } : Reflect.get(target, property, target);
+      },
+    }));
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    const fetchMock = vi.fn().mockImplementation(async () => response({
+      data: { session: apiSession({ accessToken: "shared-access", refreshToken: "shared-refresh" }) },
+    }));
+    const first = trackedClient(fetchMock);
+    const second = trackedClient(fetchMock);
+    await Promise.all([first.getSession(), second.getSession()]);
+    vi.setSystemTime(new Date("2026-08-28T08:00:00.000Z"));
+
+    const results = await Promise.all([first.getSession(), second.getSession()]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(request).toHaveBeenCalled();
+    for (const result of results) {
+      expect(result.error).toBeNull();
+      expect(result.data.session?.access_token).toBe("shared-access");
+    }
+    expect(first.getCloudStatus()).toBe("available");
+    expect(second.getCloudStatus()).toBe("available");
   });
 
   it("retains a temporary failure offline and recovers when connectivity returns", async () => {
@@ -217,6 +378,7 @@ describe("FavLockAuthClient", () => {
     expect(client.getCloudStatus()).toBe(expected);
     expect(client.getLocalUser()?.id).toBe(USER_ID);
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).not.toBeNull();
+    expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected === true).toBe(status === 401);
     expect(listener).not.toHaveBeenCalledWith("SIGNED_OUT", null);
   });
 
@@ -224,7 +386,9 @@ describe("FavLockAuthClient", () => {
     vi.useFakeTimers();
     const session = storedSession({ expires_at: 1 });
     seedUnavailableSession(session);
-    localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({ version: 1, user: session.user, cloudStatus: status }));
+    localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({
+      version: 1, user: session.user, cloudStatus: status, refreshRejected: status === "reconnect_required",
+    }));
     const fetchMock = vi.fn();
     const client = trackedClient(fetchMock);
     await client.getSession();
@@ -233,6 +397,80 @@ describe("FavLockAuthClient", () => {
     expect(fetchMock).not.toHaveBeenCalled();
     expect(client.getCloudStatus()).toBe(status);
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+  });
+
+  it.each([false, true])("silently recovers a legacy reconnect marker (expired token: %s)", async (expired) => {
+    const session = storedSession(expired ? { expires_at: 1 } : {});
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+    localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({
+      version: 1, user: session.user, cloudStatus: "reconnect_required",
+    }));
+    localStorage.setItem("local-vault-sentinel", "preserved");
+    const fetchMock = vi.fn().mockResolvedValue(response({
+      data: { session: apiSession({ accessToken: "recovered-access", refreshToken: "recovered-refresh" }) },
+    }));
+    const client = trackedClient(fetchMock);
+
+    const results = await Promise.all([client.getSession(), client.getSession()]);
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(client.getCloudStatus()).toBe("available");
+    for (const result of results) {
+      expect(result.error).toBeNull();
+      expect(result.data.session?.access_token).toBe("recovered-access");
+    }
+    const profile = localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!;
+    expect(JSON.parse(profile).refreshRejected).not.toBe(true);
+    expect(profile).not.toMatch(/access_token|refresh_token|recovered-access|recovered-refresh/);
+    expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+  });
+
+  it("does not retry a server-rejected refresh after reload or wake", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(document, "visibilityState", "get").mockReturnValue("visible");
+    seedUnavailableSession();
+    const rejectedFetch = vi.fn().mockResolvedValue(response({ error: { message: "Session rejected." } }, 401));
+    const first = trackedClient(rejectedFetch);
+    await first.getSession();
+    expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected).toBe(true);
+    first.dispose();
+
+    const fetchMock = vi.fn();
+    const restored = trackedClient(fetchMock);
+    const stop = restored.startCrossTabSynchronization();
+    await restored.getSession();
+    window.dispatchEvent(new Event("focus"));
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("pageshow"));
+    await vi.advanceTimersByTimeAsync(120_000);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(restored.getCloudStatus()).toBe("reconnect_required");
+    expect(restored.getLocalUser()?.id).toBe(USER_ID);
+    expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+    stop();
+  });
+
+  it("does not label an ordinary data denial as rejected refresh credentials", async () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    const client = trackedClient();
+    await client.getSession();
+
+    client.markCloudFailure("access-token", "reconnect_required");
+
+    expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected).not.toBe(true);
+  });
+
+  it("does not mark a malformed successful refresh response as a server-rejected credential", async () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    const client = trackedClient(vi.fn().mockResolvedValue(response({ data: { session: { invalid: true } } })));
+    const context = await client.getRequestSession("access-token");
+
+    await expect(client.refreshRequestSession(context)).rejects.toBeInstanceOf(CloudAccessError);
+
+    expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected).not.toBe(true);
+    expect(client.getLocalUser()?.id).toBe(USER_ID);
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!).refresh_token).toBe("refresh-token");
   });
 
   it("schedules recovery for a transient cloud failure without waiting for expiry or reload", async () => {
@@ -327,6 +565,10 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient();
     await client.getSession();
     client.markCloudFailure("access-token", status);
+    if (status === "reconnect_required") {
+      const profile = JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!);
+      localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({ ...profile, refreshRejected: true }));
+    }
     const restored = trackedClient();
     await restored.getSession();
     expect(restored.getCloudStatus()).toBe(status);
@@ -367,6 +609,87 @@ describe("FavLockAuthClient", () => {
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
   });
 
+  it("does not surface an old refresh 401 when a same-account sign-in completes alongside it", async () => {
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+    localStorage.setItem("local-vault-sentinel", "preserved");
+    const refreshResponse = deferredResponse();
+    const loginResponse = deferredResponse();
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.endsWith("/refresh")) return refreshResponse.promise;
+      if (url.endsWith("/sign-in/password")) return loginResponse.promise;
+      throw new Error("Unexpected authentication request.");
+    });
+    const client = trackedClient(fetchMock);
+    await client.getSession();
+    const retry = client.retryCloudConnection().then(() => null, (error: unknown) => error);
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+    const signIn = client.signInWithPassword({
+      email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+    });
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    // Keep both resolutions in one turn: the refresh catch sees the old token
+    // before the login saves, but the outer failure handler runs afterwards.
+    refreshResponse.resolve(response({ error: { message: "Your session has expired. Sign in again." } }, 401));
+    loginResponse.resolve(response({
+      data: { session: apiSession({ accessToken: "signed-in-access", refreshToken: "signed-in-refresh" }) },
+    }));
+
+    expect((await signIn).error).toBeNull();
+    expect(await retry).toBeNull();
+    expect(client.getCloudStatus()).toBe("available");
+    expect((await client.getSession()).data.session?.access_token).toBe("signed-in-access");
+    expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!).refresh_token).toBe("signed-in-refresh");
+    expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).cloudStatus).toBe("available");
+    expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+  });
+
+  describe.each([false, true])("refresh completion after sign-in (explicit sign-out first: %s)", (signOutFirst) => {
+    it.each(["401", "403", "temporary", "success"] as const)(
+      "keeps the newer same-account login after the old refresh returns %s",
+      async (outcome) => {
+        localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+        const refreshResponse = deferredResponse();
+        const fetchMock = vi.fn().mockImplementation((url: string) => {
+          if (url.endsWith("/refresh")) return refreshResponse.promise;
+          if (url.endsWith("/logout")) return Promise.resolve(response({ data: {} }));
+          if (url.endsWith("/sign-in/password")) return Promise.resolve(response({
+            data: { session: apiSession({ accessToken: "signed-in-access", refreshToken: "signed-in-refresh" }) },
+          }));
+          throw new Error("Unexpected authentication request.");
+        });
+        const client = trackedClient(fetchMock);
+        await client.getSession();
+        const retry = client.retryCloudConnection().then(() => null, (error: unknown) => error);
+        await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+        if (signOutFirst) await client.signOut();
+        const signIn = await client.signInWithPassword({
+          email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+        });
+        expect(signIn.error).toBeNull();
+        expect(client.getCloudStatus()).toBe("available");
+
+        if (outcome === "temporary") {
+          refreshResponse.reject(new TypeError("Network unavailable for the old refresh."));
+        } else if (outcome === "success") {
+          refreshResponse.resolve(response({
+            data: { session: apiSession({ accessToken: "old-rotated-access", refreshToken: "old-rotated-refresh" }) },
+          }));
+        } else {
+          refreshResponse.resolve(response({ error: { message: "Old session was rejected." } }, Number(outcome)));
+        }
+
+        expect(await retry).toBeNull();
+        expect(client.getCloudStatus()).toBe("available");
+        const current = await client.getSession();
+        expect(current.error).toBeNull();
+        expect(current.data.session?.access_token).toBe("signed-in-access");
+        expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!).refresh_token).toBe("signed-in-refresh");
+        expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).cloudStatus).toBe("available");
+      },
+    );
+  });
+
   it("does not resurrect a session when refresh finishes after explicit sign-out", async () => {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
     let finishRefresh!: (value: Response) => void;
@@ -394,6 +717,203 @@ describe("FavLockAuthClient", () => {
     finish(response({ data: { session: apiSession() } }));
     expect((await signIn).error?.message).toContain("cancelled");
     expect(client.getLocalUser()).toBeNull();
+  });
+
+  describe("request sessions", () => {
+    it("renews near-expiry credentials once before concurrent requests", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-08-28T08:00:00.000Z"));
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+      const fetchMock = vi.fn().mockImplementation(async () => response({
+        data: { session: apiSession({ accessToken: "request-access", refreshToken: "request-refresh" }) },
+      }));
+      const client = trackedClient(fetchMock);
+      await client.getSession();
+      vi.setSystemTime(new Date("2026-08-28T08:59:05.000Z"));
+
+      const requests = await Promise.all([
+        client.getRequestSession("access-token"), client.getRequestSession("access-token"),
+      ]);
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      for (const request of requests) {
+        expect(request).toEqual({ accessToken: "request-access", userId: USER_ID, generation: expect.any(Number) });
+        expect(client.isRequestSessionCurrent(request)).toBe(true);
+      }
+      expect(requests[0].generation).toBe(requests[1].generation);
+    });
+
+    it("shares a rejected-token refresh and reuses it for later 401 responses", async () => {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+      const refreshResponse = deferredResponse();
+      const fetchMock = vi.fn().mockReturnValue(refreshResponse.promise);
+      const client = trackedClient(fetchMock);
+      const original = await client.getRequestSession("access-token");
+      const pending = Promise.all([
+        client.refreshRequestSession(original), client.refreshRequestSession(original),
+      ]);
+      await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
+      refreshResponse.resolve(response({
+        data: { session: apiSession({ accessToken: "rotated-access", refreshToken: "rotated-refresh" }) },
+      }));
+
+      const refreshed = await pending;
+      const lateResponse = await client.refreshRequestSession(original);
+
+      expect(fetchMock).toHaveBeenCalledOnce();
+      for (const request of [...refreshed, lateResponse]) {
+        expect(request.accessToken).toBe("rotated-access");
+        expect(request.generation).toBe(original.generation);
+        expect(client.isRequestSessionCurrent(request)).toBe(true);
+      }
+      expect(client.isRequestSessionCurrent(original)).toBe(true);
+    });
+
+    it.each([
+      { label: "a same-account sign-in", signOutFirst: false, nextUserId: USER_ID },
+      { label: "sign-out and same-account sign-in", signOutFirst: true, nextUserId: USER_ID },
+      { label: "sign-out and different-account sign-in", signOutFirst: true, nextUserId: OTHER_USER_ID },
+    ])("invalidates old request work after $label", async ({ signOutFirst, nextUserId }) => {
+      const originalToken = fakeAccessToken({ sub: USER_ID, session_id: SESSION_ID });
+      const nextToken = fakeAccessToken({ sub: nextUserId, session_id: OTHER_SESSION_ID });
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession({ access_token: originalToken })));
+      const fetchMock = vi.fn().mockImplementation((url: string) => {
+        if (url.endsWith("/logout")) return Promise.resolve(response({ data: {} }));
+        if (url.endsWith("/sign-in/password")) return Promise.resolve(response({
+          data: { session: apiSession({
+            accessToken: nextToken, refreshToken: "new-login-refresh",
+            user: { ...apiSession().user, id: nextUserId },
+          }) },
+        }));
+        throw new Error("Stale request work must not start a refresh.");
+      });
+      const client = trackedClient(fetchMock);
+      const original = await client.getRequestSession(originalToken);
+      if (signOutFirst) await client.signOut();
+      const login = await client.signInWithPassword({
+        email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+      });
+      expect(login.error).toBeNull();
+
+      expect(client.isRequestSessionCurrent(original)).toBe(false);
+      await expect(client.refreshRequestSession(original)).rejects.toBeInstanceOf(Error);
+      await expect(client.getRequestSession(originalToken)).rejects.toBeInstanceOf(Error);
+      const current = await client.getRequestSession(nextToken);
+
+      expect(current.userId).toBe(nextUserId);
+      expect(current.accessToken).toBe(nextToken);
+      expect(current.generation).not.toBe(original.generation);
+      expect(client.isRequestSessionCurrent(current)).toBe(true);
+      expect(fetchMock).toHaveBeenCalledTimes(signOutFirst ? 2 : 1);
+      expect(client.getCloudStatus()).toBe("available");
+    });
+
+    it("keeps a long-running sync closure bound to its JWT session through many token rotations", async () => {
+      const initialToken = fakeAccessToken({ sub: USER_ID, session_id: SESSION_ID, revision: 0 });
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession({ access_token: initialToken })));
+      const fetchMock = vi.fn();
+      const client = trackedClient(fetchMock);
+      const initial = await client.getRequestSession(initialToken);
+      const stop = client.startCrossTabSynchronization();
+      let currentToken = initialToken;
+
+      for (let revision = 1; revision <= 16; revision += 1) {
+        currentToken = fakeAccessToken({ sub: USER_ID, session_id: SESSION_ID, revision });
+        const stored = JSON.stringify(storedSession({
+          access_token: currentToken, refresh_token: `rotated-refresh-${revision}`,
+        }));
+        localStorage.setItem(SESSION_STORAGE_KEY, stored);
+        window.dispatchEvent(new StorageEvent("storage", { key: SESSION_STORAGE_KEY, newValue: stored }));
+        await client.getSession();
+      }
+
+      const request = await client.getRequestSession(initialToken);
+
+      expect(request.accessToken).toBe(currentToken);
+      expect(request.generation).toBe(initial.generation);
+      expect(client.isRequestSessionCurrent(initial)).toBe(true);
+      expect(fetchMock).not.toHaveBeenCalled();
+      stop();
+    });
+
+    it.each([
+      ["another user", fakeAccessToken({ sub: OTHER_USER_ID, session_id: SESSION_ID })],
+      ["another session", fakeAccessToken({ sub: USER_ID, session_id: OTHER_SESSION_ID })],
+      ["a missing session id", fakeAccessToken({ sub: USER_ID })],
+      ["a malformed token", "not-a-jwt"],
+      ["an empty token", ""],
+    ])("rejects a caller from %s without substituting the current credentials", async (_label, callerToken) => {
+      const currentToken = fakeAccessToken({ sub: USER_ID, session_id: SESSION_ID });
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession({ access_token: currentToken })));
+      const fetchMock = vi.fn();
+      const client = trackedClient(fetchMock);
+      const current = await client.getRequestSession(currentToken);
+
+      await expect(client.getRequestSession(callerToken)).rejects.toBeInstanceOf(Error);
+
+      expect(client.isRequestSessionCurrent({ ...current, accessToken: callerToken })).toBe(false);
+      expect(client.isRequestSessionCurrent(current)).toBe(true);
+      expect(client.getCloudStatus()).toBe("available");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      [401, "reconnect_required"], [403, "restricted"], [503, "unavailable"],
+    ] as const)("returns a typed cloud failure after refresh HTTP %s without clearing local data", async (status, code) => {
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession()));
+      localStorage.setItem("local-vault-sentinel", "preserved");
+      const fetchMock = vi.fn().mockResolvedValue(response({ error: { message: "Refresh request failed." } }, status));
+      const client = trackedClient(fetchMock);
+      const original = await client.getRequestSession("access-token");
+
+      const result = client.refreshRequestSession(original);
+      await expect(result).rejects.toBeInstanceOf(CloudAccessError);
+      await expect(result).rejects.toMatchObject({ code });
+
+      expect(client.getLocalUser()?.id).toBe(USER_ID);
+      expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
+      expect((await client.getSession()).data.session?.refresh_token).toBe("refresh-token");
+      expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected === true).toBe(status === 401);
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
+
+    it("returns unavailable for offline requests while retaining the local session", async () => {
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(storedSession({ expires_at: 1 })));
+      const fetchMock = vi.fn();
+      const client = trackedClient(fetchMock);
+
+      await expect(client.getRequestSession("access-token")).rejects.toMatchObject({ code: "unavailable" });
+
+      expect((await client.getSession()).data.session?.refresh_token).toBe("refresh-token");
+      expect(client.getLocalUser()?.id).toBe(USER_ID);
+      expect(client.getCloudStatus()).toBe("offline");
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("clears refresh rejection only after a successful same-account sign-in", async () => {
+      const session = storedSession();
+      localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
+      localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({
+        version: 1, user: session.user, cloudStatus: "reconnect_required", refreshRejected: true,
+      }));
+      const fetchMock = vi.fn().mockResolvedValue(response({
+        data: { session: apiSession({ accessToken: "signed-in-access", refreshToken: "signed-in-refresh" }) },
+      }));
+      const client = trackedClient(fetchMock);
+      await expect(client.getRequestSession("access-token")).rejects.toMatchObject({ code: "reconnect_required" });
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      const login = await client.signInWithPassword({
+        email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+      });
+
+      expect(login.error).toBeNull();
+      expect((await client.getRequestSession("signed-in-access")).accessToken).toBe("signed-in-access");
+      expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!).refreshRejected).not.toBe(true);
+      expect(client.getCloudStatus()).toBe("available");
+      expect(fetchMock).toHaveBeenCalledOnce();
+    });
   });
 
   it("starts Google OAuth on the configured Auth origin with S256 PKCE", async () => {
@@ -842,6 +1362,7 @@ describe("FavLockAuthClient", () => {
     client.onAuthStateChange(listener);
     const stop = client.startCrossTabSynchronization();
 
+    localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify({ user: "invalid" }));
     window.dispatchEvent(
       new StorageEvent("storage", {
         key: SESSION_STORAGE_KEY,
