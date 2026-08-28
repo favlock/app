@@ -42,6 +42,42 @@ changes between tabs. Session and PKCE values remain browser-readable, so XSS
 prevention remains essential; credentials and tokens must never be logged or
 persisted by the API.
 
+The dashboard renews expiring access tokens before cloud requests and when a
+visible page resumes. Access-token expiry alone does not require another login.
+An explicit HTTP 401 can trigger one coordinated refresh and one retry with the
+unchanged request body. Requests stay bound to the originating account and
+sign-in generation, including while responses are read. Bounded JWT subject and
+session identifiers are used only to recognize token rotation for local request
+isolation, never as authentication. Old refresh results cannot invalidate a
+newer login. Network failures, timeouts, HTTP 403, and server errors never cause
+automatic mutation replay.
+
+Refresh-lock acquisition and Auth HTTP requests each have an eight-second
+deadline while the page is running. A timed-out lock request is cancelled,
+never bypassed or stolen; later recovery can retry without logging out.
+Browser-storage errors are recoverable availability failures, not evidence of
+an expired account. A newly issued rotation that cannot yet be persisted stays
+private to the current login and cannot authorize ordinary cloud requests until
+storage repair succeeds. Account changes discard that pending rotation.
+
+A token-free local profile marker distinguishes rejected refresh credentials
+from older clients' reconnect notices. An old notice without confirmed refresh
+rejection gets one silent startup recovery attempt. A rejected refresh or an
+account restriction still requires explicit recovery; this does not lengthen
+access-token validity, disable rotation or revocation, or override hosted Auth
+session policies.
+
+Optional local session/profile revision identifiers bind a saved rejection to
+the credentials it actually describes, so an interrupted profile write cannot
+attach an older rejection to a fresh login. A token-free local-account lifecycle
+record distinguishes reconnect from explicit logout, including after a tab has
+been suspended. Its signed-out marker prevents failed credential removal from
+restoring an old login on reload. New PKCE attempts bind to the current local
+account lifecycle so deliberate Google and recovery sign-ins after logout work,
+while older callbacks cannot undo a later logout or account switch. These local
+metadata values are not server authorization and do not change encrypted
+content or the public API contract.
+
 Automatic refresh rejection and cloud authorization failures do not perform a
 local sign-out. A versioned, token-free local account profile is independent of
 cloud credentials. Existing session records seed that profile without requiring
@@ -69,13 +105,20 @@ Malformed or missing cloud credentials detach cloud access without erasing an
 existing local profile. Explicit sign-out and user-requested local-data cleanup
 still clear local keys and caches. Sync work is invalidated and drained before
 cache removal so late responses cannot repopulate the cleared projection.
+When another tab already signed out or changed the local account, a resumed tab
+invalidates only its own auth, in-memory key, and displayed data. It asks for a
+reload without deleting shared credentials, remembered keys, or caches that a
+newer login may own. Blocked storage also settles startup with a visible recovery
+message instead of leaving an indefinite loading screen.
 
 The Chrome extension retains its local profile and key after refresh rejection.
 Cloud operations require a current session and server approval. Reconnect and
 pairing reject another account UUID; explicit disconnect clears the profile and
 key and invalidates pending authentication work. Refresh uses single-flight and
 Web Locks where supported; storage transitions are serialized. Neither client
-automatically retries a rejected write.
+replays writes with uncertain outcomes. The Chrome extension does not
+automatically retry rejected writes; the dashboard's only authentication retry
+is the bounded HTTP 401 recovery described above.
 
 Pro checkout is created by `POST /v1/billing/checkout` with a current bearer and
 an attempt UUID. The client no longer uses a public product link with editable

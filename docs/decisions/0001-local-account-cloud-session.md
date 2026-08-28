@@ -2,6 +2,7 @@
 
 Status: implemented locally; deployment is a separate operation.
 Date: 2026-08-27.
+Updated: 2026-08-28 (dashboard session recovery).
 
 ## Context
 
@@ -24,12 +25,30 @@ identity must not allow data or keys to leak into a different cloud account.
 - Stop ordinary dashboard cloud work while unavailable. Display a non-blocking
   reconnect notice. On online startup, recheck a saved temporary failure even
   if the access token is still unexpired. Refresh attempts have an eight-second
-  request deadline; transient failures retry after 30 seconds while online.
+  request deadline and an eight-second browser-lock acquisition deadline;
+  transient failures retry after 30 seconds while online. Cancel timed-out lock
+  requests without bypassing another tab's lock.
   Successful recovery clears the startup error. Persisted restrictions or
-  rejected credentials require explicit recovery, and late network errors
-  cannot restart automatic retries after a denial. Refreshing credentials is
-  not proof of authorization: each subsequent cloud operation is checked by
-  the server. Recovery never replays a failed mutation.
+  confirmed refresh-credential rejection require explicit recovery, and late
+  network errors cannot restart automatic retries after a denial. Older
+  reconnect notices without the token-free `refreshRejected` marker are
+  rechecked once on startup; an expired access token is not proof that the
+  refresh credential is invalid. Refreshing credentials is not proof of
+  authorization: each subsequent cloud operation is checked by the server.
+- Renew dashboard access tokens before requests and on visible focus,
+  visibility change, or page restoration. Reuse a rotation already completed by
+  another request or tab. An explicit HTTP 401 permits one refresh and one
+  retry with the original request body, bound to the same account and sign-in
+  generation. Never replay uncertain mutations after network errors, timeouts,
+  or server failures, and never retry HTTP 403 restrictions automatically.
+  Stale refresh, initialization, and retry-notice results cannot replace a
+  newer successful login. The extension's retry behavior is unchanged.
+- Treat denied or full browser storage as recoverable unavailability. Never
+  delete credentials because a read failed, or publish a usable login before
+  credentials are persisted. Keep an unpersisted server-issued rotation private
+  to its original login and retry its persistence without reusing the previous
+  refresh token. Bind profile status to the local credential-write revision so
+  an old rejected marker cannot survive a partially saved fresh login.
 - Bind reconnect to the original account UUID. Reject switching UUIDs, even
   with an identical email. Preserve the old vault; offer export and explicit
   sign-out or a separate browser profile instead of silently migrating keys.
@@ -40,6 +59,18 @@ identity must not allow data or keys to leak into a different cloud account.
 - Explicit sign-out/disconnect remains destructive by user intent. Invalidate
   late auth/key results; cancel and drain pending sync before clearing caches.
   Ordinary cloud denial never calls these cleanup paths.
+- Publish a token-free local-account lifecycle marker on explicit logout. Its
+  signed-out state blocks restoration of credentials left behind by failed
+  removal. Suspended peers reconcile the current marker on storage events and
+  visible resume, even offline; they lock their in-memory account and request a
+  reload without deleting another login's shared key, credentials, or cache.
+  Startup storage errors settle loading and expose a safe recovery message;
+  optional theme preferences do not prevent that message from rendering.
+- Bind new PKCE attempts to the local-account lifecycle, including anonymous
+  starts. Permit a fresh Google, confirmation, or recovery callback after logout,
+  but reject callbacks from before a subsequent logout/account switch. Preserve
+  legacy callbacks when no lifecycle marker exists. Once callback credentials
+  are persisted, remove the consumed code even if profile persistence needs repair.
 - Create checkout through the server-owned billing endpoint using only bearer
   identity and an attempt UUID. Do not fall back to public product-link metadata
   or automatically retry uncertain checkout requests. Keep the billing portal
@@ -51,13 +82,23 @@ Existing session and encrypted-content formats remain readable. Added local
 profile/verifier records require no server migration. Existing valid sessions
 do not need a forced re-login. Expired or revoked refresh credentials may still
 require interactive authentication for cloud access, not for local browsing.
+The dashboard recovery update adds optional token-free profile/session revision
+and PKCE lifecycle metadata and a local-account lifecycle record. Existing
+session records remain readable; it needs no new API contract, backend migration,
+or encrypted-data format. Fully blocked storage can prevent durable logout or
+login, and closing a tab before an unpersisted rotation is saved loses that
+in-memory recovery.
+Hosted inactivity, time-box, and single-session policies remain authoritative
+and must be checked separately when investigating production reauthentication.
 
 Deploy the backend live-account gate, structured quota errors and checkout
 eligibility support first, then the matching API including server checkout,
 then this dashboard/extension. Do not extend JWT lifetimes or disable revocation.
 Older clients do not understand the new local/cloud distinction; mixed client
 versions can still perform their previous explicit cleanup behavior. Rollback
-to an older client does not provide the new local-access guarantees.
+to an older client does not provide the new local-access guarantees. Reload
+older open tabs after updating so every tab participates in the lifecycle and
+credential-revision checks.
 
 ## Consequences and limits
 
