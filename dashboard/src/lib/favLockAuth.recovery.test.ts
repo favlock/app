@@ -761,6 +761,7 @@ describe("PKCE callbacks after explicit logout", () => {
 
     expect(repaired.error).toBeNull();
     expect(repaired.data.session?.refresh_token).toBe("callback-refresh");
+    expect(callbackClient.getCallbackFailure()).toBeNull();
     expect(callbackClient.getCloudStatus()).toBe("available");
     expect((await callbackClient.getRequestSession("callback-access")).accessToken).toBe("callback-access");
     expect(JSON.parse(localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY)!)).toMatchObject({ user: { id: USER_ID }, cloudStatus: "available" });

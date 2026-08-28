@@ -8,6 +8,12 @@ import {
 } from "./authNavigation";
 
 describe("authentication navigation", () => {
+  it("does not carry callback secrets or provider errors into login return intent", () => {
+    const next = "/checkout?code=fake-code&sb_flow_id=fake-flow&view=compact#error=access_denied&error_description=private&access_token=fake-token";
+    expect(normalizePostAuthPath(next)).toBe("/checkout?view=compact");
+    expect(buildAuthPath("/login", next, { reconnect: true })).toBe("/login?next=%2Fcheckout%3Fview%3Dcompact&reconnect=1");
+  });
+
   it.each([
     ["", "sign-in"], ["mode=sign-in", "sign-in"], ["mode=sign-up", "sign-up"],
     ["mode=unknown", "sign-in"], ["mode=SIGN-UP", "sign-in"],

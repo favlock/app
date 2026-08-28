@@ -8,6 +8,7 @@ import { EncryptionProvider } from "./context/EncryptionContext";
 import UnlockDialog from "./components/UnlockDialog";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import AuthCallbackBoundary from "./components/AuthCallbackBoundary";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
 import LegacyNotesRedirect from "./components/LegacyNotesRedirect";
@@ -57,6 +58,7 @@ function App() {
           <ThemeProvider>
             <BrowserRouter>
               <Suspense fallback={<RouteFallback />}>
+                <AuthCallbackBoundary>
                 <Routes>
                   <Route
                     path="/login"
@@ -123,6 +125,7 @@ function App() {
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </AuthCallbackBoundary>
               </Suspense>
             </BrowserRouter>
           </ThemeProvider>
