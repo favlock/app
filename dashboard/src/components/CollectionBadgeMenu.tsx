@@ -95,12 +95,13 @@ export default function CollectionBadgeMenu({
           }
         }}
         aria-label={`Change collection for ${title}`}
+        title={currentFolder?.name ?? "No collection"}
         aria-haspopup="menu"
         aria-expanded={open}
         color={getCollectionBadgeColor(currentFolder?.color)}
         className="max-w-full cursor-pointer transition-all hover:-translate-y-0.5 hover:opacity-90"
       >
-        <FolderIcon size={12} aria-hidden="true" />
+        <FolderIcon size={12} className="shrink-0" aria-hidden="true" />
         <span className="truncate">
           {currentFolder?.name ?? "No collection"}
         </span>
@@ -177,7 +178,7 @@ export default function CollectionBadgeMenu({
                 style={{ backgroundColor: getDisplayColor(candidate.color) }}
                 aria-hidden="true"
               />
-              <span className="truncate">
+              <span className="truncate" title={candidate.name}>
                 {candidate.parent_id ? `↳ ${candidate.name}` : candidate.name}
               </span>
             </Button>

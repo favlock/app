@@ -106,9 +106,11 @@ export default function ReadspaceCard({
                 <Badge
                   key={tag.id}
                   color="violet"
-                  className="bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                  className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
                 >
-                  #{tag.name}
+                  <span className="truncate" title={`#${tag.name}`}>
+                    #{tag.name}
+                  </span>
                 </Badge>
               ))}
             </div>
