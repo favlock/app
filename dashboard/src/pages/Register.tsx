@@ -6,10 +6,11 @@ import {
   type SubmitEvent,
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Description } from "@headlessui/react";
 import { ArrowLeft, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
 import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "../components/ui/button";
-import { Field, FieldGroup, Label } from "../components/ui/fieldset";
+import { ErrorMessage, Field, FieldGroup, Label } from "../components/ui/fieldset";
 import { Input } from "../components/ui/input";
 import { Heading } from "../components/ui/heading";
 import { Text } from "../components/ui/text";
@@ -22,18 +23,20 @@ import CloudflareTurnstile, {
   type CloudflareTurnstileHandle,
 } from "../components/CloudflareTurnstile";
 import {
+  buildAuthPath,
+  getAuthMode,
   getDashboardRedirectUrl,
   getPostAuthPath,
+  type AuthMode,
 } from "../lib/authNavigation";
 import { WEB_TERMS_URL } from "../lib/appUrls";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
+import { isPasswordRecoveryRedirectUrl } from "../lib/authRecovery";
 
 const SUPPORT_EMAIL = "support@favlock.app";
 const DISPOSABLE_EMAIL_TERMS_URL = `${WEB_TERMS_URL}#disposable-email-addresses`;
 
-type EmailMode = "sign-in" | "sign-up";
-
-const EMAIL_MODES: EmailMode[] = ["sign-in", "sign-up"];
+const EMAIL_MODES: AuthMode[] = ["sign-in", "sign-up"];
 
 function AuthErrorNotice({ message }: { message: string }) {
   const isDisposableEmailError = message.includes(
@@ -44,6 +47,7 @@ function AuthErrorNotice({ message }: { message: string }) {
     <div
       className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3"
       role="alert"
+      id="email-auth-error"
     >
       <Text className="text-sm text-red-600!">
         {isDisposableEmailError ? (
@@ -76,11 +80,13 @@ function AuthErrorNotice({ message }: { message: string }) {
 function EmailConfirmation({
   email,
   emailRedirectTo,
+  initiallySent,
   onUseDifferentEmail,
   onBackToSignIn,
 }: {
   email: string;
   emailRedirectTo: string;
+  initiallySent: boolean;
   onUseDifferentEmail: () => void;
   onBackToSignIn: () => void;
 }) {
@@ -88,9 +94,28 @@ function EmailConfirmation({
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
+  const [resendEmail, setResendEmail] = useState(email);
+  const [retryAt, setRetryAt] = useState(() => initiallySent ? Date.now() + 60_000 : 0);
+  const [now, setNow] = useState(Date.now);
+  const remainingSeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
+  const resendingRef = useRef(false);
+  const panelRef = useRef<HTMLDivElement>(null);
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
+  useEffect(() => { panelRef.current?.focus(); }, []);
+  useEffect(() => {
+    if (!retryAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
+
   const handleResend = async () => {
+    if (resendingRef.current || Date.now() < retryAt) return;
+    const normalizedEmail = resendEmail.trim();
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
+      setResendError("Enter the email address you used to sign up.");
+      return;
+    }
     if (!captchaToken) {
       setResendError(
         "Complete the security verification before requesting another email.",
@@ -98,46 +123,55 @@ function EmailConfirmation({
       return;
     }
 
+    resendingRef.current = true;
     setResending(true);
     setResendError(null);
     setResent(false);
 
-    const { error } = await favLockAuth.resend({
-      type: "signup",
-      email,
-      options: { captchaToken, emailRedirectTo },
-    });
-
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
-    setResending(false);
-
-    if (error) {
-      setResendError(error.message);
-      return;
+    setNow(Date.now());
+    setRetryAt(Date.now() + 60_000);
+    try {
+      const { error } = await favLockAuth.resend({
+        type: "signup",
+        email: normalizedEmail,
+        options: { captchaToken, emailRedirectTo },
+      });
+      if (error) {
+        setResendError("code" in error && error.code === "rate_limited"
+          ? "Too many email requests. Wait at least a minute before trying again. The email service may require a longer wait."
+          : error.message);
+        return;
+      }
+      setResent(true);
+    } catch {
+      setResendError("We could not confirm the request. Check your inbox before trying again.");
+    } finally {
+      captchaRef.current?.reset();
+      setCaptchaToken(null);
+      resendingRef.current = false;
+      setResending(false);
     }
-
-    setResent(true);
   };
 
   return (
-    <div className="w-full text-center">
+    <div ref={panelRef} tabIndex={-1} aria-labelledby="confirmation-heading" className="w-full text-center outline-none">
       <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-emerald-700/20 bg-emerald-500/12 text-emerald-700 shadow-[0_4px_0_rgba(15,118,110,0.12)]">
         <MailCheck className="size-7" aria-hidden="true" />
       </div>
 
-      <Heading className="mt-5">Check your inbox</Heading>
-      <Text className="mt-2">We sent a confirmation link to</Text>
-      <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>
+      <Heading id="confirmation-heading" className="mt-5">{initiallySent || resent ? "Check your inbox" : "Confirm your email"}</Heading>
+      <Text className="mt-2">{initiallySent ? "Your signup request was accepted. Check for a confirmation email at" : "Request a new link for the email you used to sign up."}</Text>
+      {email && <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>}
 
       <div className="mt-5 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 px-4 py-3 text-left">
         <p className="text-sm font-semibold text-[#202229]">
           Confirm your email to finish signing up
         </p>
         <p className="mt-1 text-sm leading-5 text-[#555b6b]">
-          Open the email and select the confirmation link. You can close this
-          tab afterward—we’ll sign you in when you return.
+          You are not signed in yet. Open the latest confirmation link in this
+          browser and profile to continue. Check your spam folder too.
         </p>
+        <p className="mt-2 text-sm leading-5 text-[#555b6b]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
       </div>
 
       <div className="mt-5 border-t border-[#1d2230]/10 pt-5 text-left">
@@ -145,9 +179,13 @@ function EmailConfirmation({
           Didn’t receive it?
         </p>
         <p className="mt-1 text-sm leading-5 text-[#555b6b]">
-          Check your spam folder, or complete the security check to send a new
-          link.
+          If the link expired, request a new one below. Wait at least 60 seconds
+          between requests; the email service may apply longer limits.
         </p>
+        {!email && <Field className="mt-4">
+          <Label>Email</Label>
+          <Input name="confirmationEmail" type="email" autoComplete="email" required value={resendEmail} disabled={resending} onChange={(event) => setResendEmail(event.target.value)} />
+        </Field>}
 
         {resendError && (
           <div
@@ -164,7 +202,7 @@ function EmailConfirmation({
             role="status"
             aria-live="polite"
           >
-            A new confirmation email is on its way.
+            Request accepted. If this address needs confirmation, a new email will arrive. Open the latest link in this browser.
           </div>
         )}
 
@@ -177,11 +215,11 @@ function EmailConfirmation({
           type="button"
           outline
           className="mt-3 w-full"
-          disabled={resending || !captchaToken}
+          disabled={resending || !captchaToken || remainingSeconds > 0}
           onClick={() => void handleResend()}
         >
           <Mail data-slot="icon" aria-hidden="true" />
-          {resending ? "Sending..." : "Resend confirmation email"}
+          {resending ? "Sending..." : remainingSeconds > 0 ? `Resend available in ${remainingSeconds}s` : "Resend confirmation email"}
         </Button>
       </div>
 
@@ -190,6 +228,7 @@ function EmailConfirmation({
           type="button"
           className="font-medium text-emerald-700 hover:underline"
           onClick={onUseDifferentEmail}
+          disabled={resending}
         >
           Use a different email
         </button>
@@ -200,6 +239,7 @@ function EmailConfirmation({
           type="button"
           className="font-medium text-emerald-700 hover:underline"
           onClick={onBackToSignIn}
+          disabled={resending}
         >
           Back to sign in
         </button>
@@ -212,34 +252,36 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reconnecting = searchParams.get("reconnect") === "1";
+  const requestingConfirmation = searchParams.get("confirmation") === "1";
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [emailMode, setEmailMode] = useState<EmailMode>("sign-in");
+  const emailMode = getAuthMode(searchParams);
   const [error, setError] = useState<string | null>(null);
+  const [invalidField, setInvalidField] = useState<"email" | "password" | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
     null,
   );
+  const [confirmationSent, setConfirmationSent] = useState(false);
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
   useEffect(() => {
+    setError(null);
+    setPassword("");
+    setInvalidField(null);
+    setConfirmationEmail(null);
+    setConfirmationSent(false);
+    captchaRef.current?.reset();
+    setCaptchaToken(null);
+  }, [emailMode, requestingConfirmation]);
+
+  useEffect(() => {
     const url = new URL(window.location.href);
-    const hashParams = new URLSearchParams(url.hash.replace(/^#/, ""));
-    const currentSearchParams = url.searchParams;
-
-    const isRecoveryLink =
-      hashParams.get("type") === "recovery" ||
-      currentSearchParams.get("type") === "recovery" ||
-      currentSearchParams.has("code");
-
-    if (isRecoveryLink) {
+    if (isPasswordRecoveryRedirectUrl(url)) {
       navigate(
         `/reset-password${window.location.search}${window.location.hash}`,
         { replace: true },
@@ -247,10 +289,6 @@ export default function AuthPage() {
       return;
     }
 
-    const authError =
-      hashParams.get("error_description") ||
-      currentSearchParams.get("error_description");
-    if (authError) setError(authError);
   }, [navigate]);
 
   const resetCaptcha = () => {
@@ -258,19 +296,16 @@ export default function AuthPage() {
     setCaptchaToken(null);
   };
 
-  const switchEmailMode = (mode: EmailMode) => {
-    if (reconnecting && mode === "sign-up") return;
-    setEmailMode(mode);
-    setError(null);
-    setPassword("");
-    setConfirmPassword("");
-    resetCaptcha();
+  const switchEmailMode = (mode: AuthMode) => {
+    if (mode === emailMode || (reconnecting && mode === "sign-up")) return;
+    navigate(buildAuthPath("/login", nextPath, { mode, reconnect: reconnecting }));
   };
 
   const selectEmailModeFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
-    currentMode: EmailMode,
+    currentMode: AuthMode,
   ) => {
+    if (reconnecting) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
@@ -294,41 +329,43 @@ export default function AuthPage() {
 
   const handleEmailSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loading) return;
     setError(null);
+    setInvalidField(null);
+
+    const rejectField = (field: "email" | "password", message: string) => {
+      setError(message);
+      setInvalidField(field);
+      const input = event.currentTarget.elements.namedItem(field);
+      if (input instanceof HTMLInputElement) input.focus();
+    };
 
     const normalizedEmail = email.trim();
     if (!normalizedEmail) {
-      setError("Enter your email address.");
+      rejectField("email", "Enter your email address.");
       return;
     }
 
-    if (!/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
-      setError("Enter a valid email address.");
+    if (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+$/.test(normalizedEmail)) {
+      rejectField("email", "Enter a valid email address.");
       return;
     }
 
     if (!password) {
-      setError("Enter your password.");
-      return;
-    }
-
-    if (
-      emailMode === "sign-up" &&
-      (!firstName.trim() || !lastName.trim())
-    ) {
-      setError("Enter your first and last name.");
-      return;
-    }
-
-    if (emailMode === "sign-up" && password !== confirmPassword) {
-      setError("Passwords do not match.");
+      rejectField("password", "Enter your password.");
       return;
     }
 
     if (emailMode === "sign-up" && password.length < MIN_PASSWORD_LENGTH) {
-      setError(
+      rejectField(
+        "password",
         `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
       );
+      return;
+    }
+
+    if (emailMode === "sign-up" && password.length > 1024) {
+      rejectField("password", "Password must be no more than 1024 characters.");
       return;
     }
 
@@ -352,6 +389,11 @@ export default function AuthPage() {
       resetCaptcha();
 
       if (signInError) {
+        if ("code" in signInError && signInError.code === "email_not_confirmed") {
+          setPassword("");
+          setConfirmationSent(false);
+          setConfirmationEmail(normalizedEmail);
+        }
         setError(signInError.message);
         setLoading(false);
         return;
@@ -368,10 +410,6 @@ export default function AuthPage() {
       options: {
         captchaToken,
         emailRedirectTo,
-        data: {
-          first_name: firstName.trim(),
-          last_name: lastName.trim(),
-        },
       },
     });
     resetCaptcha();
@@ -389,25 +427,28 @@ export default function AuthPage() {
     }
 
     setPassword("");
-    setConfirmPassword("");
+    setConfirmationSent(true);
     setConfirmationEmail(normalizedEmail);
   };
 
-  if (confirmationEmail) {
+  if (confirmationEmail || requestingConfirmation) {
     return (
       <AuthLayout>
         <EmailConfirmation
-          email={confirmationEmail}
+          email={confirmationEmail ?? ""}
+          initiallySent={confirmationSent}
           emailRedirectTo={emailRedirectTo}
           onUseDifferentEmail={() => {
             setConfirmationEmail(null);
             setEmail("");
             setError(null);
             resetCaptcha();
+            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting ? "sign-in" : "sign-up", reconnect: reconnecting }));
           }}
           onBackToSignIn={() => {
             setConfirmationEmail(null);
-            setEmailMode("sign-in");
+            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting }));
+            setShowEmailForm(true);
             setError(null);
             resetCaptcha();
           }}
@@ -417,12 +458,12 @@ export default function AuthPage() {
   }
 
   const heading = !showEmailForm
-    ? "Welcome to FavLock"
+    ? emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
     : emailMode === "sign-up"
       ? "Create account"
       : "Sign in with email";
   const description = !showEmailForm
-    ? "Choose how you want to continue"
+    ? emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
     : emailMode === "sign-up"
       ? "Create your account using a permanent email address"
       : "Enter your FavLock account details";
@@ -434,7 +475,7 @@ export default function AuthPage() {
         <Text className="mt-1">{description}</Text>
         {reconnecting && <Text className="mt-3">Reconnect to the original account to use cloud services. Your local library stays on this device. <Link className="underline" to="/">Back to local library</Link></Text>}
 
-        {error && <AuthErrorNotice message={error} />}
+        {error && !invalidField && <AuthErrorNotice message={error} />}
 
         {!showEmailForm ? (
           <div className="mt-5 space-y-3">
@@ -450,7 +491,7 @@ export default function AuthPage() {
               className="w-full"
               onClick={() => {
                 setError(null);
-                setEmailMode("sign-in");
+                setInvalidField(null);
                 resetCaptcha();
                 setShowEmailForm(true);
               }}
@@ -467,6 +508,7 @@ export default function AuthPage() {
               className="-ml-2 mb-3"
               onClick={() => {
                 setError(null);
+                setInvalidField(null);
                 resetCaptcha();
                 setShowEmailForm(false);
               }}
@@ -530,48 +572,28 @@ export default function AuthPage() {
             >
               <form noValidate onSubmit={handleEmailSubmit}>
                 <FieldGroup className="space-y-4!">
-                  {emailMode === "sign-up" && (
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field>
-                        <Label>First name</Label>
-                        <Input
-                          type="text"
-                          placeholder="John"
-                          autoComplete="given-name"
-                          value={firstName}
-                          onChange={(event) => setFirstName(event.target.value)}
-                          required
-                        />
-                      </Field>
-                      <Field>
-                        <Label>Last name</Label>
-                        <Input
-                          type="text"
-                          placeholder="Doe"
-                          autoComplete="family-name"
-                          value={lastName}
-                          onChange={(event) => setLastName(event.target.value)}
-                          required
-                        />
-                      </Field>
-                    </div>
-                  )}
-
                   <Field>
                     <Label>Email</Label>
                     <Input
                       type="email"
+                      name="email"
+                      invalid={invalidField === "email"}
                       placeholder="email@example.com"
                       autoComplete="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       required
                     />
+                    {error && invalidField === "email" && (
+                      <ErrorMessage id="email-auth-error" role="alert">{error}</ErrorMessage>
+                    )}
                   </Field>
 
                   <Field>
                     <Label>Password</Label>
                     <PasswordInput
+                      name="password"
+                      invalid={invalidField === "password"}
                       placeholder={
                         emailMode === "sign-up"
                           ? `Minimum ${MIN_PASSWORD_LENGTH} characters`
@@ -592,26 +614,14 @@ export default function AuthPage() {
                       }
                     />
                     {emailMode === "sign-up" && (
-                      <PasswordStrengthMeter password={password} />
+                      <Description as="div" id="signup-password-requirements">
+                        <PasswordStrengthMeter password={password} />
+                      </Description>
+                    )}
+                    {error && invalidField === "password" && (
+                      <ErrorMessage id="email-auth-error" role="alert">{error}</ErrorMessage>
                     )}
                   </Field>
-
-                  {emailMode === "sign-up" && (
-                    <Field>
-                      <Label>Confirm password</Label>
-                      <PasswordInput
-                        visibilityLabel="confirm password"
-                        placeholder="••••••••"
-                        value={confirmPassword}
-                        onChange={(event) =>
-                          setConfirmPassword(event.target.value)
-                        }
-                        required
-                        minLength={MIN_PASSWORD_LENGTH}
-                        autoComplete="new-password"
-                      />
-                    </Field>
-                  )}
                 </FieldGroup>
 
                 <CloudflareTurnstile
@@ -650,7 +660,28 @@ export default function AuthPage() {
           </div>
         )}
 
+        {!reconnecting && (
+          <Text className="mt-5 text-center">
+            {emailMode === "sign-up" ? "Already have an account? " : "New to FavLock? "}
+            <Link
+              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up" })}
+              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+            >
+              {emailMode === "sign-up" ? "Sign in" : "Create account"}
+            </Link>
+          </Text>
+        )}
         <AuthLegalNotice />
+        {!reconnecting && (
+          <p className="mt-2 text-center text-xs leading-5">
+            <Link
+              className="inline-flex min-h-11 items-center rounded px-2 text-[#686d78] underline decoration-[#686d78]/30 underline-offset-2 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              to={`${buildAuthPath("/login", nextPath)}${nextPath === "/" ? "?" : "&"}confirmation=1`}
+            >
+              Need another confirmation email?
+            </Link>
+          </p>
+        )}
       </div>
     </AuthLayout>
   );

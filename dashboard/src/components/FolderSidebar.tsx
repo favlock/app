@@ -60,6 +60,7 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
+import { getAccountDisplayName } from "../lib/auth";
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import {
   PRESET_COLORS,
@@ -246,6 +247,7 @@ export default function FolderSidebar({
     dismissThemeSaveError,
   } = useTheme();
   const { data: userInfo } = useUserInfo();
+  const accountDisplayName = getAccountDisplayName(userInfo, user?.email);
   const { data: accountPlan } = useAccountPlan();
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
@@ -458,19 +460,19 @@ export default function FolderSidebar({
           </li>
           <li>
             <Link
-              to="/notes"
-              aria-current={location.pathname === "/notes" ? "page" : undefined}
+              to="/write"
+              aria-current={location.pathname === "/write" ? "page" : undefined}
               className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/notes" ? "theme-nav-button-active" : ""
+                location.pathname === "/write" ? "theme-nav-button-active" : ""
               }`}
             >
               <span className="flex items-center gap-2">
                 <StickyNote size={16} aria-hidden="true" />
-                Notes
+                Write
               </span>
               <span
                 className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/notes"
+                  location.pathname === "/write"
                     ? "theme-nav-count-active"
                     : "text-[var(--app-muted)]"
                 }`}
@@ -943,18 +945,13 @@ export default function FolderSidebar({
           <div className="flex items-center gap-3">
             <div className="relative">
               <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
-                {userInfo?.first_name?.[0]?.toUpperCase() ??
-                  user?.email?.[0]?.toUpperCase() ??
-                  userInfo?.last_name?.[0]?.toUpperCase() ??
-                  "U"}
+                {accountDisplayName[0]?.toUpperCase() ?? "U"}
               </div>
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex min-w-0 items-center gap-2">
                 <p className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--app-ink)]">
-                  {userInfo
-                    ? `${userInfo.first_name} ${userInfo.last_name}`.trim()
-                    : "User"}
+                  {accountDisplayName}
                 </p>
                 {accountPlan ? (
                   <span

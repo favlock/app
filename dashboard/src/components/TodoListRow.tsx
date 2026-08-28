@@ -167,7 +167,7 @@ export default function TodoListRow({
               </span>
             ) : null}
 
-            <div className="hidden xl:block">
+            <div className="hidden min-w-0 max-w-40 xl:block">
               <CollectionBadgeMenu
                 title={todo.title}
                 folder={todo.folder}
@@ -224,9 +224,11 @@ export default function TodoListRow({
               <Badge
                 key={tag.id}
                 color="violet"
-                className="bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600!"
+                className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600!"
               >
-                #{tag.name}
+                <span className="truncate" title={`#${tag.name}`}>
+                  #{tag.name}
+                </span>
               </Badge>
             ))}
             {todo.folder ? (

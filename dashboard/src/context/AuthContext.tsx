@@ -30,6 +30,7 @@ import {
 } from "../lib/userInfo";
 import { STORAGE_KEY } from "../lib/encryption";
 import { clearLocalSearchHistoryForUser } from "../lib/searchHistory";
+import { clearEntryDraftsForUser } from "../lib/entryDrafts";
 import { hydrateLibraryQueryCache } from "../lib/hydrateLibraryQueryCache";
 import { updateAccountProfile } from "../lib/accountSettingsApi";
 import { startLibraryRevalidation } from "../lib/libraryRevalidation";
@@ -78,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [bookmarkCacheRetryToken, setBookmarkCacheRetryToken] = useState(0);
   const lastUserIdRef = useRef<string | null>(null);
   const cleanupRef = useRef<Promise<void> | null>(null);
-  const { clearKey, cryptoKey, keyLoading, triggerUnlock, decryptField } =
+  const { clearKey, lockKey, cryptoKey, keyLoading, triggerUnlock, decryptField } =
     useEncryption();
 
   const clearLocalDataForUser = useCallback(
@@ -104,6 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearKey(),
           clearBookmarkCacheForUser(userId),
           clearLibraryContentCacheForUser(userId),
+          clearEntryDraftsForUser(userId),
         ]);
         if (results.some((result) => result.status === "rejected")) {
           throw new Error(
@@ -130,28 +132,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    let initialSessionSuperseded = false;
+    let localAccountInvalidated = false;
     const stopCrossTabSynchronization =
       favLockAuth.startCrossTabSynchronization();
 
     void favLockAuth.getSession().then(({ data: { session }, error }) => {
-      if (cancelled) return;
+      if (cancelled || initialSessionSuperseded) return;
       const status = favLockAuth.getCloudStatus();
       setCloudStatus(status);
       setConnectionError(error?.message ?? null);
       setSession(status === "available" ? activeSession(session) : null);
       setUser(favLockAuth.getLocalUser());
       if (!cleanupRef.current) setLoading(false);
+    }).catch(() => {
+      if (cancelled || initialSessionSuperseded) return;
+      setConnectionError("Could not open your saved session. Check this browser's storage settings and reload FavLock.");
+      setSession(null);
+      setCloudStatus("unavailable");
+      if (!cleanupRef.current) setLoading(false);
     });
 
     const {
       data: { subscription },
     } = favLockAuth.onAuthStateChange((_event, session) => {
-      if (cancelled) return;
-      if (_event === "SIGNED_IN" || _event === "SIGNED_OUT" || _event === "TOKEN_REFRESHED") setConnectionError(null);
+      if (cancelled || localAccountInvalidated) return;
+      if (_event === "LOCAL_ACCOUNT_INVALIDATED") {
+        localAccountInvalidated = true;
+        initialSessionSuperseded = true;
+        if (lastUserIdRef.current) void cancelLocalVaultWork(lastUserIdRef.current);
+        lastUserIdRef.current = null;
+        lockKey();
+        queryClient.clear();
+        try {
+          useBookmarkStore.getState().reset();
+        } catch {
+          // Zustand resets memory before persisting optional UI preferences.
+        }
+        setUser(null);
+        setSession(null);
+        setCloudStatus("signed_out");
+        setConnectionError("Your account changed in another tab. Reload to continue.");
+        setBookmarkCacheSyncedAt(null);
+        setLibraryCacheHydrating(false);
+        setBookmarkCacheSyncing(false);
+        setBookmarkCacheError(null);
+        if (!cleanupRef.current) setLoading(false);
+        return;
+      }
+      if (
+        _event === "SIGNED_IN" || _event === "SIGNED_OUT" ||
+        _event === "TOKEN_REFRESHED" || _event === "PASSWORD_RECOVERY" ||
+        _event === "USER_UPDATED"
+      ) {
+        initialSessionSuperseded = true;
+        setConnectionError(null);
+      } else if (_event === "SESSION_STALE") {
+        setConnectionError(favLockAuth.getConnectionError()?.message ?? null);
+      }
       const lastUserId = lastUserIdRef.current;
       if (
         lastUserId &&
-        _event === "SIGNED_OUT"
+        _event === "SIGNED_OUT" && !favLockAuth.isLocalAccountInvalidated()
       ) {
         void clearLocalDataForUser(lastUserId).catch(console.error);
       }
@@ -167,7 +209,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       stopCrossTabSynchronization();
     };
-  }, [clearLocalDataForUser]);
+  }, [clearLocalDataForUser, lockKey]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -238,6 +280,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const { firstName, lastName } = getProfileNamesFromUser(user);
+      if (data && !firstName && !lastName) return;
       try {
         await updateAccountProfile(session.access_token, {
           firstName,
@@ -260,8 +303,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!user?.id || keyLoading || cryptoKey) return;
-    if (readLocalKeyVerifier(user.id)) {
-      triggerUnlock();
+    try {
+      if (readLocalKeyVerifier(user.id)) {
+        triggerUnlock();
+        return;
+      }
+    } catch {
+      setConnectionError("Could not open your saved session. Check this browser's storage settings and reload FavLock.");
       return;
     }
     if (!session?.access_token) return;
@@ -370,7 +418,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const logout = favLockAuth.signOut();
     let cleanupError: unknown = null;
 
-    if (userId) {
+    if (userId && !favLockAuth.isLocalAccountInvalidated()) {
       try {
         await clearLocalDataForUser(userId);
       } catch (error) {

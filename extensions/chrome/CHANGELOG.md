@@ -1,5 +1,9 @@
 # Chrome extension changelog
 
+## 1.6.0 — August 28, 2026
+
+- Aligned the extension version with the FavLock 1.6.0 app release. No extension behavior changes.
+
 ## 1.5.1 — August 27, 2026
 
 Recommended FavLock dashboard version: **1.5.1** for the updated reconnection experience.

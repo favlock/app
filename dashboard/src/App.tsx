@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "./context/AuthContext";
@@ -8,8 +8,10 @@ import { EncryptionProvider } from "./context/EncryptionContext";
 import UnlockDialog from "./components/UnlockDialog";
 import ProtectedRoute from "./components/ProtectedRoute";
 import PublicOnlyRoute from "./components/PublicOnlyRoute";
+import AuthCallbackBoundary from "./components/AuthCallbackBoundary";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
+import LegacyNotesRedirect from "./components/LegacyNotesRedirect";
 
 const AuthPage = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -41,6 +43,13 @@ function RouteFallback() {
   );
 }
 
+function RegisterRedirect() {
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  searchParams.set("mode", "sign-up");
+  return <Navigate to={{ pathname: "/login", search: `?${searchParams}`, hash: location.hash }} replace />;
+}
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -49,6 +58,7 @@ function App() {
           <ThemeProvider>
             <BrowserRouter>
               <Suspense fallback={<RouteFallback />}>
+                <AuthCallbackBoundary>
                 <Routes>
                   <Route
                     path="/login"
@@ -60,12 +70,7 @@ function App() {
                   />
                   <Route
                     path="/register"
-                    element={
-                      <Navigate
-                        to={`/login${window.location.search}${window.location.hash}`}
-                        replace
-                      />
-                    }
+                    element={<RegisterRedirect />}
                   />
                   <Route path="/reset-password" element={<ResetPassword />} />
                   <Route
@@ -100,7 +105,8 @@ function App() {
                     <Route path="/t/:tagSlug" element={<Dashboard />} />
                     <Route path="/favorites" element={<Dashboard />} />
                     <Route path="/unsorted" element={<Dashboard />} />
-                    <Route path="/notes" element={<Notes />} />
+                    <Route path="/write" element={<Notes />} />
+                    <Route path="/notes" element={<LegacyNotesRedirect />} />
                     <Route path="/tasks" element={<Tasks />} />
                     <Route
                       path="/todos"
@@ -119,6 +125,7 @@ function App() {
                   </Route>
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </AuthCallbackBoundary>
               </Suspense>
             </BrowserRouter>
           </ThemeProvider>

@@ -121,6 +121,10 @@ body::before {
   transform: translateZ(0);
 }
 
+.entry-card-preview {
+  overflow-wrap: anywhere;
+}
+
 .entry-editor:empty::before {
   content: attr(data-placeholder);
   color: color-mix(in oklab, var(--app-muted) 68%, transparent);
@@ -145,12 +149,11 @@ body::before {
   width: 1rem;
   height: 1rem;
   flex: none;
-  margin-top: 0.35rem;
+  margin-top: max(0px, calc((1lh - 1rem) / 2));
   accent-color: var(--app-primary);
 }
 
 .entry-card-preview ul[data-checklist="true"] > li > input[type="checkbox"] {
-  margin-top: 0.2rem;
   pointer-events: none;
 }
 
@@ -552,4 +555,96 @@ body::before {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Writing surface: one scrolling page, with tools separate from document text. */
+.entry-writing-dialog { color: var(--app-ink); }
+.entry-writing-header {
+  position: sticky; top: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: .75rem;
+  padding: .85rem max(1rem, env(safe-area-inset-right)) .85rem max(1rem, env(safe-area-inset-left));
+  border-bottom: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent);
+  background: var(--app-card);
+}
+.entry-writing-actions, .entry-copy-actions { display: flex; align-items: center; gap: .5rem; }
+.entry-writing-actions { flex: none; }
+.entry-writing-header h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-writing-actions > button:not([data-slot]), .entry-copy-actions button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  min-height: 2.75rem; min-width: 2.75rem; padding: .4rem .6rem; border-radius: .5rem;
+  cursor: pointer;
+}
+.entry-writing-actions button:hover, .entry-copy-actions button:hover { background: color-mix(in oklab, var(--app-primary) 9%, transparent); }
+.entry-writing-actions > button[aria-pressed="true"] { background: color-mix(in oklab, var(--app-primary) 12%, transparent); color: var(--app-primary); }
+.entry-writing-actions > .entry-writing-save { width: 5.5rem; flex: none; white-space: nowrap; }
+.entry-writing-actions button:disabled, .entry-toolbar button:disabled { opacity: .4; cursor: default; }
+.entry-writing-page { width: 100%; max-width: 54rem; margin: 0 auto; padding: 2rem 2.5rem max(2.5rem, env(safe-area-inset-bottom)); }
+.entry-writing-dialog-wide, .entry-writing-dialog-wide .entry-writing-page { max-width: none; }
+.entry-writing-title { width: 100%; min-width: 0; min-height: 2.75rem; padding: .5rem 0; border: none; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; color: var(--app-muted); font-size: 1.125rem; font-weight: 700; line-height: 1.5; letter-spacing: -.01em; outline: none; }
+.entry-writing-title:focus { border-bottom-color: var(--app-primary); }
+.entry-writing-title::placeholder { color: var(--app-muted); opacity: .7; }
+@media (forced-colors: active) {
+  .entry-writing-title:focus { border-bottom-color: Highlight; }
+}
+.entry-writing-details { margin: .75rem 0 1.5rem; font-size: .875rem; }
+.entry-writing-details summary { width: fit-content; cursor: pointer; color: var(--app-muted); padding: .35rem 0; }
+.entry-writing-details[hidden] { display: none; }
+.entry-composer { margin-top: 1rem; }
+.entry-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem; padding: .4rem; margin: 0 -.4rem .8rem; border-block: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent); }
+.entry-toolbar button { display: inline-flex; align-items: center; justify-content: center; width: 2.25rem; height: 2.5rem; border-radius: .4rem; cursor: pointer; flex: none; }
+.entry-toolbar select { font-size: .8rem; padding: .5rem; min-height: 2.5rem; background: transparent; max-width: 8rem; }
+.entry-toolbar button:hover, .entry-toolbar button[aria-pressed="true"] { background: color-mix(in oklab, var(--app-primary) 12%, transparent); color: var(--app-primary); }
+.entry-writing-dialog :is(button, select, input:not(.entry-writing-title), summary):focus-visible { outline: 2px solid var(--app-primary); outline-offset: 3px; }
+.entry-editor { min-height: 45vh; padding: .75rem 0 2rem; font-size: 1rem; line-height: 1.8; outline: none; overflow-wrap: anywhere; }
+.entry-composer[data-focused] .entry-editor { min-height: 65vh; }
+.entry-writing-dialog-compact .entry-writing-page { padding: 1.25rem 1.5rem max(1.5rem, env(safe-area-inset-bottom)); }
+.entry-composer[data-variant="compact"] { border: 1px solid color-mix(in oklab, var(--app-line) 18%, transparent); border-radius: .625rem; padding: .5rem .75rem 0; margin-bottom: 1rem; }
+.entry-composer[data-variant="compact"] .entry-toolbar { flex-wrap: wrap; overflow-x: visible; margin: 0 0 .25rem; padding: .25rem 0; border-top: none; }
+.entry-composer[data-variant="compact"] .entry-toolbar button { width: 2.75rem; height: 2.75rem; }
+.entry-composer[data-variant="compact"] .entry-toolbar button[aria-expanded="true"] { background: color-mix(in oklab, var(--app-primary) 12%, transparent); color: var(--app-primary); }
+.entry-composer[data-variant="compact"]:not([data-focused]) .entry-editor { min-height: 10rem; padding-bottom: 1rem; }
+.entry-editor > p:first-child { margin-top: 0; }
+.entry-editor:has(> p:only-child > br.ProseMirror-trailingBreak:only-child)::before { content: attr(data-placeholder); float: left; height: 0; color: var(--app-muted); pointer-events: none; }
+:is(.entry-rich-text, .entry-card-preview) :is(h1, h2, h3, h4, h5, h6) { font-weight: 650; line-height: 1.3; margin: 1em 0 .5em; }
+:is(.entry-rich-text, .entry-card-preview) h1 { font-size: 1.8em; }
+:is(.entry-rich-text, .entry-card-preview) h2 { font-size: 1.45em; }
+:is(.entry-rich-text, .entry-card-preview) h3 { font-size: 1.2em; }
+.entry-rich-text p { margin: .5em 0; }
+.entry-rich-text ul { list-style: disc; padding-left: 1.5em; margin: .5em 0; }
+.entry-rich-text ol { list-style: decimal; padding-left: 1.5em; margin: .5em 0; }
+.entry-rich-text li > p { margin: 0; }
+.entry-rich-text blockquote { border-left: 3px solid var(--app-accent); margin: 1em 0; padding-left: 1em; color: var(--app-muted); }
+:is(.entry-rich-text, .entry-card-preview) pre { overflow-x: auto; white-space: pre; padding: 1em; border-radius: .5rem; background: color-mix(in oklab, var(--app-line) 6%, transparent); }
+:is(.entry-rich-text, .entry-card-preview) code { font-family: ui-monospace, monospace; font-size: .9em; background: color-mix(in oklab, var(--app-line) 6%, transparent); border-radius: .2em; padding: .1em .25em; }
+:is(.entry-rich-text, .entry-card-preview) pre code { padding: 0; background: transparent; }
+:is(.entry-rich-text, .entry-card-preview) mark { background: color-mix(in oklab, var(--app-accent) 35%, var(--app-card)); color: inherit; border-radius: .15em; }
+:is(.entry-rich-text, .entry-card-preview) a { color: var(--app-primary); text-decoration: underline; }
+:is(.entry-rich-text, .entry-card-preview) table { width: 100%; table-layout: fixed; border-collapse: collapse; margin: 1rem 0; }
+:is(.entry-rich-text, .entry-card-preview) :is(td, th) { position: relative; border: 1px solid color-mix(in oklab, var(--app-line) 25%, transparent); padding: .5rem; vertical-align: top; min-width: 1em; }
+:is(.entry-rich-text, .entry-card-preview) th { font-weight: 650; background: color-mix(in oklab, var(--app-line) 5%, transparent); }
+.entry-rich-text .selectedCell { background: color-mix(in oklab, var(--app-primary) 15%, transparent); }
+.entry-rich-text hr { margin: 1.5rem 0; border-color: color-mix(in oklab, var(--app-line) 20%, transparent); }
+.entry-editor ul[data-checklist="true"] { padding-left: 0; list-style: none; }
+.entry-editor ul[data-checklist="true"] > li { display: flex; gap: .6rem; }
+.entry-editor ul[data-checklist="true"] > li > label { display: flex; align-items: center; flex: none; height: 1lh; margin: 0; }
+.entry-editor ul[data-checklist="true"] > li > label input { display: block; width: 1rem; height: 1rem; margin: 0; accent-color: var(--app-primary); }
+:is(.entry-editor, .entry-card-preview) ul[data-checklist="true"] > li > div { min-width: 0; flex: 1; }
+:is(.entry-editor, .entry-card-preview) ul[data-checklist="true"] > li > div > p:first-child { margin-top: 0; }
+:is(.entry-editor, .entry-card-preview) ul[data-checklist="true"] > li > div > p:last-child { margin-bottom: 0; }
+.entry-writing-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .4rem 1rem; border-top: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent); padding-top: .8rem; font-size: .75rem; color: var(--app-muted); }
+.entry-copy-actions { flex-wrap: wrap; }
+.entry-copy-actions[hidden] { display: none; }
+.entry-link-panel, .entry-table-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .5rem 0; font-size: .8rem; }
+.entry-link-panel input { flex: 1; min-width: 8rem; padding: .5rem; background: var(--app-card); border: 1px solid var(--app-muted); border-radius: .4rem; }
+.entry-link-panel button, .entry-table-tools button { padding: .5rem; text-decoration: underline; cursor: pointer; }
+.entry-link-panel p { width: 100%; color: #dc2626; }
+@media (max-width: 639px) {
+  .entry-writing-page { padding: 1.25rem 1rem 2rem; }
+  .entry-writing-dialog-compact .entry-writing-page { padding-inline: 1rem; }
+  .entry-writing-header { gap: .25rem; }
+  .entry-writing-header h2 { font-size: .9rem; }
+  .entry-writing-actions { gap: .15rem; }
+  .entry-toolbar { flex-wrap: nowrap; overflow-x: auto; padding-block: .5rem; }
+  .entry-toolbar button { width: 2.75rem; height: 2.75rem; }
+  .entry-toolbar select { flex: none; }
 }

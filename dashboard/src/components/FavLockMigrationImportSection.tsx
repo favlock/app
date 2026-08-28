@@ -152,7 +152,7 @@ export default function FavLockMigrationImportSection() {
         [
           archiveSummary.notes + archiveSummary.todos,
           destinationPlan.limits.entries,
-          "Notes and Tasks",
+          "Documents and Tasks",
         ],
         [
           archiveSummary.readspace,

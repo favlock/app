@@ -28,9 +28,9 @@ export default function EntrySearchResults({
   if (matches.length === 0) return null;
 
   const isTodo = kind === "todo";
-  const singular = isTodo ? "task" : "note";
-  const plural = isTodo ? "tasks" : "notes";
-  const route = isTodo ? "/tasks" : "/notes";
+  const singular = isTodo ? "task" : "document";
+  const plural = isTodo ? "tasks" : "documents";
+  const route = isTodo ? "/tasks" : "/write";
   const titleId = `${kind}-search-results-title`;
   const buildUrl = (entryId?: string) => {
     const searchParams = new URLSearchParams({ q: query });

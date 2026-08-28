@@ -122,7 +122,7 @@ export default function BillingSection() {
             </div>
             <p className="mt-2 max-w-md text-sm liquid-muted">
               {PLANS.pro.limits.bookmarks.toLocaleString("en-US")} bookmarks, {" "}
-              {PLANS.pro.limits.entries.toLocaleString("en-US")} notes and
+              {PLANS.pro.limits.entries.toLocaleString("en-US")} documents and
               tasks, {PLANS.pro.limits.readspace.toLocaleString("en-US")} {" "}
               saved articles, and {PLANS.pro.trashRecoveryDays}-day Trash
               recovery.

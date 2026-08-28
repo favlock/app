@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
   createEntry,
   createReadspaceEntry,
@@ -9,6 +11,7 @@ import {
   updateReadspaceOrganization,
   updateTodo,
   type EntryWriteValues,
+  validateEntryWriteSize,
 } from "./entryRepository";
 
 const accessToken = "current.jwt.token";
@@ -37,6 +40,31 @@ afterEach(() => {
 });
 
 describe("entryRepository", () => {
+  it("rejects oversized encrypted requests before making a network request", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const oversized = { ...values, content: "a".repeat(64 * 1024) };
+    await expect(createEntry(accessToken, "note", oversized)).rejects.toThrow(
+      "too large to save",
+    );
+    await expect(updateEntry(accessToken, entryId, oversized)).rejects.toThrow(
+      "too large to save",
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(() =>
+      validateEntryWriteSize("note", {
+        ...values,
+        content: "a".repeat(63 * 1024),
+      }),
+    ).not.toThrow();
+    expect(() =>
+      validateEntryWriteSize("note", {
+        ...values,
+        newEncryptedTagNames: ["a".repeat(64 * 1024)],
+      }),
+    ).toThrow("too large to save");
+  });
+
   it("creates encrypted notes and Todos through the app API", async () => {
     const fetchMock = vi
       .fn()
@@ -201,13 +229,11 @@ describe("entryRepository", () => {
   });
 
   it("fails closed for malformed creation responses and missing sessions", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ data: { entryId: "database-id" } }), {
-          status: 201,
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { entryId: "database-id" } }), {
+        status: 201,
+      }),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(createEntry(accessToken, "note", values)).rejects.toThrow(

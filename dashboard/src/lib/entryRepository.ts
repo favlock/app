@@ -41,7 +41,7 @@ export async function updateEntry(
     entryPath(entryId),
     accessToken,
     entryBody("note", values),
-    "Could not update the encrypted note.",
+    "Could not update the encrypted document.",
   );
 }
 
@@ -84,11 +84,14 @@ export async function setTodoCompleted(
   );
 }
 
-export async function updateEntryFolder(accessToken: string, values: {
-  entryId: string;
-  kind: EntryKind;
-  folderId: string | null;
-}): Promise<void> {
+export async function updateEntryFolder(
+  accessToken: string,
+  values: {
+    entryId: string;
+    kind: EntryKind;
+    folderId: string | null;
+  },
+): Promise<void> {
   await patchAuthenticatedJsonWithoutResponse(
     `${entryPath(values.entryId)}/folder`,
     accessToken,
@@ -97,13 +100,16 @@ export async function updateEntryFolder(accessToken: string, values: {
   );
 }
 
-export async function createReadspaceEntry(accessToken: string, values: {
-  title: string;
-  content: string;
-  folderId: string | null;
-  existingTagIds: string[];
-  newEncryptedTagNames: string[];
-}): Promise<string> {
+export async function createReadspaceEntry(
+  accessToken: string,
+  values: {
+    title: string;
+    content: string;
+    folderId: string | null;
+    existingTagIds: string[];
+    newEncryptedTagNames: string[];
+  },
+): Promise<string> {
   const payload = await postAuthenticatedJson(
     "/v1/entries",
     accessToken,
@@ -116,12 +122,15 @@ export async function createReadspaceEntry(accessToken: string, values: {
   );
 }
 
-export async function updateReadspaceOrganization(accessToken: string, values: {
-  entryId: string;
-  folderId: string | null;
-  existingTagIds: string[];
-  newEncryptedTagNames: string[];
-}): Promise<void> {
+export async function updateReadspaceOrganization(
+  accessToken: string,
+  values: {
+    entryId: string;
+    folderId: string | null;
+    existingTagIds: string[];
+    newEncryptedTagNames: string[];
+  },
+): Promise<void> {
   await putAuthenticatedJsonWithoutResponse(
     `${entryPath(values.entryId)}/readspace-organization`,
     accessToken,
@@ -135,15 +144,33 @@ export async function updateReadspaceOrganization(accessToken: string, values: {
 }
 
 function entryBody(kind: EntryKind, values: EntryWriteValues) {
-  return {
+  const body = {
     kind,
     encryptedTitle: values.title,
     encryptedContent: values.content,
-    dueDate: kind === "todo" ? values.dueDate ?? null : null,
+    dueDate: kind === "todo" ? (values.dueDate ?? null) : null,
     folderId: values.folderId,
     existingTagIds: values.existingTagIds,
     newEncryptedTagNames: values.newEncryptedTagNames,
   };
+  // The existing API accepts a maximum 64 KiB request. Include the entire
+  // encrypted request, not just visible text or HTML, in this client UX check.
+  if (
+    kind !== "read" &&
+    new TextEncoder().encode(JSON.stringify(body)).byteLength > 64 * 1024
+  ) {
+    throw new Error(
+      "This entry is too large to save. Shorten the text or simplify its formatting, then try again. Your changes have not been saved.",
+    );
+  }
+  return body;
+}
+
+export function validateEntryWriteSize(
+  kind: EntryKind,
+  values: EntryWriteValues,
+): void {
+  entryBody(kind, values);
 }
 
 function entryPath(entryId: string): `/v1/entries/${string}` {

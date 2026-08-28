@@ -49,7 +49,7 @@ export default function HomeAddMenu({
         </DropdownItem>
         <DropdownItem onClick={onAddNote}>
           <StickyNote data-slot="icon" aria-hidden="true" />
-          <DropdownLabel>Note</DropdownLabel>
+          <DropdownLabel>Document</DropdownLabel>
           <DropdownDescription>Capture a thought</DropdownDescription>
         </DropdownItem>
         <DropdownItem onClick={onAddTodo}>

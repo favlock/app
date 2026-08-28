@@ -69,6 +69,7 @@ describe("EntryCard", () => {
     });
 
     expect(container.textContent).toContain("Created");
+    expect(container.textContent).toContain("Document");
     expect(container.querySelector('[aria-label*="Mark Plan launch"]')).toBeNull();
   });
 
@@ -79,6 +80,7 @@ describe("EntryCard", () => {
         "<p>Use <strong>bold</strong> and <em>emphasis</em>.</p>" +
         "<blockquote>Keep this quoted.</blockquote>" +
         "<ul><li>First item</li></ul>" +
+        '<h2>Heading</h2><p><mark>Highlighted</mark> <a href="https://example.com">Reference</a></p><table><tr><td>Cell</td></tr></table>' +
         "<script>unsafe content</script>",
     };
 
@@ -104,6 +106,10 @@ describe("EntryCard", () => {
     );
     expect(preview.querySelector("li")?.textContent).toBe("First item");
     expect(preview.querySelector("script")).toBeNull();
+    expect(preview.querySelector("h2")?.textContent).toBe("Heading");
+    expect(preview.querySelector("mark")?.textContent).toBe("Highlighted");
+    expect(preview.querySelector("a")?.getAttribute("href")).toBe("https://example.com");
+    expect(preview.querySelector("td")?.textContent).toBe("Cell");
     expect(preview.textContent).not.toContain("unsafe content");
   });
 
@@ -129,6 +135,54 @@ describe("EntryCard", () => {
     )!;
     await act(async () => toggle.click());
     expect(onToggle).toHaveBeenCalledWith(true);
+  });
+
+  it("preserves full long labels and task actions when card text is truncated", async () => {
+    const title = "A long task title ".repeat(12).trim();
+    const tagName = "LongTag".repeat(30);
+    const folderName = "LongCollection".repeat(20);
+    const onEdit = vi.fn();
+    const onToggle = vi.fn().mockResolvedValue(undefined);
+    await act(async () => {
+      root.render(
+        <EntryCard
+          kind="todo"
+          entry={{
+            ...todoEntry,
+            title,
+            tags: [{ id: "long-tag", user_id: "user-1", name: tagName, created_at: entry.created_at }],
+            folder: {
+              id: "long-folder", user_id: "user-1", name: folderName,
+              color: null, parent_id: null, sort_order: 0, created_at: entry.created_at,
+            },
+          }}
+          onEdit={onEdit}
+          onDelete={async () => {}}
+          deletePending={false}
+          onMove={async () => {}}
+          movePending={false}
+          onToggle={onToggle}
+        />,
+      );
+    });
+
+    const titleButton = container.querySelector<HTMLButtonElement>("h3 button")!;
+    const tag = container.querySelector('[aria-label="Tags"] [title]')!;
+    const collection = container.querySelector<HTMLButtonElement>('[aria-haspopup="menu"]')!;
+    expect(titleButton.title).toBe(title);
+    expect(tag.textContent).toBe(`#${tagName}`);
+    expect(tag.getAttribute("title")).toBe(`#${tagName}`);
+    expect(collection.title).toBe(folderName);
+    expect(collection.textContent).toBe(folderName);
+
+    await act(async () => titleButton.click());
+    expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ title }));
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[aria-label^="Mark "]')!.click();
+    });
+    expect(onToggle).toHaveBeenCalledWith(true);
+    await act(async () => collection.click());
+    expect(container.querySelector('[role="menu"]')).not.toBeNull();
   });
 
   it("opens a collection dropdown and moves the entry", async () => {

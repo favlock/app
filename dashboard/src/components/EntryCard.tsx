@@ -55,7 +55,7 @@ export default function EntryCard<TEntry extends Entry>({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const isTodo = kind === "todo";
-  const singular = isTodo ? "task" : "note";
+  const singular = isTodo ? "task" : "document";
   const previewHtml = sanitizeEntryHtml(entry.content);
   const hasPreview = Boolean(getEntryText(previewHtml).trim());
 
@@ -142,9 +142,11 @@ export default function EntryCard<TEntry extends Entry>({
                   <Badge
                     key={tag.id}
                     color="violet"
-                    className="bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                    className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
                   >
-                    #{tag.name}
+                    <span className="truncate" title={`#${tag.name}`}>
+                      #{tag.name}
+                    </span>
                   </Badge>
                 ))}
               </div>

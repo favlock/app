@@ -132,7 +132,7 @@ export default function LocalPrivacySection() {
               Local search uses decrypted data
             </p>
             <p className="mt-1 text-sm leading-6 text-gray-600">
-              Decrypted bookmarks, notes, tasks, Readspace items, collections,
+              Decrypted bookmarks, documents, tasks, Readspace items, collections,
               tags, and Trash summaries are stored in a local IndexedDB library
               cache on this browser. It is cleared when you sign out or use the
               action below.
