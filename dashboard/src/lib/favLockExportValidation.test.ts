@@ -51,7 +51,7 @@ const note: Note = {
   user_id: "source-user",
   kind: "note",
   title: "Note",
-  content: "<p>Safe <script>bad()</script>content</p>",
+  content: "<h2>Writing</h2><p>Safe <script>bad()</script><mark>content</mark></p>",
   folder: rootFolder,
   tags: [tag],
   created_at: timestamp,
@@ -100,7 +100,7 @@ describe("FavLock export validation", () => {
       buildFavLockExport(source, selection, new Date(timestamp)),
     );
 
-    expect(parsed.data.notes?.[0].content).toBe("<p>Safe content</p>");
+    expect(parsed.data.notes?.[0].content).toBe("<h2>Writing</h2><p>Safe <mark>content</mark></p>");
     expect(parsed.data.todos?.[0].dueDate).toBe("2026-08-30");
     expect(summarizeFavLockExport(parsed)).toEqual({
       collections: 2,

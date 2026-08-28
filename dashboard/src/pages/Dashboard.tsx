@@ -284,13 +284,13 @@ export default function Dashboard() {
       readspaceQuery.isLoading ||
       readspaceSearchQuery.isLoading
     ) {
-      return "Searching bookmarks, notes, tasks, and Readspace...";
+      return "Searching bookmarks, documents, tasks, and Readspace...";
     }
     const bookmarkLabel = `${bookmarkSearchResults} ${
       bookmarkSearchResults === 1 ? "bookmark" : "bookmarks"
     }`;
     const noteLabel = `${noteSearchMatches.length} ${
-      noteSearchMatches.length === 1 ? "note" : "notes"
+      noteSearchMatches.length === 1 ? "document" : "documents"
     }`;
     const todoLabel = `${todoSearchMatches.length} ${
       todoSearchMatches.length === 1 ? "task" : "tasks"
@@ -446,7 +446,7 @@ export default function Dashboard() {
           (notesQuery.error instanceof Error
             ? notesQuery.error.message
             : notesQuery.error
-              ? "Could not search notes."
+              ? "Could not search documents."
               : todosQuery.error instanceof Error
                 ? todosQuery.error.message
                 : todosQuery.error
@@ -473,7 +473,7 @@ export default function Dashboard() {
       {normalizedBookmarkSearch ? (
         <div
           className="space-y-3 px-3 lg:px-0"
-          aria-label="Search results from notes, tasks, and articles"
+          aria-label="Search results from documents, tasks, and articles"
         >
           <NoteSearchResults
             matches={noteSearchMatches}
@@ -512,7 +512,7 @@ export default function Dashboard() {
                 : notesQuery.error instanceof Error
                   ? notesQuery.error.message
                   : notesQuery.error
-                    ? "Could not load notes."
+                    ? "Could not load documents."
                     : todosQuery.error instanceof Error
                       ? todosQuery.error.message
                       : todosQuery.error
@@ -574,7 +574,7 @@ export default function Dashboard() {
             notesQuery.error instanceof Error
               ? notesQuery.error.message
               : notesQuery.error
-                ? "Could not load notes."
+                ? "Could not load documents."
                 : todosQuery.error instanceof Error
                   ? todosQuery.error.message
                   : todosQuery.error

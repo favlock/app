@@ -19,12 +19,14 @@ export function Dialog({
   size = "lg",
   className,
   backdropClassName,
+  fullScreen = false,
   children,
   ...props
 }: {
   size?: keyof typeof sizes;
   className?: string;
   backdropClassName?: string;
+  fullScreen?: boolean;
   children: React.ReactNode;
 } & Omit<Headless.DialogProps, "as" | "className">) {
   return (
@@ -37,13 +39,13 @@ export function Dialog({
         )}
       />
 
-      <div className="fixed inset-0 z-50 w-screen overflow-y-auto pt-6 sm:pt-0">
-        <div className="grid min-h-full grid-rows-[1fr_auto] justify-items-center sm:grid-rows-[1fr_auto_3fr] sm:p-4">
+      <div className={clsx("fixed inset-0 z-50 w-screen overflow-y-auto", !fullScreen && "pt-6 sm:pt-0")}>
+        <div className={fullScreen ? "min-h-full" : "grid min-h-full grid-rows-[1fr_auto] justify-items-center sm:grid-rows-[1fr_auto_3fr] sm:p-4"}>
           <Headless.DialogPanel
             transition
             className={clsx(
               className,
-              sizes[size],
+              fullScreen ? "min-h-dvh rounded-none! sm:max-w-none" : sizes[size],
               "row-start-2 w-full min-w-0 rounded-t-3xl bg-white p-(--gutter) shadow-lg ring-1 ring-zinc-950/10 [--gutter:--spacing(8)] sm:mb-auto sm:rounded-2xl   forced-colors:outline",
               "transition duration-100 will-change-transform data-closed:translate-y-12 data-closed:opacity-0 data-enter:ease-out data-leave:ease-in sm:data-closed:translate-y-0 sm:data-closed:data-enter:scale-95",
             )}

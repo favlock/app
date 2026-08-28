@@ -55,7 +55,7 @@ export default function EntryCard<TEntry extends Entry>({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
   const isTodo = kind === "todo";
-  const singular = isTodo ? "task" : "note";
+  const singular = isTodo ? "task" : "document";
   const previewHtml = sanitizeEntryHtml(entry.content);
   const hasPreview = Boolean(getEntryText(previewHtml).trim());
 

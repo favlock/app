@@ -24,6 +24,9 @@ export default defineConfig(({ command, mode }) => {
         output: {
           manualChunks(id) {
             if (!id.includes('node_modules')) return undefined
+            if (id.includes('@tiptap/') || id.includes('/prosemirror-')) {
+              return 'editor-vendor'
+            }
             if (
               id.includes('@headlessui') ||
               id.includes('lucide-react') ||

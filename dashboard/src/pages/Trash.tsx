@@ -33,7 +33,7 @@ const resourcePresentation: Record<
     colorClass: "bg-sky-500/10 text-sky-700",
   },
   note: {
-    label: "Note",
+    label: "Document",
     icon: StickyNote,
     colorClass: "bg-amber-500/12 text-amber-700",
   },

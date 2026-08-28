@@ -162,7 +162,7 @@ export default function ResourceUsageSection() {
             barClassName="bg-[var(--app-primary)]"
           />
           <UsageMeter
-            label="Notes and tasks"
+            label="Documents and tasks"
             used={data.entries}
             limit={accountPlan.limits.entries}
             icon={NotebookTabs}

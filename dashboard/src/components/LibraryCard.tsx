@@ -52,7 +52,7 @@ export default function LibraryCard({
             }`}
           >
             <TypeIcon size={12} aria-hidden="true" />
-            {isNote ? "Note" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}
+            {isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}
           </span>
           {meta ? (
             <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-[#ffefcb] px-1.5 py-0.5 text-xs font-medium text-[#4f5566]">

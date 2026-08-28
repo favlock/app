@@ -13,7 +13,7 @@ import { useBookmarkStore } from "../store/bookmarkStore";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(), getLocalUser: vi.fn(), getCloudStatus: vi.fn(), getConnectionError: vi.fn(), isLocalAccountInvalidated: vi.fn(), signOut: vi.fn(), onAuthStateChange: vi.fn(),
   clearKey: vi.fn(), lockKey: vi.fn(), triggerUnlock: vi.fn(), clearBookmarks: vi.fn(), clearContent: vi.fn(), hydrate: vi.fn(), clearQueries: vi.fn(),
-  fetchQuery: vi.fn(),
+  fetchQuery: vi.fn(), clearDrafts: vi.fn(),
 }));
 vi.mock("../lib/favLockAuth", () => ({ favLockAuth: {
   getSession: mocks.getSession, getLocalUser: mocks.getLocalUser, getCloudStatus: mocks.getCloudStatus,
@@ -27,6 +27,7 @@ vi.mock("../lib/bookmarkCache", () => ({
   getLibraryContentCacheMeta: async () => ({ lastSyncedAt: "2026-08-27T00:00:00.000Z" }),
   clearBookmarkCacheForUser: mocks.clearBookmarks, clearLibraryContentCacheForUser: mocks.clearContent,
 }));
+vi.mock("../lib/entryDrafts", () => ({ clearEntryDraftsForUser: mocks.clearDrafts }));
 vi.mock("../lib/hydrateLibraryQueryCache", () => ({ hydrateLibraryQueryCache: mocks.hydrate }));
 vi.mock("../lib/queryClient", () => ({ queryClient: { clear: mocks.clearQueries, fetchQuery: mocks.fetchQuery } }));
 
@@ -74,6 +75,7 @@ describe("local routing through cloud failure", () => {
   }
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.clearDrafts.mockReset().mockResolvedValue(undefined);
     localStorage.clear();
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
     mocks.fetchQuery.mockResolvedValue({ first_name: "Local" });
@@ -101,6 +103,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(mocks.clearQueries).not.toHaveBeenCalled();
   });
 
@@ -112,6 +115,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).toHaveBeenCalledOnce();
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
+    expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
     expect(container.textContent).not.toContain("local-user");
   });
 
@@ -189,6 +193,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).toHaveBeenCalledOnce();
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
+    expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
   });
 
   it("settles startup with a safe error when browser storage is denied", async () => {
@@ -213,6 +218,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(mocks.clearQueries).not.toHaveBeenCalled();
     readStorage.mockRestore();
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
@@ -234,6 +240,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(mocks.clearQueries).not.toHaveBeenCalled();
   });
 
@@ -271,6 +278,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).toHaveBeenCalledOnce();
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
+    expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
   });
 
   it("handles a rejected initialization after the provider unmounts", async () => {
@@ -318,6 +326,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     for (const [key, value] of Object.entries(sharedValues)) expect(localStorage.getItem(key)).toBe(value);
     expect(sessionStorage.getItem("zk_enc_key")).toBe("fake-session-key-sentinel");
   });
@@ -412,6 +421,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
   });
 
@@ -442,6 +452,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(removeStorage).not.toHaveBeenCalled();
     for (const [key, value] of Object.entries(sharedValues)) expect(localStorage.getItem(key)).toBe(value);
     expect(sessionStorage.getItem("zk_enc_key")).toBe("fake-new-session-key-sentinel");
@@ -467,6 +478,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).toHaveBeenCalledOnce();
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
+    expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
     expect(auth.user).toBeNull();
     expect(auth.loading).toBe(false);
   });
@@ -485,6 +497,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
+    expect(mocks.clearDrafts).not.toHaveBeenCalled();
     expect(mocks.lockKey).toHaveBeenCalledOnce();
     expect(auth.connectionError).toBe("Your account changed in another tab. Reload to continue.");
   });

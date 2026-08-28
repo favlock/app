@@ -69,6 +69,7 @@ describe("EntryCard", () => {
     });
 
     expect(container.textContent).toContain("Created");
+    expect(container.textContent).toContain("Document");
     expect(container.querySelector('[aria-label*="Mark Plan launch"]')).toBeNull();
   });
 
@@ -79,6 +80,7 @@ describe("EntryCard", () => {
         "<p>Use <strong>bold</strong> and <em>emphasis</em>.</p>" +
         "<blockquote>Keep this quoted.</blockquote>" +
         "<ul><li>First item</li></ul>" +
+        '<h2>Heading</h2><p><mark>Highlighted</mark> <a href="https://example.com">Reference</a></p><table><tr><td>Cell</td></tr></table>' +
         "<script>unsafe content</script>",
     };
 
@@ -104,6 +106,10 @@ describe("EntryCard", () => {
     );
     expect(preview.querySelector("li")?.textContent).toBe("First item");
     expect(preview.querySelector("script")).toBeNull();
+    expect(preview.querySelector("h2")?.textContent).toBe("Heading");
+    expect(preview.querySelector("mark")?.textContent).toBe("Highlighted");
+    expect(preview.querySelector("a")?.getAttribute("href")).toBe("https://example.com");
+    expect(preview.querySelector("td")?.textContent).toBe("Cell");
     expect(preview.textContent).not.toContain("unsafe content");
   });
 
