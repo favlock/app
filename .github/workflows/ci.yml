@@ -3,11 +3,11 @@ name: CI
 on:
   push:
     branches:
-      - main
+      # - main # Temporarily disabled while working solo.
       - production
   pull_request:
     branches:
-      - main
+      # - main # Temporarily disabled while working solo.
       - production
   workflow_dispatch:
 
@@ -21,6 +21,8 @@ concurrency:
 jobs:
   quality:
     name: Quality
+    # Manual runs are also limited to production while main CI is disabled.
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/production'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
