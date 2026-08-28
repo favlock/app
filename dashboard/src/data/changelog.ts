@@ -9,6 +9,17 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "August 28, 2026",
+    changes: [
+      "Notes is now Write, with richer formatting for documents and task details, including headings, links, highlights, and tables.",
+      "Use Focus and Full width to give your writing more room, with autosave for existing documents and tasks.",
+      "Recover encrypted drafts saved on this device and review them before saving to your account.",
+      "Simpler email signup, clearer email confirmation, and more reliable sign-in and reconnection.",
+      "Improved handling of long titles, collections, and tags on library cards.",
+    ],
+  },
+  {
+    version: "1.5.1",
     date: "August 27, 2026",
     changes: [
       "More reliable sign-in, session renewal, and recovery-key unlocking.",
