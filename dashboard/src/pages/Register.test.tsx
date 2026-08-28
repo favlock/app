@@ -1,8 +1,18 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useLocation, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AuthPage from "./Register";
+
+function NavigationProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return <>
+    <output data-location>{location.pathname}{location.search}</output>
+    <button onClick={() => navigate(-1)}>Browser back</button>
+    <button onClick={() => navigate(1)}>Browser forward</button>
+  </>;
+}
 
 const { resend, signInWithOAuth, signInWithPassword, signUp } = vi.hoisted(
   () => ({
@@ -71,6 +81,7 @@ describe("AuthPage", () => {
       root.render(
         <MemoryRouter initialEntries={[initialEntry]}>
           <AuthPage />
+          <NavigationProbe />
         </MemoryRouter>,
       );
     });
@@ -129,6 +140,54 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("By continuing");
     expect(container.querySelector('input[type="email"]')).toBeNull();
   });
+
+  it("opens signup options directly and keeps signup when returning from email", async () => {
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
+    expect(container.querySelector("h1,h2")?.textContent).toBe("Create your account");
+    expect(findButton(container, "Continue with Google")).toBeDefined();
+    expect(container.querySelector('input[type="email"]')).toBeNull();
+    const signIn = Array.from(container.querySelectorAll("a")).find((link) => link.textContent === "Sign in")!;
+    expect(signIn.getAttribute("href")).toBe("/login?next=%2Fcheckout");
+    await openEmailSignIn();
+    expect(container.querySelector("#email-sign-up-tab")?.getAttribute("aria-selected")).toBe("true");
+    await act(async () => findButton(container, "Back to options").click());
+    expect(container.textContent).toContain("Create your account");
+    await act(async () => signIn.click());
+    expect(container.textContent).toContain("Welcome to FavLock");
+    await act(async () => findButton(container, "Browser back").click());
+    expect(container.textContent).toContain("Create your account");
+  });
+
+  it("follows browser history without reusing passwords or CAPTCHA across modes", async () => {
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    await completeSecurityCheck();
+    await act(async () => findButton(container, "Sign in").click());
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout");
+    await act(async () => findButton(container, "Browser back").click());
+    expect(container.querySelector("#email-sign-up-tab")?.getAttribute("aria-selected")).toBe("true");
+    expect(container.querySelector<HTMLInputElement>('input[autocomplete="new-password"]')?.value).toBe("");
+    expect(findButton(container, "Create account with email").disabled).toBe(true);
+    await act(async () => findButton(container, "Browser forward").click());
+    expect(container.querySelector("#email-sign-in-tab")?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it.each(["mode=unknown", "mode=sign-up&mode=sign-in", "mode=sign-up&reconnect=1"])(
+    "safely defaults to email sign-in for %s", async (search) => {
+      await renderAuthPage(`/login?${search}&next=%2Fcheckout`);
+      await openEmailSignIn();
+      expect(container.querySelector("#email-sign-in-tab")?.getAttribute("aria-selected")).toBe("true");
+      expect(container.querySelector('input[autocomplete="given-name"]')).toBeNull();
+      if (search.includes("reconnect")) {
+        expect(findButton(container, "Create account").disabled).toBe(true);
+        await act(async () => findButton(container, "Sign in").dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+        expect(container.querySelector("#email-sign-in-tab")?.getAttribute("aria-selected")).toBe("true");
+        expect(container.textContent).toContain("Your local library stays on this device");
+      }
+      expect(signUp).not.toHaveBeenCalled();
+    },
+  );
 
   it("makes sign in and account creation equally visible as accessible tabs", async () => {
     await renderAuthPage();
@@ -230,8 +289,8 @@ describe("AuthPage", () => {
     });
     resend.mockResolvedValue({ data: {}, error: null });
 
-    await renderAuthPage("/login?next=%2Fcheckout");
-    await openEmailSignUp();
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
+    await openEmailSignIn();
     await fillSignUpForm();
     await completeSecurityCheck();
     await submitForm();
@@ -264,6 +323,9 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain(
       "A new confirmation email is on its way.",
     );
+    await act(async () => findButton(container, "Back to sign in").click());
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout");
+    expect(container.querySelector("#email-sign-in-tab")?.getAttribute("aria-selected")).toBe("true");
   });
 
   it("shows Terms and support links when signup rejects a disposable email", async () => {
@@ -298,9 +360,20 @@ describe("AuthPage", () => {
     expect(alert.querySelectorAll("p")).toHaveLength(1);
   });
 
+  it("continues directly to checkout when email signup returns a usable session", async () => {
+    signUp.mockResolvedValue({ data: { session: { user: { id: "user-1" } } }, error: null });
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
+    await openEmailSignIn();
+    await fillSignUpForm();
+    await completeSecurityCheck();
+    await submitForm();
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/checkout");
+    expect(container.textContent).not.toContain("Check your inbox");
+  });
+
   it("preserves Pro checkout through Google authentication", async () => {
     signInWithOAuth.mockResolvedValue({ data: {}, error: null });
-    await renderAuthPage("/login?next=%2Fcheckout");
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
 
     await act(async () => {
       findButton(container, "Continue with Google").click();
@@ -312,6 +385,13 @@ describe("AuthPage", () => {
         redirectTo: expect.stringMatching(/\/checkout$/),
       },
     });
+  });
+
+  it("does not pass untrusted destinations to Google", async () => {
+    signInWithOAuth.mockResolvedValue({ data: {}, error: null });
+    await renderAuthPage("/login?mode=sign-up&next=https%3A%2F%2Fattacker.example");
+    await act(async () => findButton(container, "Continue with Google").click());
+    expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: expect.stringMatching(/^https?:\/\/[^/]+\/$/) } });
   });
 
   it("renders Terms and support links for an OAuth disposable-email error", async () => {

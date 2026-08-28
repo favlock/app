@@ -1038,6 +1038,33 @@ describe("FavLockAuthClient", () => {
     expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
   });
 
+  it.each(["google", "email"] as const)("returns a %s signup attempt to checkout after a reload using the existing PKCE flow", async (method) => {
+    window.history.replaceState({}, "", "/login?mode=sign-up&next=%2Fcheckout");
+    const start = trackedClient(vi.fn().mockResolvedValue(response({ data: { confirmationRequired: true, session: null } }, 202)));
+    const result = method === "google"
+      ? await start.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } })
+      : await start.signUp({ email: "ada@example.com", password: "fake-test-password", options: {
+        captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout`,
+        data: { first_name: "Ada", last_name: "Lovelace" },
+      } });
+    expect(result.error).toBeNull();
+    const pkce = JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!);
+    start.dispose();
+
+    window.history.replaceState({}, "", "/checkout?code=fake-return-code");
+    const fetchMock = vi.fn().mockResolvedValue(response({ data: { session: apiSession() } }));
+    const returned = trackedClient(fetchMock);
+    const listener = vi.fn();
+    returned.onAuthStateChange(listener);
+    expect((await returned.getSession()).error).toBeNull();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ authCode: "fake-return-code", codeVerifier: pkce.verifier });
+    expect(window.location.pathname).toBe("/checkout");
+    expect(window.location.search).toBe("");
+    expect(returned.getCloudStatus()).toBe("available");
+    expect(listener).not.toHaveBeenCalledWith("PASSWORD_RECOVERY", expect.anything());
+    expect(localStorage.getItem(PKCE_STORAGE_KEY)).toBeNull();
+  });
+
   it("exchanges an auth callback, stores the session, and preserves unrelated query parameters", async () => {
     const verifier = "v".repeat(64);
     localStorage.setItem(

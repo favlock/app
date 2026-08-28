@@ -59,6 +59,48 @@ describe("PublicOnlyRoute", () => {
     expect(container.textContent).toBe("Reconnect");
   });
 
+  it.each(["available", "offline", "reconnect_required", "restricted", "unavailable"])(
+    "keeps the existing %s account when a signup link is opened", async (cloudStatus) => {
+      const signOut = vi.fn();
+      useAuth.mockReturnValue({ user: { id: "user-1" }, loading: false, cloudStatus, signOut });
+      localStorage.setItem("signup-local-vault-sentinel", "preserved");
+      await act(async () => root.render(
+        <MemoryRouter initialEntries={["/login?mode=sign-up&next=%2Fcheckout"]}>
+          <Routes>
+            <Route path="/login" element={<PublicOnlyRoute>Signup</PublicOnlyRoute>} />
+            <Route path="/checkout" element="Checkout" />
+          </Routes>
+        </MemoryRouter>,
+      ));
+      expect(container.textContent).toBe("Checkout");
+      expect(signOut).not.toHaveBeenCalled();
+      expect(localStorage.getItem("signup-local-vault-sentinel")).toBe("preserved");
+      localStorage.removeItem("signup-local-vault-sentinel");
+    },
+  );
+
+  it.each(["reconnect_required", "available"])("honors explicit reconnect with signup intent when cloud is %s", async (cloudStatus) => {
+    useAuth.mockReturnValue({ user: { id: "user-1" }, loading: false, cloudStatus });
+    await act(async () => root.render(
+      <MemoryRouter initialEntries={["/login?mode=sign-up&reconnect=1&next=%2Fcheckout"]}>
+        <Routes>
+          <Route path="/login" element={<PublicOnlyRoute>Reconnect</PublicOnlyRoute>} />
+          <Route path="/checkout" element="Checkout" />
+        </Routes>
+      </MemoryRouter>,
+    ));
+    expect(container.textContent).toBe(cloudStatus === "available" ? "Checkout" : "Reconnect");
+  });
+
+  it("waits for session and callback initialization before showing signup", async () => {
+    useAuth.mockReturnValue({ user: null, loading: true });
+    await act(async () => root.render(
+      <MemoryRouter initialEntries={["/login?mode=sign-up"]}><PublicOnlyRoute>Signup</PublicOnlyRoute></MemoryRouter>,
+    ));
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Loading...");
+    expect(container.textContent).not.toContain("Signup");
+  });
+
   it("sends an existing session to the dashboard for untrusted redirects", async () => {
     useAuth.mockReturnValue({ user: { id: "user-1" }, loading: false });
 
