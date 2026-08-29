@@ -54,13 +54,11 @@ npm run build:chrome
 ```
 
 The Chrome Web Store ZIP is written to `dist/extensions/chrome`.
-Production extension packaging always uses `https://api.favlock.app` and requires
-`VITE_AUTH_URL` to be the configured HTTPS Auth origin. The build rejects unsafe
-Auth URLs but allows the existing project Auth origin.
-The generated production manifest allowlists exactly that API origin for
-extension fetches. Google OAuth authorization still navigates to the configured
-Auth URL through Chrome's identity API, without adding that origin to
-`host_permissions` or `connect-src`.
+Production extension packaging always uses `https://api.favlock.app` and the
+generated production manifest allowlists exactly that API origin for extension
+fetches. Extension connection opens the protected FavLock dashboard pairing
+route, which reuses an existing dashboard login or asks the user to sign in
+before issuing an extension-bound one-time session.
 
 ## Backend boundary
 

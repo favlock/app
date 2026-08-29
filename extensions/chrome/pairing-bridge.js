@@ -10,6 +10,8 @@ window.addEventListener("message", (event) => {
     request?.type !== PAIR_REQUEST_TYPE ||
     request.extensionId !== chrome.runtime.id ||
     typeof request.requestId !== "string" ||
+    (request.pairingAttempt !== undefined &&
+      typeof request.pairingAttempt !== "string") ||
     typeof request.userId !== "string" ||
     typeof request.rawKey !== "string" ||
     (request.sessionTokenHash !== undefined &&
@@ -21,6 +23,9 @@ window.addEventListener("message", (event) => {
   void chrome.runtime
     .sendMessage({
       type: PAIR_KEY_MESSAGE,
+      ...(request.pairingAttempt
+        ? { pairingAttempt: request.pairingAttempt }
+        : {}),
       userId: request.userId,
       rawKey: request.rawKey,
       ...(request.sessionTokenHash
