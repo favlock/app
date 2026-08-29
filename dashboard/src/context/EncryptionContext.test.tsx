@@ -10,7 +10,7 @@ import { createLocalKeyVerifier, saveLocalKeyVerifier, matchesLocalKey } from ".
   .IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
-  load: vi.fn(), save: vi.fn(), remove: vi.fn(), user: vi.fn(), status: vi.fn(), session: vi.fn(), fetchVerifier: vi.fn(), saveVerifier: vi.fn(),
+  load: vi.fn(), save: vi.fn(), remove: vi.fn(), user: vi.fn(), status: vi.fn(), session: vi.fn(), fetchVerifier: vi.fn(), saveVerifier: vi.fn(), probe: vi.fn(), canDecrypt: vi.fn(),
 }));
 vi.mock("../lib/encryption", async (original) => ({
   ...await original<typeof import("../lib/encryption")>(),
@@ -18,6 +18,10 @@ vi.mock("../lib/encryption", async (original) => ({
 }));
 vi.mock("../lib/favLockAuth", () => ({ favLockAuth: { getSession: mocks.session, getLocalUser: mocks.user, getCloudStatus: mocks.status } }));
 vi.mock("../lib/encryptionMetadataApi", () => ({ fetchEncryptionVerifier: mocks.fetchVerifier, saveEncryptionVerifier: mocks.saveVerifier }));
+vi.mock("../lib/encryptionDataProbe", () => ({
+  probeEncryptedData: mocks.probe,
+  canDecryptExistingData: mocks.canDecrypt,
+}));
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -44,6 +48,10 @@ describe("offline local key access", () => {
     mocks.user.mockReturnValue({ id: "local-user" });
     mocks.status.mockReturnValue("restricted");
     mocks.session.mockResolvedValue({ data: { session: null }, error: null });
+    mocks.fetchVerifier.mockResolvedValue(null);
+    mocks.saveVerifier.mockResolvedValue(undefined);
+    mocks.probe.mockResolvedValue("empty");
+    mocks.canDecrypt.mockResolvedValue(false);
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -70,6 +78,70 @@ describe("offline local key access", () => {
     expect(mocks.save).toHaveBeenCalledOnce();
     expect(mocks.fetchVerifier).not.toHaveBeenCalled();
     expect(mocks.saveVerifier).not.toHaveBeenCalled();
+  });
+
+  it("checkpoints a new key locally before persisting its cloud verifier", async () => {
+    mocks.status.mockReturnValue("available");
+    mocks.session.mockResolvedValue({
+      data: { session: { access_token: "current.jwt.token" } },
+      error: null,
+    });
+    await mount();
+
+    await act(async () => {
+      await context.setRawKey("a".repeat(32), { rememberDevice: true });
+    });
+
+    expect(mocks.probe).toHaveBeenCalledWith(
+      expect.any(CryptoKey),
+      "current.jwt.token",
+    );
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(mocks.saveVerifier).toHaveBeenCalledOnce();
+    expect(mocks.save.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.saveVerifier.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("does not checkpoint or replace a key that mismatches existing data", async () => {
+    mocks.status.mockReturnValue("available");
+    mocks.session.mockResolvedValue({
+      data: { session: { access_token: "current.jwt.token" } },
+      error: null,
+    });
+    mocks.probe.mockResolvedValue("mismatch");
+    await mount();
+
+    await expect(
+      context.setRawKey("b".repeat(32), { rememberDevice: true }),
+    ).rejects.toThrow("does not match your encrypted data");
+
+    expect(mocks.save).not.toHaveBeenCalled();
+    expect(mocks.saveVerifier).not.toHaveBeenCalled();
+    expect(
+      localStorage.getItem("favlock.local-verifier.v1:local-user"),
+    ).toBeNull();
+  });
+
+  it("keeps the local checkpoint usable when verifier persistence is ambiguous", async () => {
+    mocks.status.mockReturnValue("available");
+    mocks.session.mockResolvedValue({
+      data: { session: { access_token: "current.jwt.token" } },
+      error: null,
+    });
+    mocks.saveVerifier.mockRejectedValue(new Error("connection lost"));
+    await mount();
+
+    await act(async () => {
+      await expect(
+        context.setRawKey("a".repeat(32), { rememberDevice: true }),
+      ).rejects.toThrow("Could not save the encryption key verifier");
+    });
+
+    expect(mocks.save).toHaveBeenCalledOnce();
+    expect(context.cryptoKey).not.toBeNull();
+    expect(context.keyRemembered).toBe(true);
+    expect(container.textContent).toBe("unlocked");
   });
 
   it("rejects the wrong offline key without replacing the saved key", async () => {

@@ -15,7 +15,14 @@ import * as Headless from "@headlessui/react";
 import SearchEnginePreferenceDialog from "../components/SearchEnginePreferenceDialog";
 import OnboardingDialog from "../components/OnboardingDialog";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
-import { isOnboardingHidden } from "../lib/onboarding";
+import {
+  isOnboardingHidden,
+  hasConfirmedProtection,
+  markAccountReady,
+  ONBOARDING_STATE_CHANGED_EVENT,
+  readOnboardingState,
+} from "../lib/onboarding";
+import { useAuth } from "../context/useAuth";
 import DataTransferDialog, {
   type DataTransferView,
 } from "../components/DataTransferDialog";
@@ -33,7 +40,9 @@ export default function DashboardLayout() {
     useState<DataTransferView | null>(null);
   const [hasFinishedInitialOnboarding, setHasFinishedInitialOnboarding] =
     useState(false);
+  const [onboardingStateRevision, setOnboardingStateRevision] = useState(0);
   const hasCheckedOnboarding = useRef(false);
+  const onboardingUserIdRef = useRef<string | null>(null);
   const [addBookmarkFolderId, setAddBookmarkFolderId] = useState<string | null>(
     null,
   );
@@ -46,6 +55,7 @@ export default function DashboardLayout() {
   const { data: folders = [], isLoading: loadingFolders } = useFolders();
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const { data: userInfo, isSuccess: userInfoLoaded } = useUserInfo();
+  const { user } = useAuth();
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,6 +98,36 @@ export default function DashboardLayout() {
   }, [location.pathname, location.hash, setIsMobileSidebarOpen]);
 
   useEffect(() => {
+    const userId = user?.id ?? null;
+    if (onboardingUserIdRef.current === userId) return;
+    onboardingUserIdRef.current = userId;
+    hasCheckedOnboarding.current = false;
+    setIsOnboardingOpen(false);
+    setHasFinishedInitialOnboarding(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user?.id) markAccountReady(user.id);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleStateChange = (event: Event) => {
+      if (
+        event instanceof CustomEvent &&
+        event.detail?.userId === user?.id
+      ) {
+        setOnboardingStateRevision((revision) => revision + 1);
+      }
+    };
+    window.addEventListener(ONBOARDING_STATE_CHANGED_EVENT, handleStateChange);
+    return () =>
+      window.removeEventListener(
+        ONBOARDING_STATE_CHANGED_EVENT,
+        handleStateChange,
+      );
+  }, [user?.id]);
+
+  useEffect(() => {
     if (
       hasCheckedOnboarding.current ||
       !userInfoLoaded ||
@@ -96,13 +136,26 @@ export default function DashboardLayout() {
       return;
     }
 
+    if (!user?.id) return;
+    const onboardingState = readOnboardingState(user.id);
+    if (onboardingState.protection.status === "pending") return;
+
     hasCheckedOnboarding.current = true;
-    if (isOnboardingHidden()) {
+    if (!hasConfirmedProtection(onboardingState)) {
+      setHasFinishedInitialOnboarding(true);
+      return;
+    }
+    if (isOnboardingHidden(user.id)) {
       setHasFinishedInitialOnboarding(true);
     } else {
       setIsOnboardingOpen(true);
     }
-  }, [userInfo?.key_verifier, userInfoLoaded]);
+  }, [
+    onboardingStateRevision,
+    user?.id,
+    userInfo?.key_verifier,
+    userInfoLoaded,
+  ]);
 
   useEffect(() => {
     if (
@@ -240,6 +293,7 @@ export default function DashboardLayout() {
       <SearchEnginePreferenceDialog enabled={hasFinishedInitialOnboarding} />
       <OnboardingDialog
         open={isOnboardingOpen}
+        userId={user?.id ?? ""}
         onClose={() => {
           setIsOnboardingOpen(false);
           setHasFinishedInitialOnboarding(true);

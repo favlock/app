@@ -2,7 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import OnboardingDialog from "./OnboardingDialog";
-import { ONBOARDING_STORAGE_KEY } from "../lib/onboarding";
+import { readOnboardingState } from "../lib/onboarding";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -26,7 +26,7 @@ describe("OnboardingDialog", () => {
 
   it("walks through the app features", async () => {
     await act(async () => {
-      root.render(<OnboardingDialog open onClose={vi.fn()} />);
+      root.render(<OnboardingDialog open userId="account-a" onClose={vi.fn()} />);
     });
 
     expect(document.body.textContent).toContain(
@@ -56,7 +56,7 @@ describe("OnboardingDialog", () => {
   it("persists the choice to hide future tours", async () => {
     const onClose = vi.fn();
     await act(async () => {
-      root.render(<OnboardingDialog open onClose={onClose} />);
+      root.render(<OnboardingDialog open userId="account-a" onClose={onClose} />);
     });
 
     const hideCheckbox = document.querySelector('[role="checkbox"]')!;
@@ -69,14 +69,16 @@ describe("OnboardingDialog", () => {
     )!;
     await act(async () => skipButton.click());
 
-    expect(localStorage.getItem(ONBOARDING_STORAGE_KEY)).toBe("true");
+    expect(
+      readOnboardingState("account-a").dismissals.welcomeTour,
+    ).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("hides future tours after the user finishes onboarding", async () => {
     const onClose = vi.fn();
     await act(async () => {
-      root.render(<OnboardingDialog open onClose={onClose} />);
+      root.render(<OnboardingDialog open userId="account-a" onClose={onClose} />);
     });
 
     const next = () =>
@@ -93,14 +95,16 @@ describe("OnboardingDialog", () => {
     ).find((button) => button.textContent?.trim() === "Start bookmarking")!;
     await act(async () => startButton.click());
 
-    expect(localStorage.getItem(ONBOARDING_STORAGE_KEY)).toBe("true");
+    expect(
+      readOnboardingState("account-a").dismissals.welcomeTour,
+    ).toBe(true);
     expect(onClose).toHaveBeenCalledOnce();
   });
 
   it("does not hide future tours unless the user chooses to", async () => {
     const onClose = vi.fn();
     await act(async () => {
-      root.render(<OnboardingDialog open onClose={onClose} />);
+      root.render(<OnboardingDialog open userId="account-a" onClose={onClose} />);
     });
 
     const closeButton = Array.from(document.querySelectorAll("button")).find(
@@ -108,7 +112,9 @@ describe("OnboardingDialog", () => {
     )!;
     await act(async () => closeButton.click());
 
-    expect(localStorage.getItem(ONBOARDING_STORAGE_KEY)).toBeNull();
+    expect(
+      readOnboardingState("account-a").dismissals.welcomeTour,
+    ).toBe(false);
     expect(onClose).toHaveBeenCalledOnce();
   });
 });
