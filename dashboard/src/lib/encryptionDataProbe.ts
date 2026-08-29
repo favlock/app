@@ -10,10 +10,12 @@ function isEncryptedValue(value: unknown): value is string {
   return typeof value === "string" && value.startsWith(ENC_PREFIX);
 }
 
-export async function canDecryptExistingData(
+export type EncryptedDataProbeResult = "empty" | "matches" | "mismatch";
+
+export async function probeEncryptedData(
   key: CryptoKey,
   accessToken: string,
-): Promise<boolean> {
+): Promise<EncryptedDataProbeResult> {
   const bookmarks = await fetchEncryptedLibraryBookmarkSample(accessToken);
 
   for (const bookmark of bookmarks) {
@@ -22,9 +24,9 @@ export async function canDecryptExistingData(
 
       try {
         await decryptFieldStrict(value, key);
-        return true;
+        return "matches";
       } catch {
-        return false;
+        return "mismatch";
       }
     }
   }
@@ -35,9 +37,9 @@ export async function canDecryptExistingData(
 
     try {
       await decryptFieldStrict(folder.encryptedName, key);
-      return true;
+      return "matches";
     } catch {
-      return false;
+      return "mismatch";
     }
   }
 
@@ -47,9 +49,9 @@ export async function canDecryptExistingData(
 
     try {
       await decryptFieldStrict(tag.encryptedName, key);
-      return true;
+      return "matches";
     } catch {
-      return false;
+      return "mismatch";
     }
   }
 
@@ -60,12 +62,19 @@ export async function canDecryptExistingData(
 
       try {
         await decryptFieldStrict(value, key);
-        return true;
+        return "matches";
       } catch {
-        return false;
+        return "mismatch";
       }
     }
   }
 
-  return false;
+  return "empty";
+}
+
+export async function canDecryptExistingData(
+  key: CryptoKey,
+  accessToken: string,
+): Promise<boolean> {
+  return (await probeEncryptedData(key, accessToken)) === "matches";
 }

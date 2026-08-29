@@ -20,7 +20,10 @@ vi.mock("./libraryContentApi", () => ({
   fetchEncryptedLibraryTagSample: mocks.fetchTags,
 }));
 
-import { canDecryptExistingData } from "./encryptionDataProbe";
+import {
+  canDecryptExistingData,
+  probeEncryptedData,
+} from "./encryptionDataProbe";
 
 const key = {} as CryptoKey;
 
@@ -71,6 +74,20 @@ describe("existing encrypted-data probe", () => {
     ).resolves.toBe(false);
     expect(mocks.fetchTags).not.toHaveBeenCalled();
     expect(mocks.fetchEntries).not.toHaveBeenCalled();
+  });
+
+  it("distinguishes an empty library from a mismatched key", async () => {
+    await expect(
+      probeEncryptedData(key, "current.jwt.token"),
+    ).resolves.toBe("empty");
+
+    mocks.fetchBookmarks.mockResolvedValue([
+      { encryptedTitle: "enc:bookmark", encryptedUrl: "enc:url" },
+    ]);
+    mocks.decryptFieldStrict.mockRejectedValue(new Error("wrong key"));
+    await expect(
+      probeEncryptedData(key, "current.jwt.token"),
+    ).resolves.toBe("mismatch");
   });
 
   it("falls through plaintext taxonomy samples to encrypted entries", async () => {

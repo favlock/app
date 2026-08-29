@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
 import { getProfileNamesFromUser } from "../lib/auth";
-import { generateEncryptionKey } from "../lib/encryption";
+import {
+  exportRawKey,
+  formatEncryptionKey,
+  generateEncryptionKey,
+} from "../lib/encryption";
 import {
   createPasskeyEncryptionRecord,
   savePasskeyEncryptionRecord,
@@ -22,22 +26,38 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
+import {
+  markProtectionConfirmed,
+  markProtectionPending,
+  readOnboardingState,
+  type ProtectionMethod,
+} from "../lib/onboarding";
 
 type EncryptionSetupResult = {
   key: string | null;
   error: string | null;
+  preparedMethod: ProtectionMethod | null;
+  waitingForUnlock?: boolean;
 };
 
 export default function EncryptionSetup() {
   const { session, user, loading: authLoading, signOut } = useAuth();
-  const { keyLoading, setKeyRemembered, setRawKey } = useEncryption();
+  const {
+    cryptoKey,
+    keyLoading,
+    setKeyRemembered,
+    setRawKey,
+    triggerUnlock,
+  } = useEncryption();
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
+  const [preparedMethod, setPreparedMethod] =
+    useState<ProtectionMethod | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
-  const [rememberDevice, setRememberDevice] = useState(true);
   const setupRef = useRef<{
     userId: string;
+    waitingForUnlock: boolean;
     promise: Promise<EncryptionSetupResult>;
   } | null>(null);
 
@@ -47,13 +67,17 @@ export default function EncryptionSetup() {
     if (!user || !session?.access_token) {
       setupRef.current = null;
       setEncryptionKey(null);
+      setPreparedMethod(null);
       setSetupError(null);
       setSigningOut(false);
       return;
     }
 
     let setup = setupRef.current;
-    if (setup?.userId !== user.id) {
+    if (
+      setup?.userId !== user.id ||
+      (setup.waitingForUnlock && !!cryptoKey)
+    ) {
       const setUpEncryption = async (): Promise<EncryptionSetupResult> => {
         let userInfo;
         try {
@@ -67,10 +91,38 @@ export default function EncryptionSetup() {
           return {
             key: null,
             error: "Could not check your encryption setup. Try again.",
+            preparedMethod: null,
           };
         }
 
-        if (userInfo?.key_verifier) return { key: null, error: null };
+        const onboardingState = readOnboardingState(user.id);
+        if (userInfo?.key_verifier) {
+          if (
+            onboardingState.protection.status !== "pending" ||
+            !cryptoKey
+          ) {
+            if (
+              onboardingState.protection.status === "pending" &&
+              !cryptoKey
+            ) {
+              triggerUnlock();
+            }
+            return {
+              key: null,
+              error: null,
+              preparedMethod: null,
+              waitingForUnlock:
+                onboardingState.protection.status === "pending" &&
+                !cryptoKey,
+            };
+          }
+
+          return {
+            key: formatEncryptionKey(await exportRawKey(cryptoKey)),
+            error: null,
+            preparedMethod: onboardingState.protection.method,
+          };
+        }
 
         if (!userInfo) {
           const { firstName, lastName } = getProfileNamesFromUser(user);
@@ -84,6 +136,7 @@ export default function EncryptionSetup() {
             return {
               key: null,
               error: "Could not prepare encryption for this account. Try again.",
+              preparedMethod: null,
             };
           }
 
@@ -92,11 +145,31 @@ export default function EncryptionSetup() {
           });
         }
 
-        const key = generateEncryptionKey();
+        const key = cryptoKey
+          ? formatEncryptionKey(await exportRawKey(cryptoKey))
+          : generateEncryptionKey();
+        markProtectionPending(user.id, onboardingState.protection.method);
         try {
-          await setRawKey(key);
-          return { key, error: null };
+          await setRawKey(key, { rememberDevice: true });
+          return {
+            key,
+            error: null,
+            preparedMethod: onboardingState.protection.method,
+          };
         } catch (error) {
+          if (
+            !cryptoKey &&
+            error instanceof Error &&
+            error.message === "This key does not match your encrypted data."
+          ) {
+            triggerUnlock();
+            return {
+              key: null,
+              error: null,
+              preparedMethod: null,
+              waitingForUnlock: true,
+            };
+          }
           console.error("Failed to set up encryption:", error);
           return {
             key: null,
@@ -104,18 +177,27 @@ export default function EncryptionSetup() {
               error instanceof Error
                 ? error.message
                 : "Could not finish encryption setup. Try again.",
+            preparedMethod: null,
           };
         }
       };
 
-      setup = { userId: user.id, promise: setUpEncryption() };
+      setup = {
+        userId: user.id,
+        waitingForUnlock: false,
+        promise: setUpEncryption(),
+      };
       setupRef.current = setup;
     }
 
     let active = true;
     void setup.promise.then((result) => {
       if (!active) return;
+      if (setupRef.current === setup) {
+        setup.waitingForUnlock = !!result.waitingForUnlock;
+      }
       setSetupError(result.error);
+      setPreparedMethod(result.preparedMethod);
       if (result.key) setEncryptionKey(result.key);
     });
 
@@ -124,10 +206,12 @@ export default function EncryptionSetup() {
     };
   }, [
     authLoading,
+    cryptoKey,
     keyLoading,
     retryToken,
     session?.access_token,
     setRawKey,
+    triggerUnlock,
     user,
   ]);
 
@@ -148,8 +232,7 @@ export default function EncryptionSetup() {
     <>
       <EncryptionKeyDialog
         encryptionKey={encryptionKey}
-        rememberDevice={rememberDevice}
-        onRememberDeviceChange={setRememberDevice}
+        preparedMethod={preparedMethod}
         onSaveWithPasskey={async () => {
           if (!user || !session?.access_token || !encryptionKey) {
             throw new Error("Encryption setup is no longer available.");
@@ -167,9 +250,12 @@ export default function EncryptionSetup() {
             displayName,
           });
           await savePasskeyEncryptionRecord(session.access_token, record);
+          setPreparedMethod("passkey");
+          markProtectionPending(user.id, "passkey");
         }}
-        onComplete={async () => {
-          await setKeyRemembered(rememberDevice);
+        onComplete={async (method) => {
+          await setKeyRemembered(true);
+          if (user) markProtectionConfirmed(user.id, method);
 
           // The Auth client may emit another event when this tab regains focus.
           // Keep the completed setup result from replaying the generated key
@@ -177,12 +263,17 @@ export default function EncryptionSetup() {
           if (user && setupRef.current?.userId === user.id) {
             setupRef.current = {
               userId: user.id,
-              promise: Promise.resolve({ key: null, error: null }),
+              waitingForUnlock: false,
+              promise: Promise.resolve({
+                key: null,
+                error: null,
+                preparedMethod: null,
+              }),
             };
           }
 
           setEncryptionKey(null);
-          setRememberDevice(true);
+          setPreparedMethod(null);
 
           // Refresh the profile only after this dialog closes. The dashboard
           // uses the saved verifier as the signal that it can start the

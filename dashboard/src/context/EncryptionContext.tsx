@@ -24,7 +24,10 @@ import {
   fetchEncryptionVerifier,
   saveEncryptionVerifier,
 } from "../lib/encryptionMetadataApi";
-import { canDecryptExistingData } from "../lib/encryptionDataProbe";
+import {
+  canDecryptExistingData,
+  probeEncryptedData,
+} from "../lib/encryptionDataProbe";
 import { createLocalKeyVerifier, matchesLocalKey, readLocalKeyVerifier, saveLocalKeyVerifier } from "../lib/localKeyVerifier";
 
 interface EncryptionContextType {
@@ -110,6 +113,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
     };
     const clean = normalizeRawKey(raw);
     const key = await importRawKey(clean);
+    let keyCheckpointed = false;
 
     const {
       data: { session },
@@ -149,11 +153,35 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
           }
         }
       } else {
-        // First time setting a key — create the verifier
+        const existingData = await probeEncryptedData(
+          key,
+          session.access_token,
+        );
+        if (existingData === "mismatch") {
+          throw new Error("This key does not match your encrypted data.");
+        }
+
+        // A remembered CryptoKey is the interruption checkpoint for initial
+        // setup. Persist it before the cloud verifier so refresh cannot strand
+        // a newly generated library key in memory only.
+        const localVerifier = await createLocalKeyVerifier(key);
+        assertCurrent();
+        if (options?.rememberDevice) {
+          await saveKeyToIDB(key, assertCurrent);
+          keyCheckpointed = true;
+        }
+        assertCurrent();
+        saveLocalKeyVerifier(userId, localVerifier);
+
         const verifier = await enc(VERIFY_CONSTANT, key);
         try {
           await saveEncryptionVerifier(session.access_token, verifier);
         } catch {
+          if (keyCheckpointed) {
+            assertCurrent();
+            setCryptoKey(key);
+            setKeyRememberedState(true);
+          }
           throw new Error("Could not save the encryption key verifier.");
         }
       }
@@ -168,7 +196,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
     assertCurrent();
     saveLocalKeyVerifier(userId, localVerifier);
     if (options?.rememberDevice) {
-      await saveKeyToIDB(key, assertCurrent);
+      if (!keyCheckpointed) await saveKeyToIDB(key, assertCurrent);
     } else {
       await deleteKeyFromIDB(assertCurrent);
     }

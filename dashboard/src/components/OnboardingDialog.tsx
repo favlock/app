@@ -146,11 +146,13 @@ const STEPS: OnboardingStep[] = [
 
 interface OnboardingDialogProps {
   open: boolean;
+  userId: string;
   onClose: () => void;
 }
 
 export default function OnboardingDialog({
   open,
+  userId,
   onClose,
 }: OnboardingDialogProps) {
   const [stepIndex, setStepIndex] = useState(0);
@@ -159,21 +161,21 @@ export default function OnboardingDialog({
   useEffect(() => {
     if (!open) return;
     setStepIndex(0);
-    setDontShowAgain(isOnboardingHidden());
-  }, [open]);
+    setDontShowAgain(isOnboardingHidden(userId));
+  }, [open, userId]);
 
   const step = STEPS[stepIndex];
   const StepIcon = step.icon;
   const isLastStep = stepIndex === STEPS.length - 1;
 
   const dismiss = () => {
-    saveOnboardingPreference(dontShowAgain);
+    saveOnboardingPreference(userId, dontShowAgain);
     onClose();
   };
 
   const completeTour = () => {
     setDontShowAgain(true);
-    saveOnboardingPreference(true);
+    saveOnboardingPreference(userId, true);
     onClose();
   };
 
