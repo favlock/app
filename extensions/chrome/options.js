@@ -7,6 +7,65 @@ async function loadSettings() {
   newTabCheckbox.checked = stored.useFavLockNewTab !== false;
 }
 
+async function loadConnection() {
+  const description = document.getElementById("accountDescription");
+  const disconnectButton = document.getElementById("disconnectButton");
+  const response = await chrome.runtime.sendMessage({
+    type: "favlock.extension.connection-state",
+  });
+
+  if (!response?.ok) {
+    description.textContent = response?.error || "FavLock could not check this extension connection.";
+    disconnectButton.hidden = true;
+    return;
+  }
+
+  if (!response.connected) {
+    description.textContent = "This extension is not connected. Use Connect FavLock from the popup to continue.";
+    disconnectButton.hidden = true;
+    return;
+  }
+
+  const identity = response.email ? `Connected as ${response.email}. ` : "";
+  const availability = response.cloudStatus === "available"
+    ? "Cloud access is available."
+    : "The local connection is saved, but cloud access needs to be reconnected from the popup.";
+  description.textContent = `${identity}${availability}`;
+  disconnectButton.hidden = false;
+}
+
+async function disconnectExtension() {
+  const confirmed = window.confirm(
+    "Disconnect this extension? Its local session and encryption key will be removed. Your FavLock dashboard will stay signed in.",
+  );
+  if (!confirmed) return;
+
+  const button = document.getElementById("disconnectButton");
+  const status = document.getElementById("accountStatus");
+  button.disabled = true;
+  button.textContent = "Disconnecting…";
+  status.textContent = "";
+
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "favlock.extension.disconnect",
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "FavLock could not disconnect the extension.");
+    }
+    document.getElementById("accountDescription").textContent =
+      "The extension is disconnected. Your FavLock dashboard session was not changed.";
+    button.hidden = true;
+    status.textContent = "Extension session and locally saved key removed.";
+  } catch (error) {
+    status.textContent = error instanceof Error
+      ? error.message
+      : "FavLock could not disconnect the extension.";
+    button.disabled = false;
+    button.textContent = "Disconnect extension";
+  }
+}
+
 async function saveSettings(event) {
   event?.preventDefault();
   const status = document.getElementById("status");
@@ -44,4 +103,7 @@ document
 document
   .getElementById("importBookmarksButton")
   .addEventListener("click", openChromeBookmarkImport);
-loadSettings();
+document
+  .getElementById("disconnectButton")
+  .addEventListener("click", disconnectExtension);
+void Promise.all([loadSettings(), loadConnection()]);

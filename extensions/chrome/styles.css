@@ -17,6 +17,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   position: relative;
   min-height: 100vh;
@@ -288,6 +292,47 @@ button:focus-visible {
   margin: 0;
   color: var(--app-primary);
   font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.account-card {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  border-top: 1px solid rgba(29, 34, 48, 0.13);
+  padding-top: 22px;
+}
+
+.account-description {
+  margin: 0;
+  color: var(--app-muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.danger-button {
+  border-color: rgba(180, 35, 24, 0.24);
+  color: #9f2720;
+  background: rgba(254, 226, 226, 0.66);
+  box-shadow: 0 4px 0 rgba(159, 39, 32, 0.1);
+}
+
+.danger-button:hover {
+  border-color: rgba(180, 35, 24, 0.36);
+  color: #821f19;
+  background: rgba(254, 226, 226, 0.95);
+  box-shadow: 0 5px 0 rgba(159, 39, 32, 0.13);
+}
+
+.danger-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+#accountStatus {
+  margin: 0;
+  color: var(--app-primary);
+  font-size: 0.8rem;
   font-weight: 700;
 }
 

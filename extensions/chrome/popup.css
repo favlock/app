@@ -572,6 +572,17 @@ select:focus {
   color: #0f625c;
 }
 
+.connected-account {
+  margin: -3px 0 0;
+  overflow: hidden;
+  color: var(--app-muted);
+  font-size: 0.7rem;
+  font-weight: 650;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .helper {
   display: flex;
   align-items: center;

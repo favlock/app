@@ -1,5 +1,4 @@
 import {
-  beginEmailExtensionConnection,
   beginExtensionConnection,
   disconnectExtension,
   getConnectionState,
@@ -128,18 +127,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message?.type === "favlock.extension.connect-email") {
-    void beginEmailExtensionConnection()
-      .then((result) => sendResponse({ ok: true, ...result }))
-      .catch((error) =>
-        sendResponse({
-          ok: false,
-          error: error instanceof Error ? error.message : "Connection failed.",
-        }),
-      );
-    return true;
-  }
-
   if (message?.type === "favlock.extension.disconnect") {
     void disconnectExtension()
       .then(() => sendResponse({ ok: true }))
@@ -166,10 +153,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message?.type === "favlock.extension.open-pairing") {
-    const pairUrl = new URL("extension/pair", FAVLOCK_CONFIG.dashboardUrl);
-    pairUrl.searchParams.set("extensionId", chrome.runtime.id);
-    void chrome.tabs.create({ url: pairUrl.toString() });
-    sendResponse({ ok: true });
+    void beginExtensionConnection()
+      .then((result) => sendResponse({ ok: true, ...result }))
+      .catch((error) =>
+        sendResponse({
+          ok: false,
+          error: error instanceof Error ? error.message : "Connection failed.",
+        }),
+      );
+    return true;
   }
 });
 

@@ -40,10 +40,11 @@ callback while retaining the existing project-domain callback:
 https://<auth-domain>/auth/v1/callback
 ```
 
-Do not replace the FavLock dashboard redirect allowlist or the existing Chrome
-Identity callback. The custom-domain callback is the Google-to-Supabase Auth
-callback; Supabase Auth still redirects to the established dashboard or exact
-Chromium callback afterward.
+Do not replace the FavLock dashboard redirect allowlist. The custom-domain
+callback is the Google-to-Supabase Auth callback; Supabase Auth then redirects
+to the established dashboard. Keep any legacy Chromium Identity callback only
+while Chrome extension releases with the older direct OAuth flow remain in the
+supported compatibility window.
 
 ## 3. Activate and verify
 
@@ -58,8 +59,9 @@ client configuration:
 
 - dashboard Google sign-in and account creation;
 - dashboard sign-out, refresh, and password recovery;
-- Chrome Google sign-in with exact callback and state validation;
-- dashboard-to-extension email pairing; and
+- Chrome extension connection through the protected dashboard pairing route;
+- an existing dashboard session and both dashboard login methods returning to
+  pairing; and
 - existing-user login without creating a duplicate identity.
 
 Keep the previous Google callback registered during rollout. Supabase documents

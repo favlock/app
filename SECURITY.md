@@ -132,15 +132,15 @@ and current bearer token to the FavLock API. The API verifies the user binding
 and returns only the existing one-time token; the dashboard no longer invokes
 the privileged Edge Function directly and never receives a service-role key.
 
-Chrome extension PKCE exchange, one-time email-token verification, session
-refresh, and verified-user lookup use only fixed FavLock API routes. Generated
-extension configuration contains no provider publishable key, and the manifest
-permits fetches only to the configured FavLock API origin. Google OAuth remains
-an interactive navigation through the configured Supabase Auth origin and
-must keep exact state, PKCE, and callback validation. Production configuration
-rejects non-HTTPS URLs, credentials, paths, queries, and fragments. Google's
-authorized redirect list must contain the exact callback shown by the Supabase
-Google provider settings. A supported custom domain remains optional.
+Chrome extension one-time session verification and refresh use only fixed
+FavLock API routes. Generated extension configuration contains no provider
+publishable key, and the manifest permits fetches only to the configured FavLock
+API origin. Connection opens the protected dashboard pairing route with a
+short-lived browser-session attempt. The dashboard reuses its existing session
+or completes Google or email authentication before issuing an extension-bound
+one-time session. The extension keeps a separate refreshable session; pairing
+and disconnecting it never sign the dashboard out. A supported custom Auth
+domain remains optional for dashboard authentication.
 
 The dashboard opens no direct database Realtime channel. When visible and
 online, it checks the existing provider-neutral revision routes at randomized
