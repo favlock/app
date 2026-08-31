@@ -81,6 +81,17 @@ describe("browser bookmark import", () => {
     });
   });
 
+  it("rejects an oversized direct HTML export before reading it", async () => {
+    const file = {
+      ...createImportFile("bookmarks.html", "<DL></DL>", "text/html"),
+      size: 25 * 1024 * 1024 + 1,
+    };
+
+    await expect(parseBrowserBookmarksFile(file)).rejects.toThrow(
+      "The selected bookmark HTML file is too large to import safely.",
+    );
+  });
+
   it("extracts Safari bookmarks from a ZIP export", async () => {
     const archive = zipSync({
       "Safari/History.html": strToU8(
@@ -234,5 +245,17 @@ describe("browser bookmark import", () => {
     expect(
       toSupportedFolderPath(["Bookmarks Bar", "Work", "Project"]),
     ).toEqual(["Bookmarks Bar", "Work › Project"]);
+  });
+
+  it("parses a synthetic HTML export at the current 10,000-bookmark allowance", () => {
+    const anchors = Array.from(
+      { length: 10_000 },
+      (_, index) => `<DT><A HREF="https://fixture.test/${index}">Fixture ${index}</A></DT>`,
+    ).join("");
+    const startedAt = performance.now();
+    const result = parseBrowserBookmarksHtml(`<DL>${anchors}</DL>`);
+
+    expect(result.bookmarks).toHaveLength(10_000);
+    expect(performance.now() - startedAt).toBeLessThan(5_000);
   });
 });

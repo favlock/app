@@ -18,6 +18,7 @@ export interface ExistingImportFolder {
 }
 
 const MAX_CHROME_IMPORT_NODES = 100_000;
+const MAX_HTML_IMPORT_BOOKMARKS = 100_000;
 const MAX_ZIP_FILE_SIZE = 250 * 1024 * 1024;
 const MAX_BOOKMARK_HTML_SIZE = 25 * 1024 * 1024;
 
@@ -50,22 +51,39 @@ function findFolderHeadingForDl(dl: Element): Element | null {
   return parentHeading ?? null;
 }
 
-function getAnchorFolderPath(anchor: Element): string[] {
-  const path: string[] = [];
-  let currentDl = anchor.closest("DL");
+function getAnchorFolderPath(
+  anchor: Element,
+  folderPathByDl: WeakMap<Element, string[]>,
+): string[] {
+  const anchorDl = anchor.closest("DL");
+  if (!anchorDl) return [];
+  let currentDl: Element | null = anchorDl;
+  const unresolved: Element[] = [];
 
   while (currentDl) {
-    const heading = findFolderHeadingForDl(currentDl);
-    const headingText = getElementText(heading);
-
-    if (headingText) {
-      path.unshift(headingText);
+    const cached = folderPathByDl.get(currentDl);
+    if (cached) {
+      let path = cached;
+      for (let index = unresolved.length - 1; index >= 0; index -= 1) {
+        const dl = unresolved[index];
+        const headingText = getElementText(findFolderHeadingForDl(dl));
+        path = headingText ? [...path, headingText] : path;
+        folderPathByDl.set(dl, path);
+      }
+      return folderPathByDl.get(anchorDl) ?? [];
     }
-
+    unresolved.push(currentDl);
     currentDl = currentDl.parentElement?.closest("DL") ?? null;
   }
 
-  return path;
+  let path: string[] = [];
+  for (let index = unresolved.length - 1; index >= 0; index -= 1) {
+    const dl = unresolved[index];
+    const headingText = getElementText(findFolderHeadingForDl(dl));
+    path = headingText ? [...path, headingText] : path;
+    folderPathByDl.set(dl, path);
+  }
+  return folderPathByDl.get(anchorDl) ?? [];
 }
 
 export function parseBrowserBookmarksHtml(
@@ -74,18 +92,23 @@ export function parseBrowserBookmarksHtml(
   const document = new DOMParser().parseFromString(html, "text/html");
   const anchors = Array.from(document.querySelectorAll("A[href]"));
 
+  if (anchors.length > MAX_HTML_IMPORT_BOOKMARKS) {
+    throw new Error("The bookmark export contains too many records to import safely.");
+  }
+
   if (anchors.length === 0) {
     return { bookmarks: [], folderPaths: [] };
   }
 
   const bookmarks: BrowserBookmarkImportItem[] = [];
   const folderMap = new Map<string, string[]>();
+  const folderPathByDl = new WeakMap<Element, string[]>();
 
   for (const anchor of anchors) {
     const url = anchor.getAttribute("href")?.trim() ?? "";
     if (!url) continue;
 
-    const folderPath = getAnchorFolderPath(anchor);
+    const folderPath = getAnchorFolderPath(anchor, folderPathByDl);
     const folderKey = folderPathKey(folderPath);
     if (!folderMap.has(folderKey)) {
       folderMap.set(folderKey, folderPath);
@@ -211,6 +234,10 @@ export async function parseBrowserBookmarksFile(
   file: BrowserBookmarkImportFile,
 ): Promise<BrowserBookmarkImportResult> {
   if (isZipFile(file)) return parseBrowserBookmarksZip(file);
+
+  if (file.size > MAX_BOOKMARK_HTML_SIZE) {
+    throw new Error("The selected bookmark HTML file is too large to import safely.");
+  }
 
   const result = parseBrowserBookmarksHtml(await file.text());
   if (result.bookmarks.length === 0) {
