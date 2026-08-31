@@ -7,7 +7,10 @@ import {
   type ChangeEvent,
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getBookmarkExportGuideForUserAgent } from "@favlock/shared";
+import {
+  getBookmarkExportGuideForUserAgent,
+  getRemainingResourceLimit,
+} from "@favlock/shared";
 import { AlertTriangle, Check, Download, LoaderCircle, X } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
@@ -490,11 +493,11 @@ export default function BrowserBookmarkImportSection() {
             if (item.duplicate === null) return true;
             return item.duplicate === "library" && decisions.get(item.index)?.resolution === "keep";
           }).length;
-          const available = Math.max(
-            0,
-            limits.plan.limits.bookmarks - limits.usage.bookmarks,
+          const available = getRemainingResourceLimit(
+            limits.usage.bookmarks,
+            limits.plan.limits.bookmarks,
           );
-          if (requiredAdds > available) {
+          if (available !== null && requiredAdds > available) {
             throw new Error(
               `This import now needs space for ${requiredAdds} bookmarks, but your current plan has ${available} remaining. No bookmarks were truncated.`,
             );
@@ -1104,7 +1107,9 @@ export default function BrowserBookmarkImportSection() {
                 <p className="mt-1 text-sm text-gray-600">Nothing is written until you continue.</p>
               </div>
               <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
-                {preparedImport.preview.availableBookmarks} bookmark spaces available
+                {preparedImport.preview.availableBookmarks === null
+                  ? "Unlimited bookmark capacity"
+                  : `${preparedImport.preview.availableBookmarks.toLocaleString("en-US")} bookmark spaces available`}
               </span>
             </div>
             <dl className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -1121,7 +1126,7 @@ export default function BrowserBookmarkImportSection() {
               ))}
             </dl>
             <p className="mt-3 text-sm leading-6 text-gray-600">
-              {preparedImport.preview.readyToAddCount} records can be added immediately. {preparedImport.preview.libraryDuplicateCount} library duplicates require a choice; {preparedImport.preview.sourceDuplicateCount} repeated source records will be skipped. Your {preparedImport.preview.bookmarkLimit}-bookmark plan limit is unchanged.
+              {preparedImport.preview.readyToAddCount} records can be added immediately. {preparedImport.preview.libraryDuplicateCount} library duplicates require a choice; {preparedImport.preview.sourceDuplicateCount} repeated source records will be skipped. {preparedImport.preview.bookmarkLimit === 0 ? "Your plan has no bookmark-count limit." : `Your ${preparedImport.preview.bookmarkLimit.toLocaleString("en-US")}-bookmark plan limit is unchanged.`}
             </p>
             <ImportIssueDetails
               title="Invalid / unsupported records"

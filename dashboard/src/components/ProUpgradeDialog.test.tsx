@@ -22,7 +22,7 @@ describe("ProUpgradeDialog", () => {
     document.body.innerHTML = "";
   });
 
-  it("compares plans before continuing to checkout", async () => {
+  it("compares Free and Pro benefits before continuing to checkout", async () => {
     await act(async () => {
       root.render(
         <MemoryRouter>
@@ -31,9 +31,34 @@ describe("ProUpgradeDialog", () => {
       );
     });
 
-    expect(document.body.textContent).toContain("Do more with FavLock Pro");
-    expect(document.body.textContent).toContain("Full content");
-    expect(document.body.textContent).toContain("10,000");
+    expect(document.body.textContent).toContain(
+      "Save more. Find more. Recover longer.",
+    );
+    expect(document.body.textContent).toContain(
+      "FavLock Pro gives you unlimited bookmarks, deeper search, and more space for everything you save",
+    );
+    const comparison = document.querySelector("table")!;
+    expect(comparison.textContent).toContain("Free");
+    expect(comparison.textContent).toContain("Pro");
+    expect(comparison.textContent).toContain("Bookmarks");
+    expect(comparison.textContent).toContain("Up to 1,000");
+    expect(comparison.textContent).toContain("Unlimited");
+    expect(comparison.textContent).toContain("1,000");
+    expect(comparison.textContent).toContain("250");
+    expect(comparison.textContent).toContain("30 days");
+    expect(comparison.textContent).toContain("Support");
+    expect(comparison.textContent).toContain("Standard");
+    expect(comparison.textContent).toContain("Priority");
+    expect(document.body.textContent).toContain(
+      "Both plans search bookmark titles, URLs, tags, and collections",
+    );
+    expect(document.body.textContent).toContain(
+      "Everything in Free stays included",
+    );
+    expect(document.body.textContent).toContain(
+      "Browser-side encryption for protected content",
+    );
+    expect(document.body.textContent).toContain("Unlimited collections and tags");
     expect(document.body.textContent).toContain("No ads");
 
     const upgradeLink = Array.from(document.querySelectorAll("a")).find(

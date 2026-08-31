@@ -183,4 +183,27 @@ describe("browser bookmark import preflight", () => {
     expect(preview.blockedReason).toBeNull();
     expect(performance.now() - startedAt).toBeLessThan(5_000);
   });
+
+  it("does not block a Pro import against the unlimited bookmark allowance", async () => {
+    const preview = await prepareBrowserBookmarkImport(
+      {
+        bookmarks: [
+          { title: "One", url: "https://one.test", folderPath: [] },
+          { title: "Two", url: "https://two.test", folderPath: [] },
+        ],
+        folderPaths: [],
+      },
+      [],
+      [],
+      {
+        ...plan,
+        limits: { ...plan.limits, bookmarks: 0, collections: 0 },
+      },
+      { bookmarks: 50_000, collections: 0 },
+    );
+
+    expect(preview.bookmarkLimit).toBe(0);
+    expect(preview.availableBookmarks).toBeNull();
+    expect(preview.blockedReason).toBeNull();
+  });
 });

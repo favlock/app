@@ -1,4 +1,7 @@
-import type { PlanDefinition } from "@favlock/shared";
+import {
+  getRemainingResourceLimit,
+  type PlanDefinition,
+} from "@favlock/shared";
 import type { Bookmark, Folder } from "../types/bookmark";
 import {
   folderPathKey,
@@ -42,7 +45,7 @@ export type BrowserBookmarkImportPreview = {
   readyToAddCount: number;
   bookmarkLimit: number;
   bookmarkUsage: number;
-  availableBookmarks: number;
+  availableBookmarks: number | null;
   collectionLimit: number;
   collectionUsage: number;
   availableCollections: number | null;
@@ -140,16 +143,16 @@ export async function prepareBrowserBookmarkImport(
     (path) => !existingFolderMap.has(folderPathKey(path)),
   );
   const readyToAddCount = items.filter((item) => item.duplicate === null).length;
-  const availableBookmarks = Math.max(
-    0,
-    plan.limits.bookmarks - usage.bookmarks,
+  const availableBookmarks = getRemainingResourceLimit(
+    usage.bookmarks,
+    plan.limits.bookmarks,
   );
   const availableCollections =
     plan.limits.collections === 0
       ? null
       : Math.max(0, plan.limits.collections - usage.collections);
   let blockedReason: string | null = null;
-  if (readyToAddCount > availableBookmarks) {
+  if (availableBookmarks !== null && readyToAddCount > availableBookmarks) {
     blockedReason = `This import needs space for at least ${readyToAddCount} new bookmarks, but your current plan has ${availableBookmarks} remaining.`;
   } else if (
     availableCollections !== null &&

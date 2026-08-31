@@ -2,6 +2,7 @@ export const PLAN_IDS = ["free", "pro"] as const;
 
 export type PlanId = (typeof PLAN_IDS)[number];
 
+/** Numeric plan allowances. Zero means unlimited for every resource. */
 export type ResourceLimits = {
   bookmarks: number;
   /** Notes and todos combined. */
@@ -20,6 +21,17 @@ export type PlanDefinition = {
   name: string;
   trashRecoveryDays: number;
   limits: ResourceLimits;
+  bookmarkAccess: BookmarkAccess;
+};
+
+export type BookmarkAccessMode = "normal" | "grace" | "recovery";
+
+export type BookmarkAccess = {
+  mode: BookmarkAccessMode;
+  count: number;
+  limit: number;
+  graceEndsAt: string | null;
+  cleanupAt: string | null;
 };
 
 export const PLANS = {
@@ -28,12 +40,19 @@ export const PLANS = {
     name: "Free",
     trashRecoveryDays: 7,
     limits: {
-      bookmarks: 500,
+      bookmarks: 1_000,
       entries: 50,
       readspace: 25,
       collections: 0,
       tags: 0,
       lists: 3,
+    },
+    bookmarkAccess: {
+      mode: "normal",
+      count: 0,
+      limit: 1_000,
+      graceEndsAt: null,
+      cleanupAt: null,
     },
   },
   pro: {
@@ -41,12 +60,19 @@ export const PLANS = {
     name: "Pro",
     trashRecoveryDays: 30,
     limits: {
-      bookmarks: 10_000,
+      bookmarks: 0,
       entries: 1_000,
       readspace: 250,
       collections: 0,
       tags: 0,
       lists: 0,
+    },
+    bookmarkAccess: {
+      mode: "normal",
+      count: 0,
+      limit: 0,
+      graceEndsAt: null,
+      cleanupAt: null,
     },
   },
 } as const satisfies Record<PlanId, PlanDefinition>;
@@ -60,4 +86,25 @@ export function isPlanId(value: unknown): value is PlanId {
 
 export function getPlan(value: unknown): PlanDefinition {
   return isPlanId(value) ? PLANS[value] : DEFAULT_PLAN;
+}
+
+export function isUnlimitedResourceLimit(limit: number): boolean {
+  return limit === 0;
+}
+
+export function formatResourceLimit(limit: number): string {
+  return isUnlimitedResourceLimit(limit)
+    ? "Unlimited"
+    : limit.toLocaleString("en-US");
+}
+
+export function hasReachedResourceLimit(used: number, limit: number): boolean {
+  return !isUnlimitedResourceLimit(limit) && used >= limit;
+}
+
+export function getRemainingResourceLimit(
+  used: number,
+  limit: number,
+): number | null {
+  return isUnlimitedResourceLimit(limit) ? null : Math.max(0, limit - used);
 }

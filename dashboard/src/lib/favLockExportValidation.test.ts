@@ -130,6 +130,25 @@ describe("FavLock export validation", () => {
     expect(summarizeFavLockExport(parsed).lists).toBe(0);
   });
 
+  it("accepts a Pro archive above the former 10,000-bookmark ceiling", () => {
+    const archive = buildFavLockExport(source, selection);
+    const first = archive.data.bookmarks![0];
+    archive.data.bookmarks = Array.from({ length: 10_001 }, (_, index) =>
+      index === 0
+        ? first
+        : {
+            ...first,
+            id: `30000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
+            title: `Bookmark ${index}`,
+            url: `https://example.com/${index}`,
+          },
+    );
+
+    expect(summarizeFavLockExport(parseFavLockExport(archive)).bookmarks).toBe(
+      10_001,
+    );
+  });
+
   it("rejects unknown relationships and unsupported nesting", () => {
     const archive = buildFavLockExport(source, selection);
     const unknownTag = structuredClone(archive);

@@ -26,6 +26,8 @@ import { useAuth } from "../context/useAuth";
 import DataTransferDialog, {
   type DataTransferView,
 } from "../components/DataTransferDialog";
+import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/BookmarkLimitRecovery";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -56,6 +58,8 @@ export default function DashboardLayout() {
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const { data: userInfo, isSuccess: userInfoLoaded } = useUserInfo();
   const { user } = useAuth();
+  const { data: accountPlan } = useAccountPlan();
+  const bookmarkAccess = accountPlan?.bookmarkAccess;
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -173,13 +177,18 @@ export default function DashboardLayout() {
     const addUrl = searchParams.get("addUrl");
     if (!addUrl) return;
 
+    if (bookmarkAccess && bookmarkAccess.mode !== "normal") {
+      setIsAddBookmarkOpen(false);
+      return;
+    }
+
     setAddBookmarkFolderId(null);
     setAddBookmarkSeed({
       url: addUrl,
       title: searchParams.get("addTitle") ?? "",
     });
     setIsAddBookmarkOpen(true);
-  }, [location.search]);
+  }, [bookmarkAccess, location.search]);
 
   useEffect(() => {
     if (!collectionSlug || loadingFolders) return;
@@ -255,10 +264,15 @@ export default function DashboardLayout() {
   };
 
   const openAddBookmark = (currentFolderId: string | null = null) => {
+    if (bookmarkAccess && bookmarkAccess.mode !== "normal") return;
     setAddBookmarkFolderId(currentFolderId);
     setAddBookmarkSeed({ url: "", title: "" });
     setIsAddBookmarkOpen(true);
   };
+
+  if (bookmarkAccess?.mode === "recovery") {
+    return <BookmarkLimitRecovery access={bookmarkAccess} />;
+  }
 
   const closeDataTransfer = () => {
     setDataTransferView(null);
@@ -395,6 +409,9 @@ export default function DashboardLayout() {
             className="w-full min-w-0 pb-[env(safe-area-inset-bottom)] focus:outline-none"
           >
             <CloudConnectionNotice />
+            {bookmarkAccess?.mode === "grace" ? (
+              <BookmarkLimitGraceNotice access={bookmarkAccess} />
+            ) : null}
             <Outlet
               context={
                 {

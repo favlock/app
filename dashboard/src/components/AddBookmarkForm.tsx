@@ -6,6 +6,7 @@ import {
   useId,
   useRef,
 } from "react";
+import { hasReachedResourceLimit } from "@favlock/shared";
 import { useFolders } from "../hooks/useFoldersQuery";
 import {
   useAddBookmark,
@@ -285,7 +286,10 @@ export default function AddBookmarkForm({
     const rawUrl = url.trim();
     if (
       accountPlan &&
-      (bookmarkCounts?.bookmarkCount ?? 0) >= accountPlan.limits.bookmarks
+      hasReachedResourceLimit(
+        bookmarkCounts?.bookmarkCount ?? 0,
+        accountPlan.limits.bookmarks,
+      )
     ) {
       setError(
         `Bookmark limit reached. You can have at most ${accountPlan.limits.bookmarks} bookmarks.`,
