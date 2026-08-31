@@ -8,6 +8,10 @@ function isNonNegativeInteger(value: unknown): value is number {
   return Number.isInteger(value) && (value as number) >= 0;
 }
 
+function isNullableDate(value: unknown): value is string | null {
+  return value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)));
+}
+
 function parseAccountPlan(value: unknown): PlanDefinition {
   if (!value || typeof value !== "object") throw new Error(ACCOUNT_PLAN_ERROR);
   const response = value as Record<string, unknown>;
@@ -20,6 +24,11 @@ function parseAccountPlan(value: unknown): PlanDefinition {
     throw new Error(ACCOUNT_PLAN_ERROR);
   }
   const limits = limitsValue as Record<string, unknown>;
+  const bookmarkAccessValue = plan.bookmarkAccess;
+  if (!bookmarkAccessValue || typeof bookmarkAccessValue !== "object") {
+    throw new Error(ACCOUNT_PLAN_ERROR);
+  }
+  const bookmarkAccess = bookmarkAccessValue as Record<string, unknown>;
 
   if (
     typeof plan.id !== "string" ||
@@ -32,7 +41,12 @@ function parseAccountPlan(value: unknown): PlanDefinition {
     !isNonNegativeInteger(limits.readspace) ||
     !isNonNegativeInteger(limits.collections) ||
     !isNonNegativeInteger(limits.tags) ||
-    !isNonNegativeInteger(limits.lists)
+    !isNonNegativeInteger(limits.lists) ||
+    !["normal", "grace", "recovery"].includes(String(bookmarkAccess.mode)) ||
+    !isNonNegativeInteger(bookmarkAccess.count) ||
+    !isNonNegativeInteger(bookmarkAccess.limit) ||
+    !isNullableDate(bookmarkAccess.graceEndsAt) ||
+    !isNullableDate(bookmarkAccess.cleanupAt)
   ) {
     throw new Error(ACCOUNT_PLAN_ERROR);
   }
@@ -48,6 +62,13 @@ function parseAccountPlan(value: unknown): PlanDefinition {
       collections: limits.collections,
       tags: limits.tags,
       lists: limits.lists,
+    },
+    bookmarkAccess: {
+      mode: bookmarkAccess.mode as "normal" | "grace" | "recovery",
+      count: bookmarkAccess.count,
+      limit: bookmarkAccess.limit,
+      graceEndsAt: bookmarkAccess.graceEndsAt,
+      cleanupAt: bookmarkAccess.cleanupAt,
     },
   };
 }

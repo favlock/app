@@ -1,4 +1,4 @@
-import { PLANS } from "@favlock/shared";
+import { formatResourceLimit, PLANS } from "@favlock/shared";
 import { CreditCard, ExternalLink, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
@@ -121,7 +121,7 @@ export default function BillingSection() {
               </span>
             </div>
             <p className="mt-2 max-w-md text-sm liquid-muted">
-              {PLANS.pro.limits.bookmarks.toLocaleString("en-US")} bookmarks, {" "}
+              {formatResourceLimit(PLANS.pro.limits.bookmarks)} bookmarks, {" "}
               {PLANS.pro.limits.entries.toLocaleString("en-US")} documents and
               tasks, {PLANS.pro.limits.readspace.toLocaleString("en-US")} {" "}
               saved articles, and {PLANS.pro.trashRecoveryDays}-day Trash

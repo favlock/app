@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   refetchResourceUsage: vi.fn(),
   retryBookmarkCacheSync: vi.fn(),
   resourceUsage: { bookmarks: 0, collections: 0 },
+  bookmarkLimit: 1000,
   authoritativeBookmarks: [] as Array<Record<string, unknown>>,
   authoritativeFolders: [] as Array<Record<string, unknown>>,
   loadAuthoritativeImportLibrary: vi.fn(),
@@ -56,7 +57,7 @@ vi.mock("../hooks/useFoldersQuery", () => ({
 vi.mock("../hooks/useAccountPlanQuery", () => ({
   useAccountPlan: () => ({
     data: {
-      limits: { bookmarks: 1000, collections: 100 },
+      limits: { bookmarks: mocks.bookmarkLimit, collections: 100 },
     },
     refetch: mocks.refetchAccountPlan,
   }),
@@ -125,9 +126,9 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     mocks.getCachedBookmarksForUser.mockReset().mockResolvedValue([]);
     mocks.invalidateQueries.mockReset();
     mocks.refetchAccountPlan.mockReset();
-    mocks.refetchAccountPlan.mockResolvedValue({
-      data: { limits: { bookmarks: 1000, collections: 100 } },
-    });
+    mocks.refetchAccountPlan.mockImplementation(async () => ({
+      data: { limits: { bookmarks: mocks.bookmarkLimit, collections: 100 } },
+    }));
     mocks.refetchResourceUsage.mockReset();
     mocks.refetchResourceUsage.mockImplementation(async () => ({
       data: { ...mocks.resourceUsage },
@@ -135,6 +136,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     mocks.retryBookmarkCacheSync.mockReset();
     mocks.resourceUsage.bookmarks = 0;
     mocks.resourceUsage.collections = 0;
+    mocks.bookmarkLimit = 1000;
     mocks.authoritativeBookmarks = [];
     mocks.authoritativeFolders = [];
     mocks.savedJournal = null;
@@ -230,6 +232,25 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
 
     expect(postMessage).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Import from Chrome");
+  });
+
+  it("allows Pro imports when the bookmark allowance is unlimited", async () => {
+    mocks.bookmarkLimit = 0;
+    mocks.resourceUsage.bookmarks = 50_000;
+    const { bridge, extensionOrigin, requestId } = await launchChromeImport();
+
+    await sendChromeBookmarks(bridge, extensionOrigin, requestId, [
+      { title: "New bookmark", url: "https://new.test" },
+    ]);
+
+    expect(document.body.textContent).toContain("Unlimited bookmark capacity");
+    expect(document.body.textContent).toContain(
+      "Your plan has no bookmark-count limit.",
+    );
+    await clickButton("Start import");
+    await waitForImportWork();
+
+    expect(mocks.createBookmark).toHaveBeenCalledTimes(1);
   });
 
   it("reviews duplicates before writing and can skip all of them", async () => {
@@ -361,7 +382,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
           source: bridge.contentWindow,
         }),
       );
-      await new Promise((resolve) => window.setTimeout(resolve, 0));
+      await new Promise((resolve) => window.setTimeout(resolve, 20));
     });
 
     await clickButton("Start import");

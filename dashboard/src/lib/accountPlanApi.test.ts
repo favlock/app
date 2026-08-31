@@ -9,12 +9,19 @@ const responseBody = {
     name: "Free",
     trashRecoveryDays: 7,
     limits: {
-      bookmarks: 500,
+      bookmarks: 1_000,
       entries: 50,
       readspace: 25,
       collections: 0,
       tags: 0,
       lists: 3,
+    },
+    bookmarkAccess: {
+      mode: "normal",
+      count: 925,
+      limit: 1_000,
+      graceEndsAt: null,
+      cleanupAt: null,
     },
   },
 };
@@ -45,6 +52,58 @@ describe("fetchAccountPlan", () => {
         credentials: "omit",
       }),
     );
+  });
+
+  it("accepts zero as the direct unlimited bookmark sentinel", async () => {
+    const unlimitedResponse = {
+      data: {
+        ...responseBody.data,
+        id: "pro",
+        name: "Pro",
+        trashRecoveryDays: 30,
+        limits: {
+          ...responseBody.data.limits,
+          bookmarks: 0,
+          entries: 1_000,
+          readspace: 250,
+          lists: 0,
+        },
+        bookmarkAccess: {
+          mode: "normal",
+          count: 1_250,
+          limit: 0,
+          graceEndsAt: null,
+          cleanupAt: null,
+        },
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(unlimitedResponse), { status: 200 }),
+      ),
+    );
+
+    await expect(fetchAccountPlan("current.jwt.token")).resolves.toEqual({
+      id: "pro",
+      name: "Pro",
+      trashRecoveryDays: 30,
+      limits: {
+        bookmarks: 0,
+        entries: 1_000,
+        readspace: 250,
+        collections: 0,
+        tags: 0,
+        lists: 0,
+      },
+      bookmarkAccess: {
+        mode: "normal",
+        count: 1_250,
+        limit: 0,
+        graceEndsAt: null,
+        cleanupAt: null,
+      },
+    });
   });
 
   it("rejects a missing token without making a request", async () => {

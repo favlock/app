@@ -2,12 +2,18 @@ export { Logo } from "./Logo";
 export {
   DEFAULT_PLAN,
   DEFAULT_PLAN_ID,
+  formatResourceLimit,
+  getRemainingResourceLimit,
   getPlan,
+  hasReachedResourceLimit,
+  isUnlimitedResourceLimit,
   isPlanId,
   PLAN_IDS,
   PLANS,
   type PlanDefinition,
   type PlanId,
+  type BookmarkAccess,
+  type BookmarkAccessMode,
   type ResourceLimits,
 } from "./resourceLimits";
 export { PRODUCT_VERSION } from "./version";
