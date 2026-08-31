@@ -13,7 +13,7 @@ import { useBookmarkStore } from "../store/bookmarkStore";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(), getLocalUser: vi.fn(), getCloudStatus: vi.fn(), getConnectionError: vi.fn(), isLocalAccountInvalidated: vi.fn(), signOut: vi.fn(), onAuthStateChange: vi.fn(),
   clearKey: vi.fn(), lockKey: vi.fn(), triggerUnlock: vi.fn(), clearBookmarks: vi.fn(), clearContent: vi.fn(), hydrate: vi.fn(), clearQueries: vi.fn(),
-  fetchQuery: vi.fn(), clearDrafts: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
+  fetchQuery: vi.fn(), clearDrafts: vi.fn(), clearImportRecovery: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
 }));
 vi.mock("../lib/favLockAuth", () => ({ favLockAuth: {
   getSession: mocks.getSession, getLocalUser: mocks.getLocalUser, getCloudStatus: mocks.getCloudStatus,
@@ -28,6 +28,7 @@ vi.mock("../lib/bookmarkCache", () => ({
   clearBookmarkCacheForUser: mocks.clearBookmarks, clearLibraryContentCacheForUser: mocks.clearContent,
 }));
 vi.mock("../lib/entryDrafts", () => ({ clearEntryDraftsForUser: mocks.clearDrafts }));
+vi.mock("../lib/importRecovery", () => ({ clearImportRecoveryJournal: mocks.clearImportRecovery }));
 vi.mock("../lib/hydrateLibraryQueryCache", () => ({ hydrateLibraryQueryCache: mocks.hydrate }));
 vi.mock("../lib/queryClient", () => ({ queryClient: { clear: mocks.clearQueries, fetchQuery: mocks.fetchQuery, invalidateQueries: mocks.invalidateQueries } }));
 vi.mock("../lib/accountSettingsApi", () => ({ updateAccountProfile: mocks.updateAccountProfile }));
@@ -77,6 +78,7 @@ describe("local routing through cloud failure", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.clearDrafts.mockReset().mockResolvedValue(undefined);
+    mocks.clearImportRecovery.mockReset();
     mocks.updateAccountProfile.mockReset().mockResolvedValue({});
     localStorage.clear();
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
@@ -141,6 +143,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
     expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
+    expect(mocks.clearImportRecovery).toHaveBeenCalledExactlyOnceWith("local-user");
     expect(container.textContent).not.toContain("local-user");
   });
 
@@ -244,6 +247,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
     expect(mocks.clearContent).not.toHaveBeenCalled();
     expect(mocks.clearDrafts).not.toHaveBeenCalled();
+    expect(mocks.clearImportRecovery).not.toHaveBeenCalled();
     expect(mocks.clearQueries).not.toHaveBeenCalled();
     readStorage.mockRestore();
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
@@ -304,6 +308,7 @@ describe("local routing through cloud failure", () => {
     expect(mocks.clearBookmarks).toHaveBeenCalledWith("local-user");
     expect(mocks.clearContent).toHaveBeenCalledWith("local-user");
     expect(mocks.clearDrafts).toHaveBeenCalledExactlyOnceWith("local-user");
+    expect(mocks.clearImportRecovery).toHaveBeenCalledExactlyOnceWith("local-user");
   });
 
   it("handles a rejected initialization after the provider unmounts", async () => {
