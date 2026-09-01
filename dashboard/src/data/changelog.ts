@@ -11,6 +11,16 @@ export const changelog: Release[] = [
     version: PRODUCT_VERSION,
     date: "September 1, 2026",
     changes: [
+      "Search saved bookmarks from the Chrome extension by title, URL, Collection, or tag, with focused Save and Search views.",
+      "Save the current page or all open tabs through clearer actions, and choose tags directly while saving.",
+      "Keep Chrome bookmark access optional until you start an import, and choose whether FavLock opens in new tabs.",
+      "Find the Chrome extension more easily with a dismissible suggestion in the dashboard when it is not installed.",
+    ],
+  },
+  {
+    version: "1.7.0",
+    date: "September 1, 2026",
+    changes: [
       "Get started with guided setup for protecting your library, saving or importing your first bookmarks, optionally connecting Chrome, and finding something you saved.",
       "Preview bookmark imports, resolve duplicates explicitly, and safely continue interrupted imports without silently dropping items.",
       "Free and Pro bookmark allowances are now clearer, with guided recovery options when a library exceeds the Free limit.",
