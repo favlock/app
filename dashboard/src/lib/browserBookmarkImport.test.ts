@@ -81,6 +81,44 @@ describe("browser bookmark import", () => {
     });
   });
 
+  it("parses untrusted bookmark markup without a browser DOM HTML sink", () => {
+    const originalDomParser = globalThis.DOMParser;
+    globalThis.DOMParser = class ForbiddenDomParser {
+      parseFromString(): Document {
+        throw new Error("Bookmark imports must not use DOMParser.");
+      }
+    } as typeof DOMParser;
+
+    try {
+      expect(
+        parseBrowserBookmarksHtml(`
+          <DL>
+            <DT><H3 ONCLICK="globalThis.importExecuted = true">Security &amp; Privacy</H3></DT>
+            <DL>
+              <DT>
+                <A HREF="https://example.com/?left=1&amp;right=2" ONCLICK="globalThis.importExecuted = true">
+                  <IMG SRC="missing" ONERROR="globalThis.importExecuted = true">Safe &amp; sound
+                </A>
+              </DT>
+              <SCRIPT>globalThis.importExecuted = true</SCRIPT>
+            </DL>
+          </DL>
+        `),
+      ).toEqual({
+        bookmarks: [
+          {
+            title: "Safe & sound",
+            url: "https://example.com/?left=1&right=2",
+            folderPath: ["Security & Privacy"],
+          },
+        ],
+        folderPaths: [["Security & Privacy"]],
+      });
+    } finally {
+      globalThis.DOMParser = originalDomParser;
+    }
+  });
+
   it("rejects an oversized direct HTML export before reading it", async () => {
     const file = {
       ...createImportFile("bookmarks.html", "<DL></DL>", "text/html"),
