@@ -35,6 +35,7 @@ import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/BookmarkLimitRecovery";
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
+import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -453,6 +454,15 @@ export default function DashboardLayout() {
         view={activeDataTransferView}
         onViewChange={changeDataTransferView}
         onClose={closeDataTransfer}
+      />
+      <ChromeExtensionPrompt
+        enabled={
+          hasFinishedInitialOnboarding &&
+          !isOnboardingOpen &&
+          !isAddBookmarkOpen &&
+          activeDataTransferView === null
+        }
+        userId={user?.id ?? ""}
       />
 
       <a
