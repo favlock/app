@@ -218,6 +218,91 @@ async function loadBookmarkUrlIndex(key) {
   return index;
 }
 
+function normalizeSearchText(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase();
+}
+
+export const BOOKMARK_SEARCH_MIN_CHARACTERS = 2;
+export const BOOKMARK_SEARCH_RESULT_LIMIT = 6;
+
+export function filterSearchableBookmarks(bookmarks, query, limit = 20) {
+  const terms = normalizeSearchText(query).trim().split(/\s+/).filter(Boolean);
+  if (!terms.length || limit <= 0) return [];
+
+  return (bookmarks || [])
+    .filter((bookmark) => {
+      const searchableText = normalizeSearchText(
+        [
+          bookmark?.title,
+          bookmark?.url,
+          ...(bookmark?.collectionNames || []),
+          ...(bookmark?.tagNames || []),
+        ].join(" "),
+      );
+      return terms.every((term) => searchableText.includes(term));
+    })
+    .slice(0, limit);
+}
+
+export function getBookmarkSearchResults(bookmarks, query) {
+  const queryLength = Array.from(normalizeSearchText(query).trim()).length;
+  if (queryLength < BOOKMARK_SEARCH_MIN_CHARACTERS) {
+    return { items: [], queryLength, total: 0 };
+  }
+
+  const matches = filterSearchableBookmarks(
+    bookmarks,
+    query,
+    bookmarks?.length || 0,
+  );
+  return {
+    items: matches.slice(0, BOOKMARK_SEARCH_RESULT_LIMIT),
+    queryLength,
+    total: matches.length,
+  };
+}
+
+export async function loadSearchableBookmarks({ folders = [], tags = [] } = {}) {
+  const key = await getKey();
+  const rows = await loadAllPages("/v1/library/bookmarks", 200, key);
+  const folderNamesById = new Map(
+    folders.map((folder) => [folder.id, folder.name]),
+  );
+  const tagNamesById = new Map(tags.map((tag) => [tag.id, tag.name]));
+  const bookmarks = await Promise.all(
+    rows.map(async (bookmark) => {
+      try {
+        const url = normalizeBookmarkUrl(
+          await decryptField(bookmark.encryptedUrl, key),
+        );
+        if (!url) return null;
+        const decryptedTitle = String(
+          await decryptField(bookmark.encryptedTitle, key),
+        ).trim();
+        const organization = getBookmarkOrganization(bookmark);
+        return {
+          id: bookmark.id,
+          title: decryptedTitle || new URL(url).hostname.replace(/^www\./, ""),
+          url,
+          collectionNames: [folderNamesById.get(organization.folderId)].filter(
+            Boolean,
+          ),
+          tagNames: organization.tagIds
+            .map((tagId) => tagNamesById.get(tagId))
+            .filter(Boolean),
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+
+  return bookmarks.filter(Boolean);
+}
+
 export async function loadSavedPageState(url) {
   const normalizedUrl = normalizeBookmarkUrl(url);
   if (!normalizedUrl) return null;
