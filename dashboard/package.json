@@ -1,7 +1,7 @@
 {
   "name": "@favlock/dashboard",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.7.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -31,6 +31,7 @@
     "jsqr": "^1.4.0",
     "lucide-react": "^0.564.0",
     "motion": "^12.34.3",
+    "parse5": "^8.0.1",
     "qrcode": "^1.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

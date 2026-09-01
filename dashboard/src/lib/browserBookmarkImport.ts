@@ -1,4 +1,5 @@
 import { strFromU8, unzip, type Unzipped } from "fflate";
+import { parse, type DefaultTreeAdapterTypes } from "parse5";
 
 export interface BrowserBookmarkImportItem {
   title: string;
@@ -18,6 +19,7 @@ export interface ExistingImportFolder {
 }
 
 const MAX_CHROME_IMPORT_NODES = 100_000;
+const MAX_HTML_IMPORT_BOOKMARKS = 100_000;
 const MAX_ZIP_FILE_SIZE = 250 * 1024 * 1024;
 const MAX_BOOKMARK_HTML_SIZE = 25 * 1024 * 1024;
 
@@ -29,50 +31,177 @@ interface BrowserBookmarkImportFile {
   text(): Promise<string>;
 }
 
-function getElementText(node: Element | null | undefined): string {
-  return node?.textContent?.trim() ?? "";
+type HtmlNode = DefaultTreeAdapterTypes.Node;
+type HtmlElement = DefaultTreeAdapterTypes.Element;
+type HtmlTextNode = DefaultTreeAdapterTypes.TextNode;
+
+function isHtmlElement(node: HtmlNode): node is HtmlElement {
+  return "tagName" in node;
 }
 
-function findFolderHeadingForDl(dl: Element): Element | null {
-  let sibling: Element | null = dl.previousElementSibling;
+function isHtmlTextNode(node: HtmlNode): node is HtmlTextNode {
+  return node.nodeName === "#text" && "value" in node;
+}
 
-  while (sibling) {
-    if (sibling.matches("H3, H2")) return sibling;
+function getChildElements(node: HtmlNode): HtmlElement[] {
+  if (!("childNodes" in node)) return [];
+  return node.childNodes.filter(isHtmlElement);
+}
 
-    const nestedHeading = sibling.querySelector("H3, H2");
+function getElementText(node: HtmlElement | null | undefined): string {
+  if (!node) return "";
+
+  let text = "";
+  const pending: HtmlNode[] = [...node.childNodes].reverse();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+
+    if (isHtmlTextNode(current)) {
+      text += current.value;
+      continue;
+    }
+
+    if ("childNodes" in current) {
+      for (let index = current.childNodes.length - 1; index >= 0; index -= 1) {
+        pending.push(current.childNodes[index]);
+      }
+    }
+  }
+
+  return text.trim();
+}
+
+function isFolderHeading(node: HtmlElement): boolean {
+  return node.tagName === "h3" || node.tagName === "h2";
+}
+
+function findNestedFolderHeading(node: HtmlElement): HtmlElement | null {
+  const pending = getChildElements(node).reverse();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    if (isFolderHeading(current)) return current;
+
+    const children = getChildElements(current);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      pending.push(children[index]);
+    }
+  }
+
+  return null;
+}
+
+function findFolderHeadingForDl(dl: HtmlElement): HtmlElement | null {
+  const parent = dl.parentNode;
+  const siblings = parent ? getChildElements(parent) : [];
+  let siblingIndex = siblings.indexOf(dl) - 1;
+
+  while (siblingIndex >= 0) {
+    const sibling = siblings[siblingIndex];
+    if (isFolderHeading(sibling)) return sibling;
+
+    const nestedHeading = findNestedFolderHeading(sibling);
     if (nestedHeading) return nestedHeading;
 
-    sibling = sibling.previousElementSibling;
+    siblingIndex -= 1;
   }
 
   // Some exports wrap the matching heading in a nearby DT/parent container.
-  const parentHeading = dl.parentElement?.querySelector(":scope > DT > H3, :scope > DT > H2");
-  return parentHeading ?? null;
-}
+  for (const child of siblings) {
+    if (child.tagName !== "dt") continue;
 
-function getAnchorFolderPath(anchor: Element): string[] {
-  const path: string[] = [];
-  let currentDl = anchor.closest("DL");
-
-  while (currentDl) {
-    const heading = findFolderHeadingForDl(currentDl);
-    const headingText = getElementText(heading);
-
-    if (headingText) {
-      path.unshift(headingText);
-    }
-
-    currentDl = currentDl.parentElement?.closest("DL") ?? null;
+    const heading = getChildElements(child).find(isFolderHeading);
+    if (heading) return heading;
   }
 
-  return path;
+  return null;
+}
+
+function findClosestDl(node: HtmlElement): HtmlElement | null {
+  let current: HtmlNode | null = node;
+
+  while (current) {
+    if (isHtmlElement(current) && current.tagName === "dl") return current;
+    current = "parentNode" in current ? current.parentNode : null;
+  }
+
+  return null;
+}
+
+function getAttribute(node: HtmlElement, name: string): string | null {
+  return node.attrs.find((attribute) => attribute.name === name)?.value ?? null;
+}
+
+function getBookmarkAnchors(root: HtmlNode): HtmlElement[] {
+  const anchors: HtmlElement[] = [];
+  const pending = getChildElements(root).reverse();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+
+    if (current.tagName === "a" && getAttribute(current, "href") !== null) {
+      anchors.push(current);
+    }
+
+    const children = getChildElements(current);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      pending.push(children[index]);
+    }
+  }
+
+  return anchors;
+}
+
+function getAnchorFolderPath(
+  anchor: HtmlElement,
+  folderPathByDl: WeakMap<HtmlElement, string[]>,
+): string[] {
+  const anchorDl = findClosestDl(anchor);
+  if (!anchorDl) return [];
+  let currentDl: HtmlElement | null = anchorDl;
+  const unresolved: HtmlElement[] = [];
+
+  while (currentDl) {
+    const cached = folderPathByDl.get(currentDl);
+    if (cached) {
+      let path = cached;
+      for (let index = unresolved.length - 1; index >= 0; index -= 1) {
+        const dl = unresolved[index];
+        const headingText = getElementText(findFolderHeadingForDl(dl));
+        path = headingText ? [...path, headingText] : path;
+        folderPathByDl.set(dl, path);
+      }
+      return folderPathByDl.get(anchorDl) ?? [];
+    }
+    unresolved.push(currentDl);
+    currentDl = currentDl.parentNode && isHtmlElement(currentDl.parentNode)
+      ? findClosestDl(currentDl.parentNode)
+      : null;
+  }
+
+  let path: string[] = [];
+  for (let index = unresolved.length - 1; index >= 0; index -= 1) {
+    const dl = unresolved[index];
+    const headingText = getElementText(findFolderHeadingForDl(dl));
+    path = headingText ? [...path, headingText] : path;
+    folderPathByDl.set(dl, path);
+  }
+  return folderPathByDl.get(anchorDl) ?? [];
 }
 
 export function parseBrowserBookmarksHtml(
   html: string,
 ): BrowserBookmarkImportResult {
-  const document = new DOMParser().parseFromString(html, "text/html");
-  const anchors = Array.from(document.querySelectorAll("A[href]"));
+  const document = parse(html);
+  const anchors = getBookmarkAnchors(document);
+
+  if (anchors.length > MAX_HTML_IMPORT_BOOKMARKS) {
+    throw new Error("The bookmark export contains too many records to import safely.");
+  }
 
   if (anchors.length === 0) {
     return { bookmarks: [], folderPaths: [] };
@@ -80,12 +209,13 @@ export function parseBrowserBookmarksHtml(
 
   const bookmarks: BrowserBookmarkImportItem[] = [];
   const folderMap = new Map<string, string[]>();
+  const folderPathByDl = new WeakMap<HtmlElement, string[]>();
 
   for (const anchor of anchors) {
-    const url = anchor.getAttribute("href")?.trim() ?? "";
+    const url = getAttribute(anchor, "href")?.trim() ?? "";
     if (!url) continue;
 
-    const folderPath = getAnchorFolderPath(anchor);
+    const folderPath = getAnchorFolderPath(anchor, folderPathByDl);
     const folderKey = folderPathKey(folderPath);
     if (!folderMap.has(folderKey)) {
       folderMap.set(folderKey, folderPath);
@@ -211,6 +341,10 @@ export async function parseBrowserBookmarksFile(
   file: BrowserBookmarkImportFile,
 ): Promise<BrowserBookmarkImportResult> {
   if (isZipFile(file)) return parseBrowserBookmarksZip(file);
+
+  if (file.size > MAX_BOOKMARK_HTML_SIZE) {
+    throw new Error("The selected bookmark HTML file is too large to import safely.");
+  }
 
   const result = parseBrowserBookmarksHtml(await file.text());
   if (result.bookmarks.length === 0) {

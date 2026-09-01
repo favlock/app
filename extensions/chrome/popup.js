@@ -72,8 +72,11 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   const panel = document.getElementById("connectionPanel");
   const form = document.getElementById("quickAddForm");
   const button = document.getElementById("connectButton");
-  const emailButton = document.getElementById("emailConnectButton");
-  document.getElementById("disconnectButton").hidden = !connected;
+  const connectedAccount = document.getElementById("connectedAccount");
+  connectedAccount.hidden = !connected;
+  connectedAccount.textContent = connected
+    ? email ? `Connected as ${email}` : "FavLock extension connected"
+    : "";
 
   if (connected && cloudStatus !== "available") {
     panel.hidden = false;
@@ -81,9 +84,7 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
     document.getElementById("connectionTitle").textContent = "Local connection saved";
     document.getElementById("connectionDescription").textContent =
       `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to use your saved local library.`;
-    button.textContent = "Reconnect with Google";
-    button.dataset.action = "connect";
-    emailButton.hidden = false;
+    button.textContent = "Reconnect FavLock";
     return;
   }
   if (connected && unlocked) {
@@ -100,15 +101,11 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
       ? `${email} is connected. Unlock your library to check and organize saved pages.`
       : "Unlock your library to check and organize saved pages.";
     button.textContent = "Unlock extension";
-    button.dataset.action = "pair";
-    emailButton.hidden = true;
   } else {
     document.getElementById("connectionTitle").textContent = "Connect FavLock";
     document.getElementById("connectionDescription").textContent =
       "Sign in or create an account with Google or email, then unlock your library.";
-    button.textContent = "Continue with Google";
-    button.dataset.action = "connect";
-    emailButton.hidden = false;
+    button.textContent = "Connect FavLock";
   }
 }
 
@@ -296,36 +293,11 @@ async function connectOrPair() {
   setStatus("");
   try {
     const response = await chrome.runtime.sendMessage({
-      type:
-        button.dataset.action === "pair"
-          ? "favlock.extension.open-pairing"
-          : "favlock.extension.connect",
+      type: "favlock.extension.connect",
     });
     if (!response?.ok) throw new Error(response?.error || "Connection failed.");
     setStatus(
-      response.needsKey
-        ? "Finish unlocking FavLock in the opened tab."
-        : "FavLock is connected.",
-      "success",
-    );
-  } catch (error) {
-    setStatus(error instanceof Error ? error.message : "Connection failed.");
-  } finally {
-    button.disabled = false;
-  }
-}
-
-async function connectWithEmail() {
-  const button = document.getElementById("emailConnectButton");
-  button.disabled = true;
-  setStatus("");
-  try {
-    const response = await chrome.runtime.sendMessage({
-      type: "favlock.extension.connect-email",
-    });
-    if (!response?.ok) throw new Error(response?.error || "Connection failed.");
-    setStatus(
-      "Finish signing in and unlocking FavLock in the opened tab.",
+      "Finish connecting FavLock in the opened tab.",
       "success",
     );
   } catch (error) {
@@ -478,21 +450,6 @@ async function openSettings() {
   window.close();
 }
 
-async function disconnect() {
-  const response = await chrome.runtime.sendMessage({
-    type: "favlock.extension.disconnect",
-  });
-  if (!response?.ok) {
-    setStatus(response?.error || "Could not disconnect FavLock.");
-    return;
-  }
-  setConnectionView({ connected: false, unlocked: false });
-  savedPageState = null;
-  setPageStateBadge("Not connected", "neutral");
-  void setToolbarSavedState(false);
-  setStatus("Local FavLock extension data was cleared.", "success");
-}
-
 async function openReaderMode() {
   const button = document.getElementById("openReaderButton");
   button.disabled = true;
@@ -534,9 +491,6 @@ async function openReaderMode() {
 }
 
 document.getElementById("connectButton").addEventListener("click", connectOrPair);
-document
-  .getElementById("emailConnectButton")
-  .addEventListener("click", connectWithEmail);
 document.getElementById("quickAddForm").addEventListener("submit", submitQuickAdd);
 document.getElementById("showTabSessionButton").addEventListener("click", () => {
   void showTabSession();
@@ -565,7 +519,6 @@ document.getElementById("collectionSelect").addEventListener("change", (event) =
 document.getElementById("openReaderButton").addEventListener("click", openReaderMode);
 document.getElementById("openDashboardButton").addEventListener("click", openDashboard);
 document.getElementById("openSettingsButton").addEventListener("click", openSettings);
-document.getElementById("disconnectButton").addEventListener("click", disconnect);
 
 document.getElementById("developmentBadge").hidden =
   FAVLOCK_CONFIG.target !== "development";

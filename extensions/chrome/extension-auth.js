@@ -10,10 +10,13 @@ import {
 } from "./extension-crypto.js";
 
 export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
+export const ONBOARDING_STATUS_MESSAGE = "favlock.extension.onboarding-status";
 const SESSION_KEY = "favlockAuthSession";
 const PROFILE_KEY = "favlockLocalProfile";
 const EPOCH_KEY = "favlockLocalEpoch";
 const ORIGINAL_TAB_KEY = "favlockOriginalTabId";
+const PAIRING_ATTEMPT_KEY = "favlockPairingAttempt";
+const PAIRING_ATTEMPT_TTL_MS = 10 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 let refreshPromise = null;
 let stateQueue = Promise.resolve();
@@ -73,33 +76,6 @@ function base64Url(bytes) {
 
 export function createRandomUrlToken(byteLength = 32) {
   return base64Url(crypto.getRandomValues(new Uint8Array(byteLength)));
-}
-
-export async function createPkceChallenge(verifier) {
-  const digest = await crypto.subtle.digest(
-    "SHA-256",
-    new TextEncoder().encode(verifier),
-  );
-  return base64Url(new Uint8Array(digest));
-}
-
-export function buildGoogleAuthorizationUrl({
-  redirectUri,
-  state,
-  codeChallenge,
-}) {
-  const redirectTarget = new URL(redirectUri);
-  redirectTarget.searchParams.set("state", state);
-  const authorizationUrl = new URL(
-    `${FAVLOCK_CONFIG.authUrl}/auth/v1/authorize`,
-  );
-  authorizationUrl.search = new URLSearchParams({
-    provider: "google",
-    redirect_to: redirectTarget.toString(),
-    code_challenge: codeChallenge,
-    code_challenge_method: "s256",
-  }).toString();
-  return authorizationUrl;
 }
 
 function apiUrl(path) {
@@ -170,33 +146,6 @@ async function writeSession(session) {
   });
 }
 
-export async function requestUser(accessToken) {
-  const response = await fetch(
-    apiUrl("/v1/auth/session/user"),
-    {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: "no-store",
-      credentials: "omit",
-      referrerPolicy: "no-referrer",
-      redirect: "error",
-      signal: AbortSignal.timeout(8000),
-    },
-  );
-  if (!response.ok) throw new Error("FavLock could not verify this session.");
-  const payload = await readJson(
-    response,
-    "FavLock could not verify this session.",
-  );
-  const user = payload?.data?.user;
-  if (typeof user?.id !== "string") {
-    throw new Error("FavLock could not verify this session.");
-  }
-  return user;
-}
-
 function createStoredSession(payload, user) {
   return {
     accessToken: payload.accessToken,
@@ -205,23 +154,6 @@ function createStoredSession(payload, user) {
     userId: user.id,
     email: user.email || "",
   };
-}
-
-export async function exchangeAuthorizationCode({ code, codeVerifier }) {
-  const before = await chrome.storage.local.get(EPOCH_KEY);
-  const payload = await requestSession(
-    "/v1/auth/session/exchange",
-    { authCode: code, codeVerifier },
-    "FavLock sign-in failed.",
-  );
-  const user = await requestUser(payload.accessToken);
-  const session = createStoredSession(payload, user);
-  await withStateLock(async () => {
-    const after = await chrome.storage.local.get(EPOCH_KEY);
-    if (before[EPOCH_KEY] !== after[EPOCH_KEY]) throw new Error("Sign-in was cancelled.");
-    await writeSession(session);
-  });
-  return session;
 }
 
 export async function exchangeExtensionSessionToken({ tokenHash, expectedUserId }) {
@@ -333,78 +265,37 @@ async function rememberOriginalTab() {
   }
 }
 
-export function buildEmailAuthorizationUrl({ dashboardUrl, extensionId }) {
+export function buildExtensionPairUrl({
+  dashboardUrl,
+  extensionId,
+  pairingAttempt,
+}) {
   const pairPath = new URL("extension/pair", dashboardUrl);
   pairPath.searchParams.set("extensionId", extensionId);
-  pairPath.searchParams.set("auth", "email");
-
-  const loginUrl = new URL("login", dashboardUrl);
-  loginUrl.searchParams.set(
-    "next",
-    `${pairPath.pathname}${pairPath.search}`,
-  );
-  return loginUrl;
-}
-
-export async function beginEmailExtensionConnection() {
-  assertConfiguredExtensionId();
-  await rememberOriginalTab();
-  const loginUrl = buildEmailAuthorizationUrl({
-    dashboardUrl: FAVLOCK_CONFIG.dashboardUrl,
-    extensionId: chrome.runtime.id,
-  });
-  await chrome.tabs.create({ url: loginUrl.toString() });
-  return { needsKey: true };
+  pairPath.searchParams.set("attempt", pairingAttempt);
+  return pairPath;
 }
 
 export async function beginExtensionConnection() {
   assertConfiguredExtensionId();
   await rememberOriginalTab();
-
-  const redirectUri = chrome.identity.getRedirectURL("favlock");
-  const codeVerifier = createRandomUrlToken(48);
-  const codeChallenge = await createPkceChallenge(codeVerifier);
-  const state = createRandomUrlToken();
-  const authorizationUrl = buildGoogleAuthorizationUrl({
-    redirectUri,
-    state,
-    codeChallenge,
+  const pairingAttempt = createRandomUrlToken();
+  await chrome.storage.session.set({
+    [PAIRING_ATTEMPT_KEY]: {
+      value: pairingAttempt,
+      expiresAt: Date.now() + PAIRING_ATTEMPT_TTL_MS,
+    },
   });
-
-  const callbackUrl = await chrome.identity.launchWebAuthFlow({
-    url: authorizationUrl.toString(),
-    interactive: true,
+  const pairUrl = buildExtensionPairUrl({
+    dashboardUrl: FAVLOCK_CONFIG.dashboardUrl,
+    extensionId: chrome.runtime.id,
+    pairingAttempt,
   });
-  if (!callbackUrl) throw new Error("FavLock sign-in was cancelled.");
-  const callback = new URL(callbackUrl);
-  const expectedCallback = new URL(redirectUri);
-  if (
-    callback.origin !== expectedCallback.origin ||
-    callback.pathname !== expectedCallback.pathname
-  ) {
-    throw new Error("FavLock rejected an unexpected sign-in callback.");
-  }
-  if (callback.searchParams.get("state") !== state) {
-    throw new Error("FavLock rejected an invalid sign-in response.");
-  }
-  const oauthError = callback.searchParams.get("error_description");
-  if (oauthError) throw new Error(oauthError);
-  const code = callback.searchParams.get("code");
-  if (!code) throw new Error("FavLock did not return an authorization code.");
-
-  await exchangeAuthorizationCode({ code, codeVerifier });
-  if (!(await loadLibraryKey())) {
-    const pairUrl = new URL("extension/pair", FAVLOCK_CONFIG.dashboardUrl);
-    pairUrl.searchParams.set("extensionId", chrome.runtime.id);
-    await chrome.tabs.create({ url: pairUrl.toString() });
-    return { needsKey: true };
-  }
-  await focusOriginalTab();
-  return { needsKey: false };
+  await chrome.tabs.create({ url: pairUrl.toString() });
+  return { needsKey: true };
 }
 
-export async function receivePairedKey(message, sender) {
-  if (message?.type !== PAIR_KEY_MESSAGE) return null;
+function getSenderOrigin(sender) {
   let senderOrigin = sender.origin;
   if (!senderOrigin && sender.url) {
     try {
@@ -413,10 +304,27 @@ export async function receivePairedKey(message, sender) {
       senderOrigin = null;
     }
   }
-  if (senderOrigin !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
+  return senderOrigin;
+}
+
+export async function receivePairedKey(message, sender) {
+  if (message?.type !== PAIR_KEY_MESSAGE) return null;
+  if (getSenderOrigin(sender) !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
     return { ok: false, error: "Untrusted pairing origin." };
   }
   try {
+    const storedAttempt = (await chrome.storage.session.get(PAIRING_ATTEMPT_KEY))[
+      PAIRING_ATTEMPT_KEY
+    ];
+    if (
+      typeof message.pairingAttempt !== "string" ||
+      !storedAttempt ||
+      message.pairingAttempt !== storedAttempt.value ||
+      !Number.isSafeInteger(storedAttempt.expiresAt) ||
+      storedAttempt.expiresAt < Date.now()
+    ) {
+      throw new Error("This extension connection request expired. Start again from the extension.");
+    }
     const initialEpoch = (await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY];
     const localAccount = await readLocalAccount();
     if (localAccount && localAccount.userId !== message.userId) throw new Error("This is a different account. Disconnect explicitly before switching accounts; your saved key was not changed.");
@@ -445,6 +353,7 @@ export async function receivePairedKey(message, sender) {
       if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The local account changed. Pair again.");
       if (replacingSession) await writeSession(session);
       await saveLibraryKey(key);
+      await chrome.storage.session.remove(PAIRING_ATTEMPT_KEY);
     });
     if (Number.isInteger(sender.tab?.id)) {
       const pairingTabId = sender.tab.id;
@@ -491,12 +400,33 @@ export async function getConnectionState() {
   };
 }
 
+export async function getExternalOnboardingStatus(message, sender) {
+  if (message?.type !== ONBOARDING_STATUS_MESSAGE) return null;
+  if (getSenderOrigin(sender) !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
+    return { ok: false, error: "Untrusted dashboard origin." };
+  }
+  if (!UUID.test(message.userId ?? "")) {
+    return { ok: false, error: "Invalid dashboard account." };
+  }
+
+  const [account, libraryKey] = await Promise.all([
+    readLocalAccount(),
+    loadLibraryKey(),
+  ]);
+  return {
+    ok: true,
+    connected: !!account,
+    unlocked: !!libraryKey,
+    accountMatches: account ? account.userId === message.userId : null,
+  };
+}
+
 export async function disconnectExtension() {
   await withStateLock(async () => {
     await chrome.storage.local.set({ [EPOCH_KEY]: crypto.randomUUID() });
     await Promise.all([
       chrome.storage.local.remove([SESSION_KEY, PROFILE_KEY]),
-      chrome.storage.session.remove(ORIGINAL_TAB_KEY),
+      chrome.storage.session.remove([ORIGINAL_TAB_KEY, PAIRING_ATTEMPT_KEY]),
       deleteLibraryKey(),
     ]);
   });

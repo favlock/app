@@ -6,9 +6,6 @@ export const FAVLOCK_CONFIG = Object.freeze({
   apiUrl: new URL(GENERATED_FAVLOCK_CONFIG.apiUrl)
     .toString()
     .replace(/\/$/, ""),
-  authUrl: new URL(GENERATED_FAVLOCK_CONFIG.authUrl)
-    .toString()
-    .replace(/\/$/, ""),
 });
 
 export function assertConfiguredExtensionId() {

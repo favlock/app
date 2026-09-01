@@ -31,6 +31,7 @@ import {
 import { STORAGE_KEY } from "../lib/encryption";
 import { clearLocalSearchHistoryForUser } from "../lib/searchHistory";
 import { clearEntryDraftsForUser } from "../lib/entryDrafts";
+import { clearImportRecoveryJournal } from "../lib/importRecovery";
 import { hydrateLibraryQueryCache } from "../lib/hydrateLibraryQueryCache";
 import { updateAccountProfile } from "../lib/accountSettingsApi";
 import { startLibraryRevalidation } from "../lib/libraryRevalidation";
@@ -93,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem(STORAGE_KEY);
       sessionStorage.removeItem(STORAGE_KEY);
       clearLocalSearchHistoryForUser(userId);
+      clearImportRecoveryJournal(userId);
       clearLocalKeyVerifier(userId);
       setBookmarkCacheSyncedAt(null);
       setLibraryCacheHydrating(false);

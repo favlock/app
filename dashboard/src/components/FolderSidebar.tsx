@@ -1068,7 +1068,7 @@ export default function FolderSidebar({
             className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
           >
             <CircleHelp size={16} aria-hidden="true" />
-            <span className="text-sm flex-1 text-left">App tour</span>
+            <span className="text-sm flex-1 text-left">Getting started</span>
           </button>
         </div>
 

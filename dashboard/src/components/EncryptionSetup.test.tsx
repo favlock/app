@@ -3,17 +3,25 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import EncryptionSetup from "./EncryptionSetup";
 import { queryClient } from "../lib/queryClient";
+import { importRawKey } from "../lib/encryption";
+import {
+  markProtectionPending,
+  readOnboardingState,
+} from "../lib/onboarding";
+import { requestEncryptionSetup } from "../lib/encryptionSetupFlow";
 
 const TEST_KEY = "1234 5678 9012 3456 7890 1234 5678 9012";
 
-const { userMetadata, fetchAccountSettings, fetchEncryptionVerifier, setKeyRemembered, setRawKey, signOut, updateAccountProfile } =
+const { cryptoKey, userMetadata, fetchAccountSettings, fetchEncryptionVerifier, setKeyRemembered, setRawKey, signOut, triggerUnlock, updateAccountProfile } =
   vi.hoisted(() => ({
+    cryptoKey: { current: null as CryptoKey | null },
     userMetadata: { current: { given_name: "Google", family_name: "User" } as Record<string, string> },
     fetchAccountSettings: vi.fn(),
     fetchEncryptionVerifier: vi.fn(),
     setKeyRemembered: vi.fn(),
     setRawKey: vi.fn(),
     signOut: vi.fn(),
+    triggerUnlock: vi.fn(),
     updateAccountProfile: vi.fn(),
   }));
 
@@ -46,9 +54,11 @@ vi.mock("../lib/encryptionMetadataApi", () => ({
 
 vi.mock("../context/useEncryption", () => ({
   useEncryption: () => ({
+    cryptoKey: cryptoKey.current,
     keyLoading: false,
     setKeyRemembered,
     setRawKey,
+    triggerUnlock,
   }),
 }));
 
@@ -60,17 +70,27 @@ vi.mock("../lib/encryption", async (importOriginal) => ({
 vi.mock("./EncryptionKeyDialog", () => ({
   default: ({
     encryptionKey,
+    preparedMethod,
     onComplete,
+    onSaveWithPasskey,
   }: {
     encryptionKey: string | null;
-    onComplete: () => void | Promise<void>;
+    preparedMethod: "passkey" | "recovery-key" | null;
+    onComplete: (method: "passkey" | "recovery-key") => void | Promise<void>;
+    onSaveWithPasskey: () => void | Promise<void>;
   }) => (
     <div data-testid="encryption-key">
       {encryptionKey}
+      <span data-testid="prepared-method">{preparedMethod}</span>
       {encryptionKey && (
-        <button type="button" onClick={() => void onComplete()}>
-          Complete setup
-        </button>
+        <>
+          <button type="button" onClick={() => void onComplete("recovery-key")}>
+            Complete setup
+          </button>
+          <button type="button" onClick={() => void onSaveWithPasskey()}>
+            Save passkey
+          </button>
+        </>
       )}
     </div>
   ),
@@ -80,7 +100,12 @@ describe("EncryptionSetup", () => {
   let container: HTMLDivElement;
   let root: Root;
 
+  const requestSetup = async (userId = "google-user") => {
+    await act(async () => requestEncryptionSetup(userId));
+  };
+
   beforeEach(() => {
+    cryptoKey.current = null;
     userMetadata.current = { given_name: "Google", family_name: "User" };
     queryClient.clear();
     fetchAccountSettings.mockReset().mockResolvedValue({
@@ -95,6 +120,7 @@ describe("EncryptionSetup", () => {
     setKeyRemembered.mockReset().mockResolvedValue(undefined);
     setRawKey.mockReset().mockResolvedValue(undefined);
     signOut.mockReset().mockResolvedValue(undefined);
+    triggerUnlock.mockReset();
     updateAccountProfile.mockReset().mockResolvedValue({});
     sessionStorage.clear();
     localStorage.clear();
@@ -108,7 +134,7 @@ describe("EncryptionSetup", () => {
     container.remove();
   });
 
-  it("creates a user-info row and shows a generated key when the row is missing", async () => {
+  it("creates a user-info row and reveals its prepared key only after an explicit request", async () => {
     fetchAccountSettings.mockResolvedValue(null);
     fetchEncryptionVerifier.mockResolvedValue(null);
 
@@ -120,13 +146,18 @@ describe("EncryptionSetup", () => {
       );
     });
 
-    expect(container.textContent).toContain(TEST_KEY);
+    expect(container.textContent).not.toContain(TEST_KEY);
     expect(setRawKey).toHaveBeenCalledTimes(1);
-    expect(setRawKey).toHaveBeenCalledWith(TEST_KEY);
+    expect(setRawKey).toHaveBeenCalledWith(TEST_KEY, {
+      rememberDevice: true,
+    });
     expect(updateAccountProfile).toHaveBeenCalledExactlyOnceWith(
       "current.jwt.token",
       { firstName: "Google", lastName: "User" },
     );
+
+    await requestSetup();
+    expect(container.textContent).toContain(TEST_KEY);
   });
 
   it("prepares a nameless account without inventing a profile or changing key setup", async () => {
@@ -134,11 +165,13 @@ describe("EncryptionSetup", () => {
     fetchAccountSettings.mockResolvedValue(null);
     await act(async () => root.render(<StrictMode><EncryptionSetup /></StrictMode>));
     expect(updateAccountProfile).toHaveBeenCalledExactlyOnceWith("current.jwt.token", { firstName: "", lastName: "" });
-    expect(setRawKey).toHaveBeenCalledExactlyOnceWith(TEST_KEY);
-    expect(container.textContent).toContain(TEST_KEY);
+    expect(setRawKey).toHaveBeenCalledExactlyOnceWith(TEST_KEY, {
+      rememberDevice: true,
+    });
+    expect(container.textContent).not.toContain(TEST_KEY);
   });
 
-  it("generates and saves a key when key_verifier is missing", async () => {
+  it("generates and saves a key without presenting protection as completed", async () => {
     fetchEncryptionVerifier.mockResolvedValue(null);
 
     await act(async () => {
@@ -149,9 +182,17 @@ describe("EncryptionSetup", () => {
       );
     });
 
-    expect(container.textContent).toContain(TEST_KEY);
-    expect(setRawKey).toHaveBeenCalledWith(TEST_KEY);
+    expect(container.textContent).not.toContain(TEST_KEY);
+    expect(setRawKey).toHaveBeenCalledWith(TEST_KEY, {
+      rememberDevice: true,
+    });
     expect(updateAccountProfile).not.toHaveBeenCalled();
+    expect(readOnboardingState("google-user").protection.status).toBe(
+      "pending",
+    );
+
+    await requestSetup();
+    expect(container.textContent).toContain(TEST_KEY);
   });
 
   it("does not replace an existing encryption key", async () => {
@@ -168,6 +209,9 @@ describe("EncryptionSetup", () => {
     expect(container.textContent).toBe("");
     expect(setRawKey).not.toHaveBeenCalled();
     expect(updateAccountProfile).not.toHaveBeenCalled();
+    expect(readOnboardingState("google-user").protection.status).toBe(
+      "unknown",
+    );
   });
 
   it("does not replay the setup dialog after setup is completed", async () => {
@@ -181,6 +225,9 @@ describe("EncryptionSetup", () => {
       );
     });
 
+    expect(container.textContent).not.toContain(TEST_KEY);
+
+    await requestSetup();
     expect(container.textContent).toContain(TEST_KEY);
 
     await act(async () => {
@@ -188,6 +235,10 @@ describe("EncryptionSetup", () => {
     });
 
     expect(setKeyRemembered).toHaveBeenCalledWith(true);
+    expect(readOnboardingState("google-user").protection).toEqual({
+      status: "confirmed",
+      method: "recovery-key",
+    });
     expect(container.textContent).not.toContain(TEST_KEY);
 
     // An auth refresh supplies a new user object for the same account.
@@ -201,6 +252,50 @@ describe("EncryptionSetup", () => {
 
     expect(container.textContent).not.toContain(TEST_KEY);
     expect(setRawKey).toHaveBeenCalledTimes(1);
+  });
+
+  it("resumes a pending setup with the remembered key after refresh", async () => {
+    markProtectionPending("google-user", "passkey");
+    cryptoKey.current = await importRawKey(TEST_KEY);
+    fetchEncryptionVerifier.mockResolvedValue("enc:existing-verifier");
+
+    await act(async () => {
+      root.render(<EncryptionSetup />);
+    });
+
+    expect(container.textContent).not.toContain(TEST_KEY);
+    await requestSetup();
+    expect(container.textContent).toContain(TEST_KEY);
+    expect(
+      container.querySelector('[data-testid="prepared-method"]')?.textContent,
+    ).toBe("passkey");
+    expect(setRawKey).not.toHaveBeenCalled();
+  });
+
+  it("opens recovery instead of replacing an unrecognized existing library", async () => {
+    setRawKey.mockRejectedValue(
+      new Error("This key does not match your encrypted data."),
+    );
+
+    await act(async () => {
+      root.render(<EncryptionSetup />);
+    });
+
+    expect(triggerUnlock).toHaveBeenCalledOnce();
+    expect(container.textContent).not.toContain(TEST_KEY);
+    expect(readOnboardingState("google-user").protection.status).toBe(
+      "pending",
+    );
+  });
+
+  it("ignores protection requests for another account", async () => {
+    await act(async () => {
+      root.render(<EncryptionSetup />);
+    });
+
+    await requestSetup("another-account");
+
+    expect(container.textContent).not.toContain(TEST_KEY);
   });
 
   it("shows the underlying setup failure so it can be fixed", async () => {

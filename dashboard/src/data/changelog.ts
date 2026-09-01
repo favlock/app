@@ -9,6 +9,17 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "September 1, 2026",
+    changes: [
+      "Get started with guided setup for protecting your library, saving or importing your first bookmarks, optionally connecting Chrome, and finding something you saved.",
+      "Preview bookmark imports, resolve duplicates explicitly, and safely continue interrupted imports without silently dropping items.",
+      "Free and Pro bookmark allowances are now clearer, with guided recovery options when a library exceeds the Free limit.",
+      "Connect and manage the Chrome extension through a simpler, more reliable dashboard flow.",
+      "Safer library-protection recovery for accounts that already contain encrypted data.",
+    ],
+  },
+  {
+    version: "1.6.0",
     date: "August 28, 2026",
     changes: [
       "Notes is now Write, with richer formatting for documents and task details, including headings, links, highlights, and tables.",

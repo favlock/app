@@ -1,4 +1,5 @@
 const CHROME_EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
+const EXTENSION_PAIRING_ATTEMPT_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export const EXTENSION_PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 const EXTENSION_PAIR_REQUEST_MESSAGE = "favlock.extension.pair-request";
 const EXTENSION_PAIR_RESPONSE_MESSAGE = "favlock.extension.pair-response";
@@ -34,11 +35,13 @@ function getChromeRuntime(): ChromeRuntime | null {
 
 function sendEncryptionKeyThroughPageBridge({
   extensionId,
+  pairingAttempt,
   userId,
   rawKey,
   sessionTokenHash,
 }: {
   extensionId: string;
+  pairingAttempt?: string;
   userId: string;
   rawKey: string;
   sessionTokenHash?: string;
@@ -80,6 +83,7 @@ function sendEncryptionKeyThroughPageBridge({
         type: EXTENSION_PAIR_REQUEST_MESSAGE,
         requestId,
         extensionId,
+        ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
         ...(sessionTokenHash ? { sessionTokenHash } : {}),
@@ -93,13 +97,19 @@ export function isChromeExtensionId(value: string | null): value is string {
   return !!value && CHROME_EXTENSION_ID_PATTERN.test(value);
 }
 
+export function isExtensionPairingAttempt(value: string | null): value is string {
+  return !!value && EXTENSION_PAIRING_ATTEMPT_PATTERN.test(value);
+}
+
 export async function sendEncryptionKeyToExtension({
   extensionId,
+  pairingAttempt,
   userId,
   rawKey,
   sessionTokenHash,
 }: {
   extensionId: string;
+  pairingAttempt?: string;
   userId: string;
   rawKey: string;
   sessionTokenHash?: string;
@@ -112,6 +122,7 @@ export async function sendEncryptionKeyToExtension({
   if (!runtime?.sendMessage) {
     await sendEncryptionKeyThroughPageBridge({
       extensionId,
+      pairingAttempt,
       userId,
       rawKey,
       sessionTokenHash,
@@ -124,6 +135,7 @@ export async function sendEncryptionKeyToExtension({
       extensionId,
       {
         type: EXTENSION_PAIR_KEY_MESSAGE,
+        ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
         ...(sessionTokenHash ? { sessionTokenHash } : {}),

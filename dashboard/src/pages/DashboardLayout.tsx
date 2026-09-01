@@ -15,10 +15,26 @@ import * as Headless from "@headlessui/react";
 import SearchEnginePreferenceDialog from "../components/SearchEnginePreferenceDialog";
 import OnboardingDialog from "../components/OnboardingDialog";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
-import { isOnboardingHidden } from "../lib/onboarding";
+import {
+  hasCompletedFirstValue,
+  isOnboardingHidden,
+  hasConfirmedProtection,
+  markAccountReady,
+  ONBOARDING_STATE_CHANGED_EVENT,
+  readOnboardingState,
+  reconcileExistingAccountOnboarding,
+  setLibraryPopulated,
+} from "../lib/onboarding";
+import { useAuth } from "../context/useAuth";
+import { useEncryption } from "../context/useEncryption";
+import { requestEncryptionSetup } from "../lib/encryptionSetupFlow";
 import DataTransferDialog, {
   type DataTransferView,
 } from "../components/DataTransferDialog";
+import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/BookmarkLimitRecovery";
+import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
+import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -29,11 +45,17 @@ export default function DashboardLayout() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isAddBookmarkOpen, setIsAddBookmarkOpen] = useState(false);
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
+  const [resumeOnboardingAfterAction, setResumeOnboardingAfterAction] =
+    useState(false);
+  const [resumeOnboardingAfterProtection, setResumeOnboardingAfterProtection] =
+    useState(false);
   const [dataTransferView, setDataTransferView] =
     useState<DataTransferView | null>(null);
   const [hasFinishedInitialOnboarding, setHasFinishedInitialOnboarding] =
     useState(false);
+  const [onboardingStateRevision, setOnboardingStateRevision] = useState(0);
   const hasCheckedOnboarding = useRef(false);
+  const onboardingUserIdRef = useRef<string | null>(null);
   const [addBookmarkFolderId, setAddBookmarkFolderId] = useState<string | null>(
     null,
   );
@@ -43,9 +65,22 @@ export default function DashboardLayout() {
   });
 
   const { setSelectedFolderId, setSelectedTagId } = useBookmarkStore();
-  const { data: folders = [], isLoading: loadingFolders } = useFolders();
-  const { data: tags = [], isLoading: loadingTags } = useTags();
+  const {
+    data: folders = [],
+    isLoading: loadingFolders,
+  } = useFolders();
+  const {
+    data: tags = [],
+    isLoading: loadingTags,
+  } = useTags();
   const { data: userInfo, isSuccess: userInfoLoaded } = useUserInfo();
+  const { user } = useAuth();
+  const { cryptoKey, needsUnlock } = useEncryption();
+  const { data: accountPlan } = useAccountPlan();
+  const { data: bookmarkCounts, isSuccess: bookmarkCountsLoaded } =
+    useBookmarkCounts();
+  const { ready: onboardingProgressReady } = useOnboardingProgressSync();
+  const bookmarkAccess = accountPlan?.bookmarkAccess;
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,21 +123,117 @@ export default function DashboardLayout() {
   }, [location.pathname, location.hash, setIsMobileSidebarOpen]);
 
   useEffect(() => {
+    const userId = user?.id ?? null;
+    if (onboardingUserIdRef.current === userId) return;
+    onboardingUserIdRef.current = userId;
+    hasCheckedOnboarding.current = false;
+    setIsOnboardingOpen(false);
+    setResumeOnboardingAfterAction(false);
+    setResumeOnboardingAfterProtection(false);
+    setHasFinishedInitialOnboarding(false);
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !userInfoLoaded || !userInfo?.key_verifier) return;
+    const onboardingState = readOnboardingState(user.id);
+    if (onboardingState.protection.status === "unknown") {
+      reconcileExistingAccountOnboarding(user.id);
+    }
+  }, [user?.id, userInfo?.key_verifier, userInfoLoaded]);
+
+  useEffect(() => {
+    if (!user?.id || !bookmarkCountsLoaded) return;
+    const onboardingState = readOnboardingState(user.id);
+    if (
+      hasConfirmedProtection(onboardingState) &&
+      onboardingState.libraryPopulated === "unknown"
+    ) {
+      setLibraryPopulated(
+        user.id,
+        (bookmarkCounts?.bookmarkCount ?? 0) > 0,
+      );
+    }
+  }, [
+    bookmarkCounts?.bookmarkCount,
+    bookmarkCountsLoaded,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    if (user?.id) markAccountReady(user.id);
+  }, [user?.id]);
+
+  useEffect(() => {
+    const handleStateChange = (event: Event) => {
+      if (
+        event instanceof CustomEvent &&
+        event.detail?.userId === user?.id
+      ) {
+        setOnboardingStateRevision((revision) => revision + 1);
+        if (user?.id) {
+          const onboardingState = readOnboardingState(user.id);
+          if (
+            resumeOnboardingAfterProtection &&
+            hasConfirmedProtection(onboardingState)
+          ) {
+            setResumeOnboardingAfterProtection(false);
+            setIsOnboardingOpen(true);
+          }
+          if (hasCompletedFirstValue(onboardingState)) {
+            setHasFinishedInitialOnboarding(true);
+          }
+        }
+      }
+    };
+    window.addEventListener(ONBOARDING_STATE_CHANGED_EVENT, handleStateChange);
+    return () =>
+      window.removeEventListener(
+        ONBOARDING_STATE_CHANGED_EVENT,
+        handleStateChange,
+      );
+  }, [resumeOnboardingAfterProtection, user?.id]);
+
+  useEffect(() => {
     if (
       hasCheckedOnboarding.current ||
-      !userInfoLoaded ||
-      !userInfo?.key_verifier
+      !onboardingProgressReady ||
+      !userInfoLoaded
     ) {
       return;
     }
 
+    if (!user?.id) return;
+    const onboardingState = readOnboardingState(user.id);
+    if (onboardingState.protection.status === "pending") {
+      if (!cryptoKey || needsUnlock) return;
+      hasCheckedOnboarding.current = true;
+      setIsOnboardingOpen(true);
+      return;
+    }
+    if (!userInfo?.key_verifier) return;
+
     hasCheckedOnboarding.current = true;
-    if (isOnboardingHidden()) {
+    if (!hasConfirmedProtection(onboardingState)) {
+      setHasFinishedInitialOnboarding(true);
+      return;
+    }
+    if (
+      hasCompletedFirstValue(onboardingState) ||
+      isOnboardingHidden(user.id)
+    ) {
       setHasFinishedInitialOnboarding(true);
     } else {
       setIsOnboardingOpen(true);
     }
-  }, [userInfo?.key_verifier, userInfoLoaded]);
+  }, [
+    onboardingStateRevision,
+    onboardingProgressReady,
+    cryptoKey,
+    needsUnlock,
+    user?.id,
+    userInfo?.key_verifier,
+    userInfoLoaded,
+  ]);
 
   useEffect(() => {
     if (
@@ -120,13 +251,18 @@ export default function DashboardLayout() {
     const addUrl = searchParams.get("addUrl");
     if (!addUrl) return;
 
+    if (bookmarkAccess && bookmarkAccess.mode !== "normal") {
+      setIsAddBookmarkOpen(false);
+      return;
+    }
+
     setAddBookmarkFolderId(null);
     setAddBookmarkSeed({
       url: addUrl,
       title: searchParams.get("addTitle") ?? "",
     });
     setIsAddBookmarkOpen(true);
-  }, [location.search]);
+  }, [bookmarkAccess, location.search]);
 
   useEffect(() => {
     if (!collectionSlug || loadingFolders) return;
@@ -199,13 +335,25 @@ export default function DashboardLayout() {
     setIsAddBookmarkOpen(false);
     setAddBookmarkSeed({ url: "", title: "" });
     clearAddBookmarkQuery();
+    if (resumeOnboardingAfterAction && user?.id) {
+      setResumeOnboardingAfterAction(false);
+      if (!hasCompletedFirstValue(readOnboardingState(user.id))) {
+        setIsOnboardingOpen(true);
+      }
+    }
   };
 
   const openAddBookmark = (currentFolderId: string | null = null) => {
+    if (bookmarkAccess && bookmarkAccess.mode !== "normal") return;
+    setResumeOnboardingAfterAction(false);
     setAddBookmarkFolderId(currentFolderId);
     setAddBookmarkSeed({ url: "", title: "" });
     setIsAddBookmarkOpen(true);
   };
+
+  if (bookmarkAccess?.mode === "recovery") {
+    return <BookmarkLimitRecovery access={bookmarkAccess} />;
+  }
 
   const closeDataTransfer = () => {
     setDataTransferView(null);
@@ -218,6 +366,12 @@ export default function DashboardLayout() {
         },
         { replace: true },
       );
+    }
+    if (resumeOnboardingAfterAction && user?.id) {
+      setResumeOnboardingAfterAction(false);
+      if (!hasCompletedFirstValue(readOnboardingState(user.id))) {
+        setIsOnboardingOpen(true);
+      }
     }
   };
 
@@ -235,11 +389,61 @@ export default function DashboardLayout() {
     }
   };
 
+  const openOnboardingImport = () => {
+    setIsOnboardingOpen(false);
+    setResumeOnboardingAfterAction(true);
+    setDataTransferView("import");
+  };
+
+  const openOnboardingProtection = () => {
+    if (!user?.id) return;
+    const onboardingState = readOnboardingState(user.id);
+    if (
+      onboardingState.protection.status !== "pending" ||
+      !cryptoKey ||
+      needsUnlock
+    ) {
+      return;
+    }
+    setIsOnboardingOpen(false);
+    setResumeOnboardingAfterProtection(true);
+    requestEncryptionSetup(user.id);
+  };
+
+  const openOnboardingManualSave = () => {
+    if (bookmarkAccess && bookmarkAccess.mode !== "normal") return;
+    setIsOnboardingOpen(false);
+    setResumeOnboardingAfterAction(true);
+    setAddBookmarkFolderId(null);
+    setAddBookmarkSeed({ url: "", title: "" });
+    setIsAddBookmarkOpen(true);
+  };
+
+  const findSavedOnboardingItem = () => {
+    setIsOnboardingOpen(false);
+    setResumeOnboardingAfterAction(false);
+    navigate("/");
+    window.setTimeout(() => {
+      document
+        .querySelector<HTMLInputElement>('[aria-label="Search your library"]')
+        ?.focus();
+    }, 0);
+  };
+
+  const bookmarkWritesAllowed =
+    !bookmarkAccess || bookmarkAccess.mode === "normal";
+
   return (
     <div className="text-[var(--app-ink)] font-sans antialiased min-h-screen">
       <SearchEnginePreferenceDialog enabled={hasFinishedInitialOnboarding} />
       <OnboardingDialog
         open={isOnboardingOpen}
+        userId={user?.id ?? ""}
+        bookmarkWritesAllowed={bookmarkWritesAllowed}
+        onProtectLibrary={openOnboardingProtection}
+        onImportBookmarks={openOnboardingImport}
+        onSaveFirstLink={openOnboardingManualSave}
+        onFindSavedItem={findSavedOnboardingItem}
         onClose={() => {
           setIsOnboardingOpen(false);
           setHasFinishedInitialOnboarding(true);
@@ -329,7 +533,9 @@ export default function DashboardLayout() {
               onSelectFolder={handleSelectFolder}
               selectedTagId={selectedTagId}
               onSelectTag={handleSelectTag}
-              onStartOnboarding={() => setIsOnboardingOpen(true)}
+              onStartOnboarding={() => {
+                setIsOnboardingOpen(true);
+              }}
               onOpenDataTransfer={() => setDataTransferView("chooser")}
             />
           </aside>
@@ -341,6 +547,9 @@ export default function DashboardLayout() {
             className="w-full min-w-0 pb-[env(safe-area-inset-bottom)] focus:outline-none"
           >
             <CloudConnectionNotice />
+            {bookmarkAccess?.mode === "grace" ? (
+              <BookmarkLimitGraceNotice access={bookmarkAccess} />
+            ) : null}
             <Outlet
               context={
                 {

@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { KeyRound, Upload } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
 import { exportRawKey, normalizeRawKey } from "../lib/encryption";
 import {
   isAllowedFavLockExtensionId,
+  isExtensionPairingAttempt,
   sendEncryptionKeyToExtension,
 } from "../lib/extensionPairing";
+import { buildAuthPath } from "../lib/authNavigation";
 import { createExtensionSessionToken } from "../lib/extensionSession";
 import {
   loadPasskeyEncryptionRecord,
@@ -22,6 +24,7 @@ import { AuthLayout } from "../components/ui/auth-layout";
 
 export default function ExtensionPair() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const { session, user } = useAuth();
   const { cryptoKey, setRawKey } = useEncryption();
   const [rawKeyInput, setRawKeyInput] = useState("");
@@ -33,9 +36,13 @@ export default function ExtensionPair() {
     useState<PasskeyEncryptionRecord | null>(null);
   const [checkingPasskey, setCheckingPasskey] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const autoConnectAttemptedRef = useRef(false);
   const extensionId = searchParams.get("extensionId");
+  const pairingAttemptValue = searchParams.get("attempt");
+  const pairingAttempt = isExtensionPairingAttempt(pairingAttemptValue)
+    ? pairingAttemptValue
+    : undefined;
   const expectedExtensionId = import.meta.env.VITE_CHROME_EXTENSION_ID;
-  const needsExtensionSession = searchParams.get("auth") === "email";
   const validExtensionId = useMemo(
     () =>
       isAllowedFavLockExtensionId(extensionId, expectedExtensionId)
@@ -69,7 +76,7 @@ export default function ExtensionPair() {
     };
   }, [connected, cryptoKey, session?.access_token, user?.id]);
 
-  const connect = async (providedRawKey?: string) => {
+  const connect = useCallback(async (providedRawKey?: string) => {
     if (!user || !validExtensionId || connecting) return;
     setConnecting(true);
     setError(null);
@@ -84,14 +91,16 @@ export default function ExtensionPair() {
         rawKey = normalizeRawKey(rawKeyInput);
         await setRawKey(rawKey, { rememberDevice });
       }
-      const sessionTokenHash = needsExtensionSession
-          ? await createExtensionSessionToken({
-              extensionId: validExtensionId,
-              accessToken: session?.access_token ?? "",
-            })
-        : undefined;
+      if (!session?.access_token) {
+        throw new Error("Sign in to FavLock again before connecting the extension.");
+      }
+      const sessionTokenHash = await createExtensionSessionToken({
+        extensionId: validExtensionId,
+        accessToken: session.access_token,
+      });
       await sendEncryptionKeyToExtension({
         extensionId: validExtensionId,
+        pairingAttempt,
         userId: user.id,
         rawKey,
         sessionTokenHash,
@@ -106,7 +115,22 @@ export default function ExtensionPair() {
     } finally {
       setConnecting(false);
     }
-  };
+  }, [connecting, cryptoKey, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
+
+  useEffect(() => {
+    if (
+      !pairingAttempt ||
+      !cryptoKey ||
+      connected ||
+      connecting ||
+      !validExtensionId ||
+      autoConnectAttemptedRef.current
+    ) {
+      return;
+    }
+    autoConnectAttemptedRef.current = true;
+    void connect();
+  }, [connect, connected, connecting, cryptoKey, pairingAttempt, validExtensionId]);
 
   const unlockWithPasskey = async () => {
     if (!passkeyRecord || !user || connecting) return;
@@ -139,6 +163,16 @@ export default function ExtensionPair() {
     setRawKeyInput(fileContent);
     await connect(fileContent);
   };
+
+  if (user && !session?.access_token) {
+    const nextPath = `${location.pathname}${location.search}${location.hash}`;
+    return (
+      <Navigate
+        to={buildAuthPath("/login", nextPath, { reconnect: true })}
+        replace
+      />
+    );
+  }
 
   return (
     <AuthLayout>

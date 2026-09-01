@@ -46,6 +46,7 @@ import {
 } from "../components/ui/dialog";
 import { useDebounce } from "../hooks/useDebounce";
 import { useReadspaceFullTextSearch } from "../hooks/useReadspaceFullTextSearch";
+import { markFirstRetrieval } from "../lib/onboarding";
 
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const EXTENSION_READY = "FAVLOCK_CHROME_EXTENSION_READY";
@@ -597,7 +598,10 @@ export default function Readspace() {
                   key={entry.id}
                   entry={entry}
                   content={content}
-                  onOpen={() => setReadTarget({ entry, content })}
+                  onOpen={() => {
+                    markFirstRetrieval(entry.user_id);
+                    setReadTarget({ entry, content });
+                  }}
                   onOrganize={() => setOrganizeTarget(entry)}
                   onDelete={() => setDeleteTarget(entry)}
                 />

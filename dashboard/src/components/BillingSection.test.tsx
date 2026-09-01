@@ -56,7 +56,7 @@ describe("BillingSection", () => {
     });
 
     expect(container.textContent).toContain("Upgrade to Pro");
-    expect(container.textContent).toContain("10,000 bookmarks");
+    expect(container.textContent).toContain("Unlimited bookmarks");
     expect(
       Array.from(container.querySelectorAll("button")).some((button) =>
         button.textContent?.includes("Upgrade to Pro"),

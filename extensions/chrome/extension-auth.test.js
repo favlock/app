@@ -1,16 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  buildEmailAuthorizationUrl,
-  buildGoogleAuthorizationUrl,
-  createPkceChallenge,
+  beginExtensionConnection,
+  buildExtensionPairUrl,
   createRandomUrlToken,
-  exchangeAuthorizationCode,
   exchangeExtensionSessionToken,
   getConnectionState,
+  getExternalOnboardingStatus,
   refreshSession,
   disconnectExtension,
   receivePairedKey,
   PAIR_KEY_MESSAGE,
+  ONBOARDING_STATUS_MESSAGE,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
 
@@ -53,14 +53,18 @@ let storageGet;
 let storageSet;
 let storageRemove;
 let localData;
+let sessionData;
 
 beforeEach(() => {
   localData = {};
+  sessionData = {};
   storageGet = vi.fn(async () => ({ ...localData }));
   storageSet = vi.fn(async (value) => { Object.assign(localData, value); });
   storageRemove = vi.fn(async (keys) => { for (const key of Array.isArray(keys) ? keys : [keys]) delete localData[key]; });
   cryptoMocks.deleteLibraryKey.mockClear();
+  cryptoMocks.importLibraryKey.mockReset();
   cryptoMocks.loadLibraryKey.mockClear();
+  cryptoMocks.saveLibraryKey.mockReset();
   vi.stubGlobal("chrome", {
     storage: {
       local: {
@@ -69,10 +73,25 @@ beforeEach(() => {
         remove: storageRemove,
       },
       session: {
-        get: vi.fn().mockResolvedValue({}),
-        set: vi.fn().mockResolvedValue(undefined),
-        remove: vi.fn().mockResolvedValue(undefined),
+        get: vi.fn(async () => ({ ...sessionData })),
+        set: vi.fn(async (value) => { Object.assign(sessionData, value); }),
+        remove: vi.fn(async (keys) => {
+          for (const key of Array.isArray(keys) ? keys : [keys]) {
+            delete sessionData[key];
+          }
+        }),
       },
+    },
+    runtime: { id: "a".repeat(32) },
+    tabs: {
+      create: vi.fn().mockResolvedValue({}),
+      query: vi.fn().mockResolvedValue([{ id: 42 }]),
+      update: vi.fn().mockResolvedValue({}),
+      remove: vi.fn().mockResolvedValue(undefined),
+    },
+    action: {
+      setBadgeBackgroundColor: vi.fn().mockResolvedValue(undefined),
+      setBadgeText: vi.fn().mockResolvedValue(undefined),
     },
   });
 });
@@ -81,21 +100,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("extension OAuth helpers", () => {
-  it("rejects reconnecting a different UUID even when the email is unchanged", async () => {
-    localData.favlockAuthSession = { accessToken: "old", refreshToken: "old-refresh", expiresAt: 1_900_000_000_000, userId: "22222222-2222-4222-8222-222222222222", email: user.email };
-    const fetchMock = vi.fn().mockResolvedValueOnce(jsonResponse(sessionResponse())).mockResolvedValueOnce(jsonResponse({ data: { user } }));
-    vi.stubGlobal("fetch", fetchMock);
-    await expect(exchangeAuthorizationCode({ code: "code", codeVerifier: "v".repeat(64) })).rejects.toThrow("different account");
-    expect(localData.favlockAuthSession.accessToken).toBe("old");
-    expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
-  });
-
+describe("extension dashboard connection", () => {
   it("rejects pairing another account before exchanging credentials or replacing a key", async () => {
     localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
+    sessionData.favlockPairingAttempt = { value: "p".repeat(43), expiresAt: Date.now() + 60_000 };
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    const result = await receivePairedKey({ type: PAIR_KEY_MESSAGE, userId: "22222222-2222-4222-8222-222222222222", sessionTokenHash: "token", rawKey: "test" }, { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin });
+    const result = await receivePairedKey({ type: PAIR_KEY_MESSAGE, pairingAttempt: "p".repeat(43), userId: "22222222-2222-4222-8222-222222222222", sessionTokenHash: "token", rawKey: "test" }, { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin });
     expect(result).toMatchObject({ ok: false, error: expect.stringContaining("different account") });
     expect(fetchMock).not.toHaveBeenCalled();
     expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
@@ -104,6 +115,8 @@ describe("extension OAuth helpers", () => {
   it("cannot resurrect credentials after explicit disconnect during refresh", async () => {
     const stored = { accessToken: "old", refreshToken: "old-refresh", expiresAt: 1, userId: user.id, email: user.email };
     localData.favlockAuthSession = stored;
+    sessionData.favlockOriginalTabId = 42;
+    sessionData.favlockPairingAttempt = { value: "p".repeat(43), expiresAt: Date.now() + 60_000 };
     let finish;
     vi.stubGlobal("fetch", vi.fn(() => new Promise((resolve) => { finish = resolve; })));
     const refreshing = refreshSession(stored);
@@ -114,6 +127,8 @@ describe("extension OAuth helpers", () => {
     await rejected;
     expect(localData.favlockAuthSession).toBeUndefined();
     expect(localData.favlockLocalProfile).toBeUndefined();
+    expect(sessionData.favlockOriginalTabId).toBeUndefined();
+    expect(sessionData.favlockPairingAttempt).toBeUndefined();
     expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
   });
 
@@ -121,82 +136,109 @@ describe("extension OAuth helpers", () => {
     localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
     await expect(getConnectionState()).resolves.toMatchObject({ connected: true, unlocked: true, email: user.email, cloudStatus: "reconnect_required" });
   });
+
+  it("reports only bounded onboarding status to the trusted dashboard account", async () => {
+    localData.favlockLocalProfile = {
+      version: 1,
+      userId: user.id,
+      email: user.email,
+      cloudStatus: "available",
+    };
+    const trustedSender = {
+      origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin,
+    };
+
+    await expect(
+      getExternalOnboardingStatus(
+        { type: ONBOARDING_STATUS_MESSAGE, userId: user.id },
+        trustedSender,
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      connected: true,
+      unlocked: true,
+      accountMatches: true,
+    });
+    await expect(
+      getExternalOnboardingStatus(
+        {
+          type: ONBOARDING_STATUS_MESSAGE,
+          userId: "22222222-2222-4222-8222-222222222222",
+        },
+        trustedSender,
+      ),
+    ).resolves.toMatchObject({ accountMatches: false });
+  });
+
+  it("rejects onboarding status requests from another origin", async () => {
+    await expect(
+      getExternalOnboardingStatus(
+        { type: ONBOARDING_STATUS_MESSAGE, userId: user.id },
+        { origin: "https://attacker.example" },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      error: "Untrusted dashboard origin.",
+    });
+  });
   it("creates URL-safe state and verifier values", () => {
     expect(createRandomUrlToken(32)).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
-  it("creates the RFC 7636 SHA-256 challenge", async () => {
-    await expect(
-      createPkceChallenge(
-        "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk",
-      ),
-    ).resolves.toBe("E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM");
-  });
-
-  it("uses the existing Supabase Google provider with a PKCE callback", () => {
-    const redirectUri = `https://${"a".repeat(32)}.chromiumapp.org/favlock`;
-    const url = buildGoogleAuthorizationUrl({
-      redirectUri,
-      state: "csrf-state",
-      codeChallenge: "pkce-challenge",
-    });
-
-    expect(url.pathname).toBe("/auth/v1/authorize");
-    expect(url.searchParams.get("provider")).toBe("google");
-    expect(url.searchParams.get("code_challenge_method")).toBe("s256");
-    expect(url.searchParams.get("code_challenge")).toBe("pkce-challenge");
-    expect(url.searchParams.get("redirect_to")).toBe(
-      `${redirectUri}?state=csrf-state`,
-    );
-  });
-
-  it("opens the dashboard email login and preserves the extension pairing destination", () => {
+  it("builds one protected dashboard pairing destination", () => {
     const extensionId = "a".repeat(32);
-    const url = buildEmailAuthorizationUrl({
+    const pairingAttempt = "p".repeat(43);
+    const url = buildExtensionPairUrl({
       dashboardUrl: "https://vault.favlock.app/",
       extensionId,
+      pairingAttempt,
     });
 
     expect(url.origin).toBe("https://vault.favlock.app");
-    expect(url.pathname).toBe("/login");
-    expect(url.searchParams.get("next")).toBe(
-      `/extension/pair?extensionId=${extensionId}&auth=email`,
-    );
+    expect(url.pathname).toBe("/extension/pair");
+    expect(url.searchParams.get("extensionId")).toBe(extensionId);
+    expect(url.searchParams.get("attempt")).toBe(pairingAttempt);
   });
 
-  it("exchanges the Google PKCE code and verifies the user through FavLock API", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(jsonResponse(sessionResponse()))
-      .mockResolvedValueOnce(jsonResponse({ data: { user } }));
-    vi.stubGlobal("fetch", fetchMock);
+  it("opens the dashboard pairing route and records a short-lived attempt", async () => {
+    await expect(beginExtensionConnection()).resolves.toEqual({ needsKey: true });
+    const openedUrl = new URL(chrome.tabs.create.mock.calls[0][0].url);
+    const attempt = openedUrl.searchParams.get("attempt");
 
-    await expect(
-      exchangeAuthorizationCode({
-        code: "authorization-code",
-        codeVerifier: "v".repeat(64),
-      }),
-    ).resolves.toMatchObject({
-      accessToken: "access-token",
-      refreshToken: "refresh-token",
-      userId: user.id,
-    });
+    expect(openedUrl.pathname).toBe("/extension/pair");
+    expect(openedUrl.searchParams.get("extensionId")).toBe(chrome.runtime.id);
+    expect(attempt).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(sessionData.favlockPairingAttempt).toMatchObject({ value: attempt });
+    expect(sessionData.favlockPairingAttempt.expiresAt).toBeGreaterThan(Date.now());
+    expect(sessionData.favlockOriginalTabId).toBe(42);
+  });
 
-    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
-      `${FAVLOCK_CONFIG.apiUrl}/v1/auth/session/exchange`,
-      `${FAVLOCK_CONFIG.apiUrl}/v1/auth/session/user`,
-    ]);
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      authCode: "authorization-code",
-      codeVerifier: "v".repeat(64),
-    });
-    expect(fetchMock.mock.calls[1][1].headers).toMatchObject({
-      Authorization: "Bearer access-token",
-    });
-    expect(JSON.stringify(fetchMock.mock.calls)).not.toMatch(
-      /apikey|supabasePublishableKey|auth\/v1\/token/,
+  it("rejects a pairing response that does not match the current attempt", async () => {
+    sessionData.favlockPairingAttempt = { value: "p".repeat(43), expiresAt: Date.now() + 60_000 };
+    const result = await receivePairedKey(
+      { type: PAIR_KEY_MESSAGE, pairingAttempt: "x".repeat(43), userId: user.id, sessionTokenHash: "token", rawKey: "test" },
+      { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin },
     );
-    expect(storageSet).toHaveBeenCalledOnce();
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("expired") });
+    expect(cryptoMocks.importLibraryKey).not.toHaveBeenCalled();
+  });
+
+  it("accepts one matching dashboard handoff and consumes the attempt", async () => {
+    const pairingAttempt = "p".repeat(43);
+    sessionData.favlockPairingAttempt = { value: pairingAttempt, expiresAt: Date.now() + 60_000 };
+    cryptoMocks.importLibraryKey.mockResolvedValueOnce({ type: "secret" });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonResponse(sessionResponse())));
+
+    const result = await receivePairedKey(
+      { type: PAIR_KEY_MESSAGE, pairingAttempt, userId: user.id, sessionTokenHash: "one-time-token", rawKey: "test-key" },
+      { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin },
+    );
+
+    expect(result).toEqual({ ok: true });
+    expect(localData.favlockAuthSession).toMatchObject({ userId: user.id, refreshToken: "refresh-token" });
+    expect(cryptoMocks.saveLibraryKey).toHaveBeenCalledOnce();
+    expect(sessionData.favlockPairingAttempt).toBeUndefined();
   });
 
   it("exchanges the dashboard one-time token through the fixed API verifier", async () => {

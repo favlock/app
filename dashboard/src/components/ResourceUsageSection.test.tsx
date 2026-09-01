@@ -110,7 +110,7 @@ describe("ResourceUsageSection", () => {
         name: "Pro",
         trashRecoveryDays: 30,
         limits: {
-          bookmarks: 10000,
+          bookmarks: 0,
           entries: 1000,
           readspace: 250,
           collections: 0,
@@ -128,10 +128,12 @@ describe("ResourceUsageSection", () => {
     });
 
     const meters = [...container.querySelectorAll<HTMLElement>("[role=progressbar]")];
-    expect(meters[0].getAttribute("aria-valuemax")).toBe("10000");
-    expect(meters[1].getAttribute("aria-valuemax")).toBe("1000");
-    expect(meters[2].getAttribute("aria-valuemax")).toBe("250");
-    expect(meters).toHaveLength(3);
+    expect(meters[0].getAttribute("aria-valuemax")).toBe("1000");
+    expect(meters[1].getAttribute("aria-valuemax")).toBe("250");
+    expect(meters).toHaveLength(2);
+    expect(
+      container.querySelector('[aria-label="Bookmarks usage is unlimited"]'),
+    ).not.toBeNull();
     expect(container.textContent).toContain("Plan: Pro");
     expect(container.textContent).toContain("Trash recovery: 30 days");
   });
