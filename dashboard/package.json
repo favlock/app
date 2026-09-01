@@ -29,7 +29,7 @@
     "clsx": "^2.1.1",
     "fflate": "^0.8.3",
     "jsqr": "^1.4.0",
-    "lucide-react": "^0.564.0",
+    "lucide-react": "^1.35.0",
     "motion": "^12.34.3",
     "parse5": "^8.0.1",
     "qrcode": "^1.5.4",
