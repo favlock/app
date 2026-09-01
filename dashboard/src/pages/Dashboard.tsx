@@ -62,6 +62,7 @@ import CollectionLibraryGrid from "../components/CollectionLibraryGrid";
 import ReadspaceSearchResults from "../components/ReadspaceSearchResults";
 import { useReadspaceFullTextSearch } from "../hooks/useReadspaceFullTextSearch";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import { markFirstRetrieval } from "../lib/onboarding";
 
 export default function Dashboard() {
   const { setIsMobileSidebarOpen, openAddBookmark } =
@@ -106,6 +107,10 @@ export default function Dashboard() {
     null,
   );
   const debouncedBookmarkSearch = useDebounce(searchQuery, 180);
+  const openSavedArticle = (article: HomeReadspaceArticle) => {
+    markFirstRetrieval(article.entry.user_id);
+    setReadTarget(article);
+  };
 
   const collectionSlugIndex = useMemo(
     () => buildCollectionSlugIndex(folders),
@@ -535,7 +540,7 @@ export default function Dashboard() {
           onAddTodo={openCreateTodo}
           onEditNote={openEditNote}
           onEditTodo={openEditTodo}
-          onOpenArticle={setReadTarget}
+          onOpenArticle={openSavedArticle}
           onOrganizeArticle={setOrganizeTarget}
           onDeleteArticle={(article) => {
             setDeleteArticleError(null);
@@ -593,7 +598,7 @@ export default function Dashboard() {
           onAddBookmark={() => openAddBookmark(selectedFolderId)}
           onEditNote={openEditNote}
           onEditTodo={openEditTodo}
-          onOpenArticle={setReadTarget}
+          onOpenArticle={openSavedArticle}
           onOrganizeArticle={setOrganizeTarget}
           onDeleteArticle={(article) => {
             setDeleteArticleError(null);

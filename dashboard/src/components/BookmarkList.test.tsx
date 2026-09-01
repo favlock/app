@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bookmark } from "../types/bookmark";
 import BookmarkList from "./BookmarkList";
+import { readOnboardingState } from "../lib/onboarding";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -53,6 +54,7 @@ describe("BookmarkList search shortcuts", () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.clear();
     vi.stubGlobal(
       "IntersectionObserver",
       class {
@@ -119,6 +121,22 @@ describe("BookmarkList search shortcuts", () => {
       "_blank",
       "noopener,noreferrer",
     );
+    expect(readOnboardingState("user-1").firstRetrieval).toBe("completed");
+  });
+
+  it("does not count displaying search results as retrieval", async () => {
+    await act(async () => {
+      root.render(
+        <BookmarkList
+          bookmarks={[]}
+          folderId={null}
+          searchQuery="example"
+        />,
+      );
+    });
+
+    expect(container.querySelectorAll("[data-bookmark-id]")).toHaveLength(10);
+    expect(readOnboardingState("user-1").firstRetrieval).toBe("unknown");
   });
 
   it("does not register numbered shortcuts outside search mode", async () => {

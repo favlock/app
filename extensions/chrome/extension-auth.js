@@ -10,6 +10,7 @@ import {
 } from "./extension-crypto.js";
 
 export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
+export const ONBOARDING_STATUS_MESSAGE = "favlock.extension.onboarding-status";
 const SESSION_KEY = "favlockAuthSession";
 const PROFILE_KEY = "favlockLocalProfile";
 const EPOCH_KEY = "favlockLocalEpoch";
@@ -294,8 +295,7 @@ export async function beginExtensionConnection() {
   return { needsKey: true };
 }
 
-export async function receivePairedKey(message, sender) {
-  if (message?.type !== PAIR_KEY_MESSAGE) return null;
+function getSenderOrigin(sender) {
   let senderOrigin = sender.origin;
   if (!senderOrigin && sender.url) {
     try {
@@ -304,7 +304,12 @@ export async function receivePairedKey(message, sender) {
       senderOrigin = null;
     }
   }
-  if (senderOrigin !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
+  return senderOrigin;
+}
+
+export async function receivePairedKey(message, sender) {
+  if (message?.type !== PAIR_KEY_MESSAGE) return null;
+  if (getSenderOrigin(sender) !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
     return { ok: false, error: "Untrusted pairing origin." };
   }
   try {
@@ -392,6 +397,27 @@ export async function getConnectionState() {
     unlocked: !!(await loadLibraryKey()),
     email: account?.email || session?.email || "",
     cloudStatus: globalThis.navigator?.onLine === false ? "offline" : !session ? "reconnect_required" : account?.cloudStatus || "available",
+  };
+}
+
+export async function getExternalOnboardingStatus(message, sender) {
+  if (message?.type !== ONBOARDING_STATUS_MESSAGE) return null;
+  if (getSenderOrigin(sender) !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
+    return { ok: false, error: "Untrusted dashboard origin." };
+  }
+  if (!UUID.test(message.userId ?? "")) {
+    return { ok: false, error: "Invalid dashboard account." };
+  }
+
+  const [account, libraryKey] = await Promise.all([
+    readLocalAccount(),
+    loadLibraryKey(),
+  ]);
+  return {
+    ok: true,
+    connected: !!account,
+    unlocked: !!libraryKey,
+    accountMatches: account ? account.userId === message.userId : null,
   };
 }
 

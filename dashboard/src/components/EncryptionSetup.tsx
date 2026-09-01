@@ -32,6 +32,7 @@ import {
   readOnboardingState,
   type ProtectionMethod,
 } from "../lib/onboarding";
+import { ENCRYPTION_SETUP_REQUESTED_EVENT } from "../lib/encryptionSetupFlow";
 
 type EncryptionSetupResult = {
   key: string | null;
@@ -53,6 +54,7 @@ export default function EncryptionSetup() {
   const [preparedMethod, setPreparedMethod] =
     useState<ProtectionMethod | null>(null);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [setupRequested, setSetupRequested] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [retryToken, setRetryToken] = useState(0);
   const setupRef = useRef<{
@@ -62,6 +64,27 @@ export default function EncryptionSetup() {
   } | null>(null);
 
   useEffect(() => {
+    setSetupRequested(false);
+    if (!user?.id) return;
+
+    const handleSetupRequest = (event: Event) => {
+      if (event instanceof CustomEvent && event.detail?.userId === user.id) {
+        setSetupRequested(true);
+      }
+    };
+
+    window.addEventListener(
+      ENCRYPTION_SETUP_REQUESTED_EVENT,
+      handleSetupRequest,
+    );
+    return () =>
+      window.removeEventListener(
+        ENCRYPTION_SETUP_REQUESTED_EVENT,
+        handleSetupRequest,
+      );
+  }, [user?.id]);
+
+  useEffect(() => {
     if (authLoading || keyLoading) return;
 
     if (!user || !session?.access_token) {
@@ -69,6 +92,7 @@ export default function EncryptionSetup() {
       setEncryptionKey(null);
       setPreparedMethod(null);
       setSetupError(null);
+      setSetupRequested(false);
       setSigningOut(false);
       return;
     }
@@ -197,6 +221,7 @@ export default function EncryptionSetup() {
         setup.waitingForUnlock = !!result.waitingForUnlock;
       }
       setSetupError(result.error);
+      if (result.error) setSetupRequested(true);
       setPreparedMethod(result.preparedMethod);
       if (result.key) setEncryptionKey(result.key);
     });
@@ -231,7 +256,7 @@ export default function EncryptionSetup() {
   return (
     <>
       <EncryptionKeyDialog
-        encryptionKey={encryptionKey}
+        encryptionKey={setupRequested ? encryptionKey : null}
         preparedMethod={preparedMethod}
         onSaveWithPasskey={async () => {
           if (!user || !session?.access_token || !encryptionKey) {
@@ -255,7 +280,6 @@ export default function EncryptionSetup() {
         }}
         onComplete={async (method) => {
           await setKeyRemembered(true);
-          if (user) markProtectionConfirmed(user.id, method);
 
           // The Auth client may emit another event when this tab regains focus.
           // Keep the completed setup result from replaying the generated key
@@ -274,6 +298,8 @@ export default function EncryptionSetup() {
 
           setEncryptionKey(null);
           setPreparedMethod(null);
+          setSetupRequested(false);
+          if (user) markProtectionConfirmed(user.id, method);
 
           // Refresh the profile only after this dialog closes. The dashboard
           // uses the saved verifier as the signal that it can start the
@@ -285,7 +311,21 @@ export default function EncryptionSetup() {
           }
         }}
       />
-      <Dialog open={!!setupError && !!session} onClose={() => setSetupError(null)} size="sm">
+      <Dialog
+        open={setupRequested && !encryptionKey && !setupError && !!session}
+        onClose={() => {}}
+        size="sm"
+      >
+        <DialogTitle>Preparing library protection</DialogTitle>
+        <DialogDescription>
+          FavLock is preparing the encrypted library key on this device.
+        </DialogDescription>
+      </Dialog>
+      <Dialog
+        open={setupRequested && !!setupError && !!session}
+        onClose={() => {}}
+        size="sm"
+      >
         <DialogTitle>Encryption setup needs attention</DialogTitle>
         <DialogDescription>{setupError}</DialogDescription>
         <DialogActions>

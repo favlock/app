@@ -10,6 +10,7 @@ import {
 } from "../lib/bookmarkRepository";
 import { bookmarksForView, type BookmarkView } from "../lib/bookmarkViews";
 import { RESOURCE_USAGE_QUERY_KEY } from "./useResourceUsageQuery";
+import { setLibraryPopulated } from "../lib/onboarding";
 
 const BOOKMARKS_QUERY_KEY = ["bookmarks"];
 const TAG_IDS_QUERY_KEY_PREFIX = "tag-bookmark-ids";
@@ -69,7 +70,7 @@ export const useBookmarks = (
 
 export const useAddBookmark = () => {
   const queryClient = useQueryClient();
-  const { session, retryBookmarkCacheSync } = useAuth();
+  const { session, user, retryBookmarkCacheSync } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -93,6 +94,7 @@ export const useAddBookmark = () => {
         newEncryptedTagNames,
       }),
     onSuccess: () => {
+      if (user?.id) setLibraryPopulated(user.id, true);
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: BOOKMARKS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ["tags"] });

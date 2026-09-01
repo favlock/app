@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import BrowserBookmarkImportSection from "./BrowserBookmarkImportSection";
 import { fingerprintBrowserBookmarkImport } from "../lib/browserBookmarkImportPlan";
 import { createImportRecoveryJournal } from "../lib/importRecovery";
+import { readOnboardingState } from "../lib/onboarding";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -110,6 +111,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.clear();
     mocks.decryptField.mockClear();
     mocks.encryptField.mockClear();
     mocks.createFolder.mockReset().mockResolvedValue({
@@ -251,6 +253,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     await waitForImportWork();
 
     expect(mocks.createBookmark).toHaveBeenCalledTimes(1);
+    expect(readOnboardingState("user-1").libraryPopulated).toBe("populated");
   });
 
   it("reviews duplicates before writing and can skip all of them", async () => {
@@ -331,6 +334,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     ]);
     await clickButton("Review duplicates and import");
     expect(mocks.createBookmark).not.toHaveBeenCalled();
+    expect(readOnboardingState("user-1").libraryPopulated).toBe("unknown");
 
     await clickDialogButton("Keep both");
 
@@ -411,6 +415,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     );
     expect(document.body.textContent).toContain("Nothing is written until you continue");
     expect(mocks.createBookmark).not.toHaveBeenCalled();
+    expect(readOnboardingState("user-1").libraryPopulated).toBe("unknown");
   });
 
   it("continues after a definite item failure and reports the partial result", async () => {
@@ -437,6 +442,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     expect(document.body.textContent).toContain(
       "FavLock could not confirm this bookmark was saved. It is safe to retry.",
     );
+    expect(readOnboardingState("user-1").libraryPopulated).toBe("populated");
   });
 
   it("separates invalid source values from retryable write failures", async () => {

@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Bookmark, Folder } from "../types/bookmark";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
 import BookmarkCard from "./BookmarkCard";
+import { readOnboardingState } from "../lib/onboarding";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -67,6 +68,7 @@ describe("BookmarkCard", () => {
   let root: Root;
 
   beforeEach(() => {
+    localStorage.clear();
     mocks.moveBookmark.mockReset().mockResolvedValue(undefined);
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -100,6 +102,26 @@ describe("BookmarkCard", () => {
     act(() => article.click());
 
     expect(linkClick).toHaveBeenCalledOnce();
+  });
+
+  it("records retrieval only when the saved bookmark link is deliberately opened", async () => {
+    await act(async () => {
+      root.render(
+        <BookmarkCard
+          bookmark={bookmark}
+          onDeleted={() => {}}
+          onMoved={() => {}}
+        />,
+      );
+    });
+
+    expect(readOnboardingState("user-1").firstRetrieval).toBe("unknown");
+    const bookmarkLink = container.querySelector<HTMLAnchorElement>(
+      'a[href="https://example.com"]',
+    )!;
+    bookmarkLink.addEventListener("click", (event) => event.preventDefault());
+    await act(async () => bookmarkLink.click());
+    expect(readOnboardingState("user-1").firstRetrieval).toBe("completed");
   });
 
   it("shows the search shortcut hint when one is assigned", async () => {
