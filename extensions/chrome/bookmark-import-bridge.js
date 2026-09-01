@@ -1,4 +1,5 @@
 import { FAVLOCK_CONFIG } from "./config.js";
+import { hasChromeBookmarkPermission } from "./extension-permissions.js";
 
 const REQUEST_TYPE = "FAVLOCK_CHROME_BOOKMARKS_REQUEST";
 const RESULT_TYPE = "FAVLOCK_CHROME_BOOKMARKS_RESULT";
@@ -82,6 +83,19 @@ window.addEventListener("message", async (event) => {
   if (!requestId) return;
 
   try {
+    const hasPermission = await hasChromeBookmarkPermission(chrome.permissions);
+    if (!hasPermission) {
+      window.parent.postMessage(
+        {
+          type: RESULT_TYPE,
+          requestId,
+          error:
+            "Allow Chrome bookmark access from FavLock extension settings, then try the import again.",
+        },
+        dashboardOrigin,
+      );
+      return;
+    }
     const tree = await chrome.bookmarks.getTree();
     window.parent.postMessage(
       { type: RESULT_TYPE, requestId, tree },

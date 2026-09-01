@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "FavLock – Private Bookmark Manager",
-  "description": "Save and update bookmarks, organize with collections, tags and Lists, capture articles, and sync encrypted content across devices.",
+  "name": "FavLock – Save, Search & Organize Bookmarks",
+  "description": "Save, search, and organize bookmarks with encrypted titles and URLs. Add Collections, tags, tab sessions, and article snapshots.",
   "version": "1.7.0",
   "version_name": "1.7.0",
-  "permissions": ["activeTab", "bookmarks", "contextMenus", "scripting", "storage", "tabs"],
+  "permissions": ["activeTab", "contextMenus", "scripting", "storage", "tabs"],
+  "optional_permissions": ["bookmarks"],
   "host_permissions": [
     "http://localhost:4180/*",
     "https://api.favlock.localhost/*"
@@ -40,7 +41,7 @@
   },
   "options_page": "options.html",
   "action": {
-    "default_title": "Save, update, or read with FavLock",
+    "default_title": "Save or search with FavLock",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/favlock-16.png",

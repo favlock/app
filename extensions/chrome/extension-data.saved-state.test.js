@@ -18,6 +18,7 @@ vi.mock("./extension-crypto.js", () => ({
 
 import {
   loadQuickAddData,
+  loadSearchableBookmarks,
   loadSavedPageState,
   saveCurrentPage,
   saveOpenTabsSession,
@@ -122,6 +123,48 @@ describe("extension saved-page state", () => {
       tagIds: ["tag-1", "tag-2"],
       listIds: ["list-1", "list-2"],
     });
+  });
+
+  it("loads searchable bookmarks by decrypting safe titles and URLs in memory", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({
+        data: {
+          items: [
+            {
+              id: "bookmark-1",
+              encryptedTitle: "enc:Research notes",
+              encryptedUrl: "enc:https://example.com/research",
+              folders: [{ id: "folder-1" }],
+              tags: [{ id: "tag-1" }, { id: "tag-2" }],
+            },
+            {
+              id: "bookmark-2",
+              encryptedTitle: "enc:Restricted page",
+              encryptedUrl: "enc:chrome://settings",
+            },
+          ],
+          nextCursor: null,
+        },
+      }),
+    );
+
+    await expect(
+      loadSearchableBookmarks({
+        folders: [{ id: "folder-1", name: "Research" }],
+        tags: [
+          { id: "tag-1", name: "privacy" },
+          { id: "tag-2", name: "reference" },
+        ],
+      }),
+    ).resolves.toEqual([
+      {
+        id: "bookmark-1",
+        title: "Research notes",
+        url: "https://example.com/research",
+        collectionNames: ["Research"],
+        tagNames: ["privacy", "reference"],
+      },
+    ]);
   });
 
   it("updates an existing bookmark and replaces its List memberships", async () => {

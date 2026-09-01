@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Save or update with FavLock</title>
+    <title>Save or search with FavLock</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -13,13 +13,23 @@
           <img class="logo" src="favlock-logo.svg" alt="FavLock" />
           <span id="developmentBadge" class="development-badge" title="Development build" hidden>DEV</span>
         </span>
-        <span class="quick-save-badge">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M3 12h18" /></svg>
-          Quick save
+        <span class="header-controls">
+          <span id="connectedAccount" class="connection-indicator" hidden></span>
+          <button id="openSettingsButton" type="button" class="icon-button" aria-label="Open settings" title="Settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.09a2 2 0 0 1-1-1.74v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
         </span>
       </header>
 
-      <section class="page-preview" aria-label="Current page">
+      <nav id="modeSwitch" class="mode-switch" aria-label="Extension mode" hidden>
+        <button id="saveModeButton" type="button" class="mode-button" aria-pressed="true">Save</button>
+        <button id="searchBookmarksButton" type="button" class="mode-button" aria-pressed="false">Search</button>
+      </nav>
+
+      <section id="pagePreview" class="page-preview" aria-label="Current page">
         <span class="page-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M6.75 3.75h10.5a1.5 1.5 0 0 1 1.5 1.5v15l-6.75-4.5-6.75 4.5v-15a1.5 1.5 0 0 1 1.5-1.5Z" /></svg>
         </span>
@@ -45,11 +55,7 @@
 
       <form id="quickAddForm" class="quick-add-form" hidden>
         <div class="field">
-          <label for="bookmarkTitle">Title</label>
-          <input id="bookmarkTitle" type="text" autocomplete="off" />
-        </div>
-        <div class="field">
-          <label for="collectionSelect">Collection</label>
+          <label for="collectionSelect">Save to</label>
           <select id="collectionSelect">
             <option value="">No collection</option>
             <option value="__new__">+ Create a collection</option>
@@ -60,24 +66,7 @@
           <input id="newCollectionName" type="text" maxlength="80" autocomplete="off" />
         </div>
         <fieldset class="tag-fieldset">
-          <legend>Lists <span>optional</span></legend>
-          <details id="listPicker" class="tag-picker">
-            <summary>
-              <span id="listPickerLabel">Select Lists</span>
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
-            </summary>
-            <div id="listOptions" class="tag-options"><span class="empty-copy">No Lists yet</span></div>
-            <button id="showNewListButton" type="button" class="picker-create-option">
-              + Create a List
-            </button>
-          </details>
-        </fieldset>
-        <div id="newListField" class="field" hidden>
-          <label for="newListName">New List name</label>
-          <input id="newListName" type="text" maxlength="80" autocomplete="off" />
-        </div>
-        <fieldset class="tag-fieldset">
-          <legend>Tags <span>up to 10</span></legend>
+          <legend>Tags <span>optional, up to 10</span></legend>
           <details id="tagPicker" class="tag-picker">
             <summary>
               <span id="tagPickerLabel">Select tags</span>
@@ -93,10 +82,38 @@
           <label for="newTags">New tags <span>comma separated</span></label>
           <input id="newTags" type="text" placeholder="eg. research, design" autocomplete="off" />
         </div>
-        <div class="save-actions">
-          <button id="saveBookmarkButton" type="submit" class="primary" disabled>Save page</button>
-          <button id="showTabSessionButton" type="button" class="secondary">Save open tabs</button>
-        </div>
+        <details id="moreOptions" class="more-options">
+          <summary>
+            <span id="moreOptionsLabel">More options</span>
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+          </summary>
+          <div class="more-options-content">
+            <div class="field">
+              <label for="bookmarkTitle">Title</label>
+              <input id="bookmarkTitle" type="text" autocomplete="off" />
+            </div>
+            <fieldset class="tag-fieldset">
+              <legend>Lists <span>optional</span></legend>
+              <details id="listPicker" class="tag-picker">
+                <summary>
+                  <span id="listPickerLabel">Select Lists</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </summary>
+                <div id="listOptions" class="tag-options"><span class="empty-copy">No Lists yet</span></div>
+                <button id="showNewListButton" type="button" class="picker-create-option">
+                  + Create a List
+                </button>
+              </details>
+            </fieldset>
+            <div id="newListField" class="field" hidden>
+              <label for="newListName">New List name</label>
+              <input id="newListName" type="text" maxlength="80" autocomplete="off" />
+            </div>
+          </div>
+        </details>
+
+        <button id="saveBookmarkButton" type="submit" class="primary wide-button" disabled>Save page</button>
+        <button id="showTabSessionButton" type="button" class="text-button">Save all open tabs</button>
 
         <section id="tabSessionPanel" class="tab-session-panel" hidden aria-labelledby="tabSessionTitle">
           <div>
@@ -116,16 +133,33 @@
         </section>
       </form>
 
+      <section id="bookmarkSearchPanel" class="bookmark-search-panel" hidden aria-labelledby="bookmarkSearchTitle">
+        <h1 id="bookmarkSearchTitle" class="sr-only">Find a bookmark</h1>
+        <div class="field">
+          <label class="sr-only" for="bookmarkSearchInput">Search by title, URL, Collection, or tag</label>
+          <input
+            id="bookmarkSearchInput"
+            type="search"
+            placeholder="Search bookmarks…"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <p id="bookmarkSearchSummary" class="bookmark-search-summary" aria-live="polite">Loading bookmarks…</p>
+        <div id="bookmarkSearchResults" class="bookmark-search-results"></div>
+      </section>
+
       <p id="status" role="status" aria-live="polite"></p>
-      <p id="connectedAccount" class="connected-account" hidden></p>
 
       <div class="actions">
-        <button id="openReaderButton" type="button" class="reader-button">Reader</button>
-        <button id="openDashboardButton" type="button" class="secondary">Dashboard</button>
-        <button id="openSettingsButton" type="button" class="secondary">Settings</button>
+        <button id="openReaderButton" type="button" class="secondary">Reader</button>
+        <button id="openDashboardButton" type="button" class="secondary">Open FavLock</button>
       </div>
 
-      <p class="helper"><span aria-hidden="true"></span>Bookmark details are encrypted before storage.</p>
+      <p class="helper">
+        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6.5 8V6.5a3.5 3.5 0 0 1 7 0V8M5.5 8h9a1 1 0 0 1 1 1v6.5a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z" /></svg>
+        Encrypted before storage
+      </p>
     </main>
     <script type="module" src="popup.js"></script>
   </body>

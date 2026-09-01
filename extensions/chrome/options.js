@@ -1,10 +1,14 @@
 import { FAVLOCK_CONFIG } from "./config.js";
+import { requestChromeBookmarkPermission } from "./extension-permissions.js";
+import { resolveUseFavLockNewTab } from "./extension-settings.js";
 
 async function loadSettings() {
   const stored = await chrome.storage.sync.get("useFavLockNewTab");
   const newTabCheckbox = document.getElementById("useFavLockNewTab");
 
-  newTabCheckbox.checked = stored.useFavLockNewTab !== false;
+  newTabCheckbox.checked = resolveUseFavLockNewTab(
+    stored.useFavLockNewTab,
+  );
 }
 
 async function loadConnection() {
@@ -84,17 +88,36 @@ async function saveSettings(event) {
 async function openChromeBookmarkImport() {
   const status = document.getElementById("status");
   const newTabCheckbox = document.getElementById("useFavLockNewTab");
+  const importButton = document.getElementById("importBookmarksButton");
   const importUrl = new URL(FAVLOCK_CONFIG.dashboardUrl);
 
-  await chrome.storage.sync.set({
-    useFavLockNewTab: newTabCheckbox.checked,
-  });
-  importUrl.pathname = `${importUrl.pathname.replace(/\/+$/, "")}/settings`;
-  importUrl.searchParams.set("chromeExtensionId", chrome.runtime.id);
-  importUrl.searchParams.set("autoImport", "chrome");
-  importUrl.hash = "import-bookmarks";
+  importButton.disabled = true;
+  status.textContent = "Waiting for Chrome bookmark access…";
+  try {
+    const granted = await requestChromeBookmarkPermission(chrome.permissions);
+    if (!granted) {
+      status.textContent =
+        "Bookmark access was not allowed. FavLock only needs it when you import from Chrome.";
+      return;
+    }
 
-  await chrome.tabs.create({ url: importUrl.toString() });
+    await chrome.storage.sync.set({
+      useFavLockNewTab: newTabCheckbox.checked,
+    });
+    importUrl.pathname = `${importUrl.pathname.replace(/\/+$/, "")}/settings`;
+    importUrl.searchParams.set("chromeExtensionId", chrome.runtime.id);
+    importUrl.searchParams.set("autoImport", "chrome");
+    importUrl.hash = "import-bookmarks";
+
+    await chrome.tabs.create({ url: importUrl.toString() });
+    status.textContent = "Opening Chrome bookmark import…";
+  } catch (error) {
+    status.textContent = error instanceof Error
+      ? error.message
+      : "FavLock could not request Chrome bookmark access.";
+  } finally {
+    importButton.disabled = false;
+  }
 }
 
 document

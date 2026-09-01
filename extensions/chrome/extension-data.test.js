@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  BOOKMARK_SEARCH_MIN_CHARACTERS,
+  BOOKMARK_SEARCH_RESULT_LIMIT,
+  filterSearchableBookmarks,
+  getBookmarkSearchResults,
   getBookmarkOrganization,
   getListCreationErrorMessage,
   normalizeOpenTabs,
@@ -95,5 +99,67 @@ describe("extension quick-add data", () => {
         ),
       ),
     ).toBe("Free includes up to 3 Lists. Upgrade to Pro for unlimited Lists.");
+  });
+
+  it("searches saved bookmarks by title and URL with normalized terms", () => {
+    const bookmarks = [
+      {
+        id: "bookmark-1",
+        title: "Café research notes",
+        url: "https://example.com/research",
+        collectionNames: ["Reading queue"],
+        tagNames: ["Privacy"],
+      },
+      {
+        id: "bookmark-2",
+        title: "Design systems",
+        url: "https://patterns.example/library",
+        collectionNames: ["Inspiration"],
+        tagNames: ["Interfaces"],
+      },
+    ];
+
+    expect(filterSearchableBookmarks(bookmarks, "cafe example")).toEqual([
+      bookmarks[0],
+    ]);
+    expect(filterSearchableBookmarks(bookmarks, "patterns")).toEqual([
+      bookmarks[1],
+    ]);
+    expect(filterSearchableBookmarks(bookmarks, "reading privacy")).toEqual([
+      bookmarks[0],
+    ]);
+    expect(filterSearchableBookmarks(bookmarks, "inspiration")).toEqual([
+      bookmarks[1],
+    ]);
+    expect(filterSearchableBookmarks(bookmarks, "   ")).toEqual([]);
+  });
+
+  it("limits bookmark search results", () => {
+    const bookmarks = Array.from({ length: 25 }, (_, index) => ({
+      id: `bookmark-${index}`,
+      title: `Saved result ${index}`,
+      url: `https://example.com/${index}`,
+    }));
+
+    expect(filterSearchableBookmarks(bookmarks, "saved")).toHaveLength(20);
+  });
+
+  it("waits for two characters and keeps the popup result set compact", () => {
+    const bookmarks = Array.from({ length: 12 }, (_, index) => ({
+      id: `bookmark-${index}`,
+      title: `Saved result ${index}`,
+      url: `https://example.com/${index}`,
+    }));
+
+    expect(BOOKMARK_SEARCH_MIN_CHARACTERS).toBe(2);
+    expect(getBookmarkSearchResults(bookmarks, "s")).toEqual({
+      items: [],
+      queryLength: 1,
+      total: 0,
+    });
+
+    const results = getBookmarkSearchResults(bookmarks, "saved");
+    expect(results.total).toBe(12);
+    expect(results.items).toHaveLength(BOOKMARK_SEARCH_RESULT_LIMIT);
   });
 });

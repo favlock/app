@@ -28,6 +28,8 @@ const packagedFiles = [
   "extension-auth.js",
   "extension-crypto.js",
   "extension-data.js",
+  "extension-permissions.js",
+  "extension-settings.js",
   "icons/favlock-16.png",
   "icons/favlock-32.png",
   "icons/favlock-48.png",

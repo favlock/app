@@ -6,8 +6,11 @@ import {
   receivePairedKey,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
+import {
+  DEFAULT_USE_FAVLOCK_NEW_TAB,
+  resolveUseFavLockNewTab,
+} from "./extension-settings.js";
 
-const DEFAULT_USE_FAVLOCK_NEW_TAB = true;
 const SAVE_PAGE_CONTEXT_MENU_ID = "favlock-save-page";
 const DEVELOPMENT_BADGE_TEXT = FAVLOCK_CONFIG.target === "development" ? "DEV" : "";
 
@@ -52,7 +55,7 @@ async function maybeOpenFavLock(tabId, url) {
   if (!Number.isInteger(tabId) || !isChromeNewTab(url)) return;
 
   const stored = await chrome.storage.sync.get("useFavLockNewTab");
-  if (stored.useFavLockNewTab === false) return;
+  if (!resolveUseFavLockNewTab(stored.useFavLockNewTab)) return;
 
   try {
     await chrome.tabs.update(tabId, {
@@ -67,7 +70,7 @@ async function clearSavedPageBadge(tabId) {
   await Promise.allSettled([
     restoreBuildBadge(tabId),
     chrome.action.setTitle({
-      title: "Save, update, or read with FavLock",
+      title: "Save or search with FavLock",
       tabId,
     }),
   ]);
