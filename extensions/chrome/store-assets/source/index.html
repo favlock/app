@@ -21,10 +21,11 @@
 
         <div class="product-cluster popup-cluster">
           <article class="extension-popup">
-            <header class="popup-brand">
+            <header class="popup-brand popup-brand-new">
               <img src="../../favlock-logo.svg" alt="FavLock" />
-              <span class="quick-badge">＋ Quick save</span>
+              <span class="popup-header-actions"><span class="connected-state">● Connected</span><span class="settings-glyph">⚙</span></span>
             </header>
+            <div class="store-mode-switch"><span class="active">Save</span><span>Search</span></div>
             <div class="page-preview">
               <span class="bookmark-icon">⌑</span>
               <span class="page-copy">
@@ -35,96 +36,57 @@
             </div>
             <div class="popup-form">
               <label>
-                <span>Title</span>
-                <input value="Designing calm interfaces" readonly />
-              </label>
-              <label>
-                <span>Collection</span>
+                <span>Save to</span>
                 <div class="select-like">Product design <b>⌄</b></div>
               </label>
               <fieldset>
-                <legend>Lists <small>optional</small></legend>
-                <div class="select-like">Reading queue <b>⌄</b></div>
+                <legend>Tags <small>optional, up to 10</small></legend>
+                <div class="select-like">2 tags selected <b>⌄</b></div>
               </fieldset>
-              <fieldset>
-                <legend>Tags <small>up to 10</small></legend>
-                <div class="select-like">design, inspiration <b>⌄</b></div>
-              </fieldset>
-              <div class="two-actions">
-                <button class="primary">Save page</button>
-                <button class="secondary">Save open tabs</button>
-              </div>
+              <div class="select-like more-options-mock">More options <b>⌄</b></div>
+              <button class="primary full-action">Save page</button>
+              <button class="text-action">Save all open tabs</button>
             </div>
             <div class="popup-actions">
-              <button class="reader">Reader</button>
-              <button>Dashboard</button>
-              <button>Settings</button>
+              <button>Reader</button>
+              <button>Open FavLock</button>
             </div>
-            <p class="helper"><span></span>Bookmark details are encrypted before storage.</p>
+            <p class="helper">▣ Encrypted before storage</p>
           </article>
         </div>
         <span class="decor decor-amber"></span>
         <span class="decor decor-blue"></span>
       </section>
 
-      <section class="shot shot-2" aria-label="Organize a saved page">
+      <section class="shot shot-2" aria-label="Search saved bookmarks">
         <div class="marketing-copy">
-          <span class="shot-number">02 · Organize</span>
-          <h1><span class="accent-text">Organize directly</span><br />from Chrome.</h1>
-          <p>Update a saved page, choose Lists, and add tags in a few clicks.</p>
+          <span class="shot-number">02 · Search</span>
+          <h1><span class="accent-text">Find it without</span><br />breaking your flow.</h1>
+          <p>Search saved bookmarks by title, URL, Collection, or tag directly from Chrome.</p>
           <div class="feature-chips">
-            <span>Collections</span><span>Lists</span><span>Tags</span>
+            <span>Titles</span><span>Collections</span><span>Tags</span>
           </div>
         </div>
 
-        <div class="product-cluster popup-cluster organize-cluster">
-          <article class="extension-popup organize-popup">
-            <header class="popup-brand">
+        <div class="product-cluster popup-cluster search-cluster">
+          <article class="extension-popup search-popup">
+            <header class="popup-brand popup-brand-new">
               <img src="../../favlock-logo.svg" alt="FavLock" />
-              <span class="quick-badge">＋ Quick save</span>
+              <span class="popup-header-actions"><span class="connected-state">● Connected</span><span class="settings-glyph">⚙</span></span>
             </header>
-            <div class="page-preview">
-              <span class="bookmark-icon">⌑</span>
-              <span class="page-copy">
-                <strong>A guide to thoughtful typography</strong>
-                <span>typejournal.example</span>
-              </span>
-              <span class="state-badge saved">Saved</span>
-            </div>
-            <div class="popup-form">
-              <label>
-                <span>Title</span>
-                <input value="A guide to thoughtful typography" readonly />
-              </label>
-              <label>
-                <span>Collection</span>
-                <div class="select-like">Design library <b>⌄</b></div>
-              </label>
-              <fieldset class="picker-open">
-                <legend>Lists <small>optional</small></legend>
-                <div class="select-like picker-summary">2 Lists selected <b>⌃</b></div>
-                <div class="picker-panel">
-                  <span class="choice selected">✓ Reading queue</span>
-                  <span class="choice selected">✓ UI research</span>
-                  <span class="choice">Inspiration</span>
-                  <button>＋ Create a List</button>
-                </div>
-              </fieldset>
-              <fieldset>
-                <legend>Tags <small>up to 10</small></legend>
-                <div class="select-like">typography, design <b>⌄</b></div>
-              </fieldset>
-              <div class="two-actions">
-                <button class="primary">Update page</button>
-                <button class="secondary">Save open tabs</button>
+            <div class="store-mode-switch"><span>Save</span><span class="active">Search</span></div>
+            <section class="search-panel-mock">
+              <div class="search-input-mock">design <span>⌕</span></div>
+              <p>3 results</p>
+              <div class="search-results-mock">
+                <div><strong>Design systems handbook</strong><small>patterns.example · Product design · #ui #reference</small></div>
+                <div><strong>Accessible interface patterns</strong><small>a11y.example · Research · #design #accessibility</small></div>
+                <div><strong>Calm product inspiration</strong><small>studio.example · Design library · #inspiration</small></div>
               </div>
+            </section>
+            <div class="popup-actions search-actions">
+              <button>Open FavLock</button>
             </div>
-            <div class="popup-actions">
-              <button class="reader">Reader</button>
-              <button>Dashboard</button>
-              <button>Settings</button>
-            </div>
-            <p class="helper"><span></span>Bookmark details are encrypted before storage.</p>
           </article>
         </div>
         <span class="decor decor-amber"></span>
@@ -144,10 +106,11 @@
 
         <div class="product-cluster session-cluster">
           <article class="extension-popup session-popup">
-            <header class="popup-brand">
+            <header class="popup-brand popup-brand-new">
               <img src="../../favlock-logo.svg" alt="FavLock" />
-              <span class="quick-badge">＋ Quick save</span>
+              <span class="popup-header-actions"><span class="connected-state">● Connected</span><span class="settings-glyph">⚙</span></span>
             </header>
+            <div class="store-mode-switch"><span class="active">Save</span><span>Search</span></div>
             <div class="page-preview compact-preview">
               <span class="bookmark-icon">⌑</span>
               <span class="page-copy">
@@ -171,11 +134,10 @@
               </div>
             </section>
             <div class="popup-actions">
-              <button class="reader">Reader</button>
-              <button>Dashboard</button>
-              <button>Settings</button>
+              <button>Reader</button>
+              <button>Open FavLock</button>
             </div>
-            <p class="helper"><span></span>Bookmark details are encrypted before storage.</p>
+            <p class="helper">▣ Encrypted before storage</p>
           </article>
         </div>
         <span class="decor decor-amber"></span>
@@ -247,20 +209,21 @@
                 </div>
                 <p>Manage your new-tab preference or bring your Chrome bookmarks into your private FavLock library.</p>
                 <div class="checkbox-row">
-                  <span class="checkbox">✓</span>
-                  <div><strong>Use FavLock as my new tab page</strong><small>Open FavLock in every new tab.</small></div>
+                  <span class="checkbox checkbox-empty"></span>
+                  <div><strong>Use FavLock as my new tab page</strong><small>Off until you choose to enable it.</small></div>
                 </div>
                 <div class="settings-actions">
                   <button class="primary">Save settings</button>
                   <button class="import-button">Import Chrome bookmarks</button>
                 </div>
+                <small class="permission-demo">Chrome asks for bookmark access only when you start an import.</small>
               </section>
               <aside class="info-card">
-                <small>CAPTURE WITHOUT BREAKING YOUR FLOW</small>
-                <h3>More than a save button.</h3>
+                <small>YOUR LIBRARY, CLOSE AT HAND</small>
+                <h3>Save, search, and read from Chrome.</h3>
                 <div><b>01</b><span><strong>Quick save</strong><br />Recognizes saved pages.</span></div>
-                <div><b>02</b><span><strong>Reader</strong><br />Removes distractions.</span></div>
-                <div><b>03</b><span><strong>Browser tools</strong><br />Sessions and imports.</span></div>
+                <div><b>02</b><span><strong>Search</strong><br />Finds titles, Collections, and tags.</span></div>
+                <div><b>03</b><span><strong>Reader &amp; sessions</strong><br />Keeps articles and tabs focused.</span></div>
               </aside>
             </div>
           </div>
@@ -271,7 +234,9 @@
     </main>
 
     <script>
-      const shot = new URLSearchParams(window.location.search).get("shot") || "1";
+      const params = new URLSearchParams(window.location.search);
+      const shot = params.get("shot") || "1";
+      if (params.get("scale") === "2") document.documentElement.dataset.renderScale = "2";
       document.querySelector(".stage").dataset.shot = shot;
       document.title = `FavLock Chrome Web Store screenshot ${shot}`;
     </script>

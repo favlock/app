@@ -1,5 +1,8 @@
 import {
+  BOOKMARK_SEARCH_MIN_CHARACTERS,
+  getBookmarkSearchResults,
   loadQuickAddData,
+  loadSearchableBookmarks,
   loadSavedPageState,
   normalizeOpenTabs,
   saveCurrentPage,
@@ -11,6 +14,10 @@ let activeTab = null;
 let quickAddData = { folders: [], tags: [], lists: [] };
 let savedPageState = null;
 let openTabs = [];
+let searchableBookmarks = [];
+let visibleSearchResults = [];
+let searchBookmarksLoaded = false;
+let connectionReady = false;
 
 function setStatus(message, kind = "error") {
   const status = document.getElementById("status");
@@ -43,7 +50,7 @@ async function setToolbarSavedState(saved) {
     }),
     chrome.action.setBadgeText({ text: saved ? "✓" : defaultBadge, tabId }),
     chrome.action.setTitle({
-      title: saved ? "Saved in FavLock" : "Save, update, or read with FavLock",
+      title: saved ? "Saved in FavLock" : "Save or search with FavLock",
       tabId,
     }),
   ]);
@@ -73,12 +80,16 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   const form = document.getElementById("quickAddForm");
   const button = document.getElementById("connectButton");
   const connectedAccount = document.getElementById("connectedAccount");
+  const modeSwitch = document.getElementById("modeSwitch");
+  connectionReady = connected && unlocked && cloudStatus === "available";
+  modeSwitch.hidden = !connectionReady;
   connectedAccount.hidden = !connected;
-  connectedAccount.textContent = connected
-    ? email ? `Connected as ${email}` : "FavLock extension connected"
-    : "";
+  connectedAccount.textContent = connected ? "Connected" : "";
+  connectedAccount.title = email || "FavLock extension connected";
 
   if (connected && cloudStatus !== "available") {
+    document.getElementById("bookmarkSearchPanel").hidden = true;
+    document.getElementById("pagePreview").hidden = false;
     panel.hidden = false;
     form.hidden = true;
     document.getElementById("connectionTitle").textContent = "Local connection saved";
@@ -90,6 +101,7 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   if (connected && unlocked) {
     panel.hidden = true;
     form.hidden = false;
+    document.getElementById("pagePreview").hidden = false;
     return;
   }
 
@@ -107,6 +119,135 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
       "Sign in or create an account with Google or email, then unlock your library.";
     button.textContent = "Connect FavLock";
   }
+}
+
+function setModeSelection(mode) {
+  const saveSelected = mode === "save";
+  document.body.dataset.mode = mode;
+  document.getElementById("saveModeButton").setAttribute(
+    "aria-pressed",
+    String(saveSelected),
+  );
+  document.getElementById("searchBookmarksButton").setAttribute(
+    "aria-pressed",
+    String(!saveSelected),
+  );
+}
+
+function getSearchResultUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return ["http:", "https:"].includes(parsed.protocol) ? parsed.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function renderBookmarkSearchResults() {
+  const query = document.getElementById("bookmarkSearchInput").value;
+  const summary = document.getElementById("bookmarkSearchSummary");
+  const results = document.getElementById("bookmarkSearchResults");
+  results.replaceChildren();
+
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    visibleSearchResults = [];
+    summary.textContent = searchBookmarksLoaded
+      ? `Search ${searchableBookmarks.length} saved ${searchableBookmarks.length === 1 ? "bookmark" : "bookmarks"}.`
+      : "Loading bookmarks…";
+    return;
+  }
+
+  if (Array.from(trimmedQuery).length < BOOKMARK_SEARCH_MIN_CHARACTERS) {
+    visibleSearchResults = [];
+    summary.textContent = `Type at least ${BOOKMARK_SEARCH_MIN_CHARACTERS} characters to search.`;
+    return;
+  }
+
+  if (!searchBookmarksLoaded) {
+    visibleSearchResults = [];
+    summary.textContent = "Loading bookmarks…";
+    return;
+  }
+
+  const searchResults = getBookmarkSearchResults(searchableBookmarks, query);
+  visibleSearchResults = searchResults.items;
+  if (!visibleSearchResults.length) {
+    summary.textContent = "No saved bookmarks match your search.";
+    return;
+  }
+
+  summary.textContent = searchResults.total > visibleSearchResults.length
+    ? `Showing ${visibleSearchResults.length} of ${searchResults.total} results`
+    : `${searchResults.total} ${searchResults.total === 1 ? "result" : "results"}`;
+  visibleSearchResults.forEach((bookmark, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "bookmark-search-result";
+    button.dataset.resultIndex = String(index);
+    const title = document.createElement("strong");
+    title.textContent = bookmark.title;
+    const metadata = document.createElement("span");
+    metadata.className = "bookmark-search-result-meta";
+    metadata.title = bookmark.url;
+    const metadataParts = [getDisplayHost(bookmark.url)];
+    if (bookmark.collectionNames?.length) {
+      metadataParts.push(bookmark.collectionNames.join(", "));
+    }
+    if (bookmark.tagNames?.length) {
+      metadataParts.push(bookmark.tagNames.map((tag) => `#${tag}`).join(" "));
+    }
+    metadata.textContent = metadataParts.join(" · ");
+    button.append(title, metadata);
+    results.append(button);
+  });
+}
+
+async function showBookmarkSearch() {
+  if (!connectionReady) {
+    setStatus("Connect and unlock FavLock to search your bookmarks.");
+    return;
+  }
+
+  const panel = document.getElementById("bookmarkSearchPanel");
+  document.getElementById("quickAddForm").hidden = true;
+  document.getElementById("pagePreview").hidden = true;
+  panel.hidden = false;
+  setModeSelection("search");
+  setStatus("");
+  document.getElementById("bookmarkSearchInput").focus();
+
+  if (searchBookmarksLoaded) {
+    renderBookmarkSearchResults();
+    return;
+  }
+
+  try {
+    searchableBookmarks = await loadSearchableBookmarks(quickAddData);
+    searchBookmarksLoaded = true;
+    renderBookmarkSearchResults();
+  } catch (error) {
+    document.getElementById("bookmarkSearchSummary").textContent =
+      error instanceof Error ? error.message : "Could not load saved bookmarks.";
+  }
+}
+
+function showQuickSave({ focus = false } = {}) {
+  document.getElementById("bookmarkSearchPanel").hidden = true;
+  document.getElementById("quickAddForm").hidden = !connectionReady;
+  document.getElementById("pagePreview").hidden = false;
+  setModeSelection("save");
+  if (focus) document.getElementById("saveModeButton").focus();
+}
+
+async function openSearchResult(index) {
+  const url = getSearchResultUrl(visibleSearchResults[index]?.url);
+  if (!url) {
+    setStatus("This bookmark cannot be opened.");
+    return;
+  }
+  await chrome.tabs.create({ url });
+  window.close();
 }
 
 function renderCollections(folders) {
@@ -213,6 +354,20 @@ function updateListPickerLabel() {
   } else {
     label.textContent = `${selected.length} Lists`;
   }
+  updateMoreOptionsLabel();
+}
+
+function updateMoreOptionsLabel() {
+  const selectedLists = document.querySelectorAll(
+    '#listOptions input[type="checkbox"]:checked',
+  ).length;
+  const parts = [];
+  if (selectedLists) {
+    parts.push(`${selectedLists} ${selectedLists === 1 ? "List" : "Lists"}`);
+  }
+  document.getElementById("moreOptionsLabel").textContent = parts.length
+    ? `More options · ${parts.join(", ")}`
+    : "More options";
 }
 
 function applySavedPageState(state) {
@@ -491,6 +646,27 @@ async function openReaderMode() {
 }
 
 document.getElementById("connectButton").addEventListener("click", connectOrPair);
+document.getElementById("saveModeButton").addEventListener("click", () => {
+  showQuickSave();
+});
+document.getElementById("searchBookmarksButton").addEventListener("click", () => {
+  void showBookmarkSearch();
+});
+document.getElementById("bookmarkSearchInput").addEventListener("input", renderBookmarkSearchResults);
+document.getElementById("bookmarkSearchInput").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    showQuickSave({ focus: true });
+  } else if (event.key === "Enter" && visibleSearchResults.length) {
+    event.preventDefault();
+    void openSearchResult(0);
+  }
+});
+document.getElementById("bookmarkSearchResults").addEventListener("click", (event) => {
+  const result = event.target.closest("[data-result-index]");
+  if (!result) return;
+  void openSearchResult(Number(result.dataset.resultIndex));
+});
 document.getElementById("quickAddForm").addEventListener("submit", submitQuickAdd);
 document.getElementById("showTabSessionButton").addEventListener("click", () => {
   void showTabSession();

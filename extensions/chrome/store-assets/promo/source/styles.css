@@ -11,6 +11,7 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; overflow: hidden; }
+html[data-render-scale="2"] { zoom: 2; }
 body[data-tile="small"] { width: 440px; height: 280px; }
 body[data-tile="marquee"] { width: 1400px; height: 560px; }
 .promo-tile { display: none; position: relative; overflow: hidden; }
@@ -90,6 +91,11 @@ body[data-tile="marquee"] .marquee-tile { display: grid; width: 1400px; height: 
 .hero-popup header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .mini-popup header img { width: 68px; }
 .mini-popup header span { padding: 3px 5px; border-radius: 99px; color: var(--teal); background: rgba(15,118,110,0.1); font-size: 6px; font-weight: 800; }
+.mini-modes,
+.hero-modes { display: grid; grid-template-columns: 1fr 1fr; border-radius: 7px; background: rgba(29,34,48,0.045); }
+.mini-modes { margin-top: 7px; padding: 2px; font-size: 6px; text-align: center; }
+.mini-modes b { padding: 3px; border-radius: 5px; background: white; box-shadow: 0 1px 3px rgba(29,34,48,0.1); }
+.mini-modes span { padding: 3px; font-weight: 700; }
 .mini-page { display: flex; align-items: center; gap: 5px; margin: 7px 0; padding: 5px; border: 1px solid rgba(29,34,48,0.1); border-radius: 7px; background: rgba(255,255,255,0.6); }
 .mini-page i { display: grid; width: 20px; height: 20px; flex: none; place-items: center; border-radius: 6px; color: var(--teal); background: rgba(15,118,110,0.1); font-style: normal; }
 .mini-page div { display: grid; min-width: 0; flex: 1; }
@@ -147,6 +153,9 @@ body[data-tile="marquee"] .marquee-tile { display: grid; width: 1400px; height: 
 }
 .hero-popup header img { width: 116px; }
 .hero-popup header > span { padding: 5px 9px; border: 1px solid rgba(15,118,110,0.18); border-radius: 99px; color: var(--teal); background: rgba(15,118,110,0.09); font-size: 10px; font-weight: 800; }
+.hero-modes { margin-top: 11px; padding: 3px; border-radius: 10px; font-size: 10px; text-align: center; }
+.hero-modes b { padding: 6px; border-radius: 8px; background: white; box-shadow: 0 2px 5px rgba(29,34,48,0.1); }
+.hero-modes span { padding: 6px; font-weight: 750; }
 .hero-page { display: flex; align-items: center; gap: 9px; margin: 10px 0; padding: 8px; border: 1px solid rgba(29,34,48,0.11); border-radius: 10px; background: rgba(255,255,255,0.58); box-shadow: 0 3px 0 rgba(29,34,48,0.06); }
 .hero-page i { display: grid; width: 32px; height: 32px; flex: none; place-items: center; border-radius: 9px; color: var(--teal); background: rgba(15,118,110,0.1); font: 800 21px/1 Georgia, serif; }
 .hero-page div { display: grid; min-width: 0; flex: 1; gap: 2px; }
@@ -161,9 +170,11 @@ body[data-tile="marquee"] .marquee-tile { display: grid; width: 1400px; height: 
 .hero-popup legend small { color: var(--muted); font-size: 8px; font-weight: 500; }
 .choice-row { display: flex; gap: 6px; margin-top: 5px; }
 .choice-row span { padding: 5px 8px; border: 1px solid rgba(15,118,110,0.25); border-radius: 99px; color: var(--teal); background: rgba(15,118,110,0.1); font-size: 8px; font-weight: 750; }
+.more-like { display: flex; min-height: 31px; align-items: center; justify-content: space-between; margin-top: 8px; border: 1px solid rgba(29,34,48,0.14); border-radius: 9px; padding: 7px 9px; background: rgba(255,255,255,0.76); font-size: 10px; font-weight: 800; }
 .hero-actions { display: flex; gap: 7px; margin-top: 10px; }
 .hero-actions button { flex: 1; min-height: 34px; border: 1px solid rgba(29,34,48,0.16); border-radius: 10px; color: var(--ink); background: white; font: 750 10px inherit; }
 .hero-actions button:first-child { color: white; background: var(--teal); }
+.tab-session-link { padding: 8px 0 2px; color: var(--muted); font-size: 9px; font-weight: 700; text-align: center; }
 .hero-popup footer { display: flex; gap: 6px; margin-top: 9px; }
 .hero-popup footer span { flex: 1; padding: 7px; border: 1px solid rgba(29,34,48,0.12); border-radius: 8px; background: rgba(255,255,255,0.55); font-size: 8px; font-weight: 750; text-align: center; }
 .hero-popup footer span:first-child { color: white; background: var(--ink); }

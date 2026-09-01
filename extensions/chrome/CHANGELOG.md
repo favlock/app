@@ -1,5 +1,14 @@
 # Chrome extension changelog
 
+## 1.8.0 — September 1, 2026
+
+Minimum supported FavLock dashboard version: **1.7.0**.
+
+- Search saved bookmarks by title, URL, Collection, or tag directly from the popup.
+- Move between focused Save and Search views, choose tags while saving, and use clearer actions for the current page or all open tabs.
+- Grant Chrome bookmark access only when starting an import.
+- Choose whether FavLock opens in new tabs; the setting is now opt-in.
+
 ## 1.7.0 — September 1, 2026
 
 Minimum supported FavLock dashboard version: **1.7.0**.
