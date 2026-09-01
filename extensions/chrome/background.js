@@ -1,6 +1,7 @@
 import {
   beginExtensionConnection,
   disconnectExtension,
+  getExternalOnboardingStatus,
   getConnectionState,
   receivePairedKey,
 } from "./extension-auth.js";
@@ -167,7 +168,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.runtime.onMessageExternal.addListener(
   (message, sender, sendResponse) => {
-    void receivePairedKey(message, sender)
+    const request =
+      message?.type === "favlock.extension.onboarding-status"
+        ? getExternalOnboardingStatus(message, sender)
+        : receivePairedKey(message, sender);
+    void request
       .then((response) => sendResponse(response || { ok: false }))
       .catch((error) =>
         sendResponse({

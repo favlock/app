@@ -29,6 +29,7 @@ import { buildTagSlugIndex } from "../lib/collectionSlugs";
 import { getMainDomain } from "../lib/domains";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
 import LibraryCard from "./LibraryCard";
+import { markFirstRetrieval } from "../lib/onboarding";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -255,6 +256,7 @@ export default function BookmarkCard({
           <a
             ref={bookmarkLinkRef}
             href={bookmark.url}
+            onClick={() => markFirstRetrieval(bookmark.user_id)}
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}

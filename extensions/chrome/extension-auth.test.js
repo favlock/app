@@ -5,10 +5,12 @@ import {
   createRandomUrlToken,
   exchangeExtensionSessionToken,
   getConnectionState,
+  getExternalOnboardingStatus,
   refreshSession,
   disconnectExtension,
   receivePairedKey,
   PAIR_KEY_MESSAGE,
+  ONBOARDING_STATUS_MESSAGE,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
 
@@ -133,6 +135,51 @@ describe("extension dashboard connection", () => {
   it("keeps the local profile visible if cloud credentials are missing", async () => {
     localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
     await expect(getConnectionState()).resolves.toMatchObject({ connected: true, unlocked: true, email: user.email, cloudStatus: "reconnect_required" });
+  });
+
+  it("reports only bounded onboarding status to the trusted dashboard account", async () => {
+    localData.favlockLocalProfile = {
+      version: 1,
+      userId: user.id,
+      email: user.email,
+      cloudStatus: "available",
+    };
+    const trustedSender = {
+      origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin,
+    };
+
+    await expect(
+      getExternalOnboardingStatus(
+        { type: ONBOARDING_STATUS_MESSAGE, userId: user.id },
+        trustedSender,
+      ),
+    ).resolves.toEqual({
+      ok: true,
+      connected: true,
+      unlocked: true,
+      accountMatches: true,
+    });
+    await expect(
+      getExternalOnboardingStatus(
+        {
+          type: ONBOARDING_STATUS_MESSAGE,
+          userId: "22222222-2222-4222-8222-222222222222",
+        },
+        trustedSender,
+      ),
+    ).resolves.toMatchObject({ accountMatches: false });
+  });
+
+  it("rejects onboarding status requests from another origin", async () => {
+    await expect(
+      getExternalOnboardingStatus(
+        { type: ONBOARDING_STATUS_MESSAGE, userId: user.id },
+        { origin: "https://attacker.example" },
+      ),
+    ).resolves.toEqual({
+      ok: false,
+      error: "Untrusted dashboard origin.",
+    });
   });
   it("creates URL-safe state and verifier values", () => {
     expect(createRandomUrlToken(32)).toMatch(/^[A-Za-z0-9_-]+$/);
