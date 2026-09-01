@@ -1,5 +1,12 @@
 # Chrome extension changelog
 
+## 1.7.0 — September 1, 2026
+
+Minimum supported FavLock dashboard version: **1.7.0**.
+
+- Connect through FavLock's protected dashboard flow, reusing the signed-in and unlocked account when available.
+- View the extension connection status and disconnect it from extension settings.
+
 ## 1.6.0 — August 28, 2026
 
 - Aligned the extension version with the FavLock 1.6.0 app release. No extension behavior changes.
