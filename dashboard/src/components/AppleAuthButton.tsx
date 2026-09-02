@@ -1,29 +1,29 @@
 import { useState } from "react";
 import { DASHBOARD_HOME_URL } from "../lib/appUrls";
 import { favLockAuth } from "../lib/favLockAuth";
-import { GOOGLE_G_ARTWORK } from "./providerAuthArtwork";
+import { APPLE_LOGO_BUTTON_ARTWORK } from "./providerAuthArtwork";
 import SocialAuthButton from "./SocialAuthButton";
 
-interface GoogleAuthButtonProps {
+interface AppleAuthButtonProps {
   onError: (message: string | null) => void;
   disabled?: boolean;
   redirectTo?: string;
 }
 
-export default function GoogleAuthButton({
+export default function AppleAuthButton({
   onError,
   disabled = false,
   redirectTo = DASHBOARD_HOME_URL,
-}: GoogleAuthButtonProps) {
+}: AppleAuthButtonProps) {
   const [loading, setLoading] = useState(false);
 
-  const handleGoogleAuth = async () => {
+  const handleAppleAuth = async () => {
     onError(null);
     setLoading(true);
 
     try {
       const { error } = await favLockAuth.signInWithOAuth({
-        provider: "google",
+        provider: "apple",
         options: { redirectTo },
       });
 
@@ -32,22 +32,22 @@ export default function GoogleAuthButton({
         setLoading(false);
       }
     } catch {
-      onError("Could not connect to Google. Please try again.");
+      onError("Could not connect to Apple. Please try again.");
       setLoading(false);
     }
   };
 
   return (
     <SocialAuthButton
-      label="Continue with Google"
-      logoSrc={GOOGLE_G_ARTWORK}
-      logoWidth={20}
-      logoHeight={20}
-      logoClassName="h-5 w-auto"
+      label="Continue with Apple"
+      logoSrc={APPLE_LOGO_BUTTON_ARTWORK}
+      logoWidth={40}
+      logoHeight={40}
+      logoClassName="size-10 translate-y-0.5 mix-blend-multiply"
       loading={loading}
-      loadingMessage="Redirecting to Google..."
+      loadingMessage="Redirecting to Apple..."
       disabled={loading || disabled}
-      onClick={handleGoogleAuth}
+      onClick={handleAppleAuth}
     />
   );
 }

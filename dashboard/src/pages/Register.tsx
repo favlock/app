@@ -15,6 +15,7 @@ import { Input } from "../components/ui/input";
 import { Heading } from "../components/ui/heading";
 import { Text } from "../components/ui/text";
 import { AuthLayout } from "../components/ui/auth-layout";
+import AppleAuthButton from "../components/AppleAuthButton";
 import GoogleAuthButton from "../components/GoogleAuthButton";
 import { AuthLegalNotice } from "../components/AuthDataNotice";
 import PasswordInput from "../components/PasswordInput";
@@ -478,17 +479,11 @@ export default function AuthPage() {
         {error && !invalidField && <AuthErrorNotice message={error} />}
 
         {!showEmailForm ? (
-          <div className="mt-5 space-y-3">
-            <GoogleAuthButton
-              onError={setError}
-              redirectTo={emailRedirectTo}
-            >
-              Continue with Google
-            </GoogleAuthButton>
+          <div className="mt-5">
             <Button
               type="button"
-              outline
-              className="w-full"
+              color="emerald"
+              className="h-11 w-full"
               onClick={() => {
                 setError(null);
                 setInvalidField(null);
@@ -496,9 +491,23 @@ export default function AuthPage() {
                 setShowEmailForm(true);
               }}
             >
-              <Mail data-slot="icon" aria-hidden="true" />
               Continue with email
             </Button>
+            <div className="my-5 flex items-center gap-4 text-sm text-[var(--app-muted)]" aria-hidden="true">
+              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span>or</span>
+              <span className="h-px flex-1 bg-[var(--app-border)]" />
+            </div>
+            <div className="space-y-3">
+              <GoogleAuthButton
+                onError={setError}
+                redirectTo={emailRedirectTo}
+              />
+              <AppleAuthButton
+                onError={setError}
+                redirectTo={emailRedirectTo}
+              />
+            </div>
           </div>
         ) : (
           <div className="mt-4">

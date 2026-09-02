@@ -10,9 +10,9 @@ import { Text } from "./ui/text";
 import { Button } from "./ui/button";
 
 const MESSAGES: Record<AuthCallbackFailure, string> = {
-  cancelled: "Sign-in was cancelled. You can try Google again or sign in with email.",
+  cancelled: "Sign-in was cancelled. You can try your preferred sign-in option again.",
   email_rejected: "Disposable email addresses are not allowed for new FavLock accounts. Please use a permanent email address.",
-  provider_error: "Sign-in could not be completed. Try Google again, or sign in with email. If the problem continues, try again later.",
+  provider_error: "Sign-in could not be completed. Return to sign in and try your preferred option again. If the problem continues, try again later.",
   invalid_link: "This link may have expired or already been used. Try signing in. If your email still needs confirmation, request a new link and open the latest email.",
   missing_state: "Open the latest link in the browser and profile where you started. If you used another device or cleared browser storage, try signing in with your email and password. If confirmation is still needed, request a new link here.",
   unsupported_callback: "This link cannot sign you in here. Try signing in with your email and password, or request a new confirmation link and open it in this browser.",
