@@ -113,31 +113,53 @@ function runChrome(chromePath, url, userDataDirectory) {
     "--remote-debugging-port=0",
     `--user-data-dir=${userDataDirectory}`,
     url,
-  ], { stdio: ["ignore", "ignore", "pipe"] });
+  ], { stdio: ["ignore", "pipe", "pipe"] });
+  child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
   const childClosed = new Promise((resolve) => child.once("close", resolve));
 
-  const debuggerUrlPromise = new Promise((resolve, reject) => {
-    let stderr = "";
-    const timeout = setTimeout(() => {
-      reject(new Error(`Chrome DevTools did not start.${stderr.trim() ? ` ${stderr.trim()}` : ""}`));
-    }, 10_000);
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk;
-      const match = stderr.match(/DevTools listening on (ws:\/\/[^\s]+)/);
-      if (!match) return;
-      clearTimeout(timeout);
-      resolve(match[1]);
-    });
-    child.once("error", (error) => {
-      clearTimeout(timeout);
-      reject(error);
-    });
-    child.once("exit", (code) => {
-      clearTimeout(timeout);
-      reject(new Error(`Headless Chrome exited before the test started (${code}).`));
-    });
+  let chromeOutput = "";
+  child.stdout.on("data", (chunk) => {
+    chromeOutput += chunk;
   });
+  child.stderr.on("data", (chunk) => {
+    chromeOutput += chunk;
+  });
+
+  const debuggerUrlPromise = Promise.race([
+    (async () => {
+      const activePortPath = join(userDataDirectory, "DevToolsActivePort");
+      for (let attempt = 0; attempt < 200; attempt += 1) {
+        const outputMatch = chromeOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
+        if (outputMatch) return outputMatch[1];
+        try {
+          const [port, browserPath] = (await readFile(activePortPath, "utf8")).trim().split("\n");
+          if (/^\d+$/.test(port) && browserPath?.startsWith("/")) {
+            return `ws://127.0.0.1:${port}${browserPath}`;
+          }
+        } catch (error) {
+          if (error?.code !== "ENOENT") throw error;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+      const diagnostic = chromeOutput.trim();
+      throw new Error(`Chrome DevTools did not start.${diagnostic ? ` ${diagnostic}` : ""}`);
+    })(),
+    new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => {
+        const outputMatch = chromeOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
+        if (outputMatch) {
+          resolve(outputMatch[1]);
+          return;
+        }
+        const diagnostic = chromeOutput.trim();
+        reject(new Error(
+          `Headless Chrome exited before the test started (${code ?? signal}).${diagnostic ? ` ${diagnostic}` : ""}`,
+        ));
+      });
+    }),
+  ]);
 
   return debuggerUrlPromise.then(async (debuggerUrl) => {
     const debuggerOrigin = `http://${new URL(debuggerUrl).host}`;
