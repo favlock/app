@@ -10,6 +10,11 @@ const highlightModulePath = join(
   repositoryRoot,
   "extensions/chrome/highlight-page.js",
 );
+const chromeStartupTimeoutMs = 30_000;
+const devToolsTargetTimeoutMs = 10_000;
+const pollIntervalMs = 50;
+
+const wait = (duration) => new Promise((resolve) => setTimeout(resolve, duration));
 
 const highlightModule = (await readFile(highlightModulePath, "utf8"))
   .replaceAll("</script", "<\\/script");
@@ -103,7 +108,7 @@ async function findChrome() {
 }
 
 function runChrome(chromePath, url, userDataDirectory) {
-  const child = spawn(chromePath, [
+  const chromeArguments = [
     "--headless=new",
     "--disable-background-networking",
     "--disable-default-apps",
@@ -113,100 +118,129 @@ function runChrome(chromePath, url, userDataDirectory) {
     "--remote-debugging-port=0",
     `--user-data-dir=${userDataDirectory}`,
     url,
-  ], { stdio: ["ignore", "pipe", "pipe"] });
+  ];
+  const chromeEnvironment = { ...process.env };
+  if (process.platform === "linux") {
+    chromeArguments.splice(-1, 0, "--disable-dev-shm-usage");
+    delete chromeEnvironment.DBUS_SESSION_BUS_ADDRESS;
+  }
+
+  const child = spawn(chromePath, chromeArguments, {
+    env: chromeEnvironment,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
   child.stdout.setEncoding("utf8");
   child.stderr.setEncoding("utf8");
   const childClosed = new Promise((resolve) => child.once("close", resolve));
 
   let chromeOutput = "";
+  let spawnError;
   child.stdout.on("data", (chunk) => {
     chromeOutput += chunk;
   });
   child.stderr.on("data", (chunk) => {
     chromeOutput += chunk;
   });
+  child.once("error", (error) => {
+    spawnError = error;
+  });
 
-  const debuggerUrlPromise = Promise.race([
-    (async () => {
-      const activePortPath = join(userDataDirectory, "DevToolsActivePort");
-      for (let attempt = 0; attempt < 200; attempt += 1) {
-        const outputMatch = chromeOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
-        if (outputMatch) return outputMatch[1];
-        try {
-          const [port, browserPath] = (await readFile(activePortPath, "utf8")).trim().split("\n");
-          if (/^\d+$/.test(port) && browserPath?.startsWith("/")) {
-            return `ws://127.0.0.1:${port}${browserPath}`;
-          }
-        } catch (error) {
-          if (error?.code !== "ENOENT") throw error;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 50));
-      }
-      const diagnostic = chromeOutput.trim();
-      throw new Error(`Chrome DevTools did not start.${diagnostic ? ` ${diagnostic}` : ""}`);
-    })(),
-    new Promise((resolve, reject) => {
-      child.once("error", reject);
-      child.once("exit", (code, signal) => {
-        const outputMatch = chromeOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
-        if (outputMatch) {
-          resolve(outputMatch[1]);
-          return;
-        }
-        const diagnostic = chromeOutput.trim();
-        reject(new Error(
-          `Headless Chrome exited before the test started (${code ?? signal}).${diagnostic ? ` ${diagnostic}` : ""}`,
-        ));
-      });
-    }),
-  ]);
+  const diagnosticSuffix = () => {
+    const diagnostic = chromeOutput.trim();
+    return diagnostic ? ` ${diagnostic}` : "";
+  };
 
-  return debuggerUrlPromise.then(async (debuggerUrl) => {
-    const debuggerOrigin = `http://${new URL(debuggerUrl).host}`;
-    let target;
-    for (let attempt = 0; attempt < 100; attempt += 1) {
-      const targets = await fetch(`${debuggerOrigin}/json/list`).then((response) => response.json());
-      target = targets.find((candidate) => candidate.type === "page" && candidate.url === url);
-      if (target?.webSocketDebuggerUrl) break;
-      await new Promise((resolve) => setTimeout(resolve, 50));
+  const stopChrome = async () => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      await childClosed;
+      return;
     }
-    if (!target?.webSocketDebuggerUrl) throw new Error("Chrome did not open the highlight fixture.");
+    child.kill("SIGTERM");
+    await Promise.race([childClosed, wait(2_000)]);
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill("SIGKILL");
+      await childClosed;
+    }
+  };
 
-    const client = await openDevToolsClient(target.webSocketDebuggerUrl);
+  const waitForDebuggerUrl = async () => {
+    const activePortPath = join(userDataDirectory, "DevToolsActivePort");
+    const deadline = Date.now() + chromeStartupTimeoutMs;
+    while (Date.now() < deadline) {
+      if (spawnError) throw spawnError;
+
+      const outputMatch = chromeOutput.match(/DevTools listening on (ws:\/\/[^\s]+)/);
+      if (outputMatch) return outputMatch[1];
+      try {
+        const [port, browserPath] = (await readFile(activePortPath, "utf8")).trim().split("\n");
+        if (/^\d+$/.test(port) && browserPath?.startsWith("/")) {
+          return `ws://127.0.0.1:${port}${browserPath}`;
+        }
+      } catch (error) {
+        if (error?.code !== "ENOENT") throw error;
+      }
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(
+          `Headless Chrome exited before the test started (${child.exitCode ?? child.signalCode}).${diagnosticSuffix()}`,
+        );
+      }
+      await wait(pollIntervalMs);
+    }
+    throw new Error(
+      `Chrome DevTools did not start within ${chromeStartupTimeoutMs / 1_000} seconds.${diagnosticSuffix()}`,
+    );
+  };
+
+  return (async () => {
     try {
-      for (let attempt = 0; attempt < 200; attempt += 1) {
-        const evaluation = await client.send("Runtime.evaluate", {
-          expression: "document.documentElement.dataset.testResult || ''",
-          returnByValue: true,
-        });
-        const status = evaluation.result?.value;
-        if (status === "pass") return;
-        if (status === "fail") {
-          const failure = await client.send("Runtime.evaluate", {
-            expression: "document.getElementById('result')?.textContent || 'Unknown browser failure'",
+      const debuggerUrl = await waitForDebuggerUrl();
+      const debuggerOrigin = `http://${new URL(debuggerUrl).host}`;
+      let target;
+      let lastTargetError;
+      const targetDeadline = Date.now() + devToolsTargetTimeoutMs;
+      while (Date.now() < targetDeadline) {
+        try {
+          const response = await fetch(`${debuggerOrigin}/json/list`);
+          if (!response.ok) throw new Error(`DevTools returned HTTP ${response.status}.`);
+          const targets = await response.json();
+          target = targets.find((candidate) => candidate.type === "page" && candidate.url === url);
+          if (target?.webSocketDebuggerUrl) break;
+        } catch (error) {
+          lastTargetError = error;
+        }
+        await wait(pollIntervalMs);
+      }
+      if (!target?.webSocketDebuggerUrl) {
+        const detail = lastTargetError instanceof Error ? ` ${lastTargetError.message}` : "";
+        throw new Error(`Chrome did not open the highlight fixture.${detail}`);
+      }
+
+      const client = await openDevToolsClient(target.webSocketDebuggerUrl);
+      try {
+        for (let attempt = 0; attempt < 200; attempt += 1) {
+          const evaluation = await client.send("Runtime.evaluate", {
+            expression: "document.documentElement.dataset.testResult || ''",
             returnByValue: true,
           });
-          throw new Error(failure.result?.value || "Unknown browser failure");
+          const status = evaluation.result?.value;
+          if (status === "pass") return;
+          if (status === "fail") {
+            const failure = await client.send("Runtime.evaluate", {
+              expression: "document.getElementById('result')?.textContent || 'Unknown browser failure'",
+              returnByValue: true,
+            });
+            throw new Error(failure.result?.value || "Unknown browser failure");
+          }
+          await wait(pollIntervalMs);
         }
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        throw new Error("Chrome highlight assertions timed out.");
+      } finally {
+        client.close();
       }
-      throw new Error("Chrome highlight assertions timed out.");
     } finally {
-      client.close();
-      child.kill("SIGTERM");
-      await Promise.race([
-        childClosed,
-        new Promise((resolve) => setTimeout(resolve, 2_000)),
-      ]);
-      if (child.exitCode === null) {
-        child.kill("SIGKILL");
-        await childClosed;
-      }
+      await stopChrome();
     }
-  }, (error) => {
-    child.kill("SIGKILL");
-    throw error;
-  });
+  })();
 }
 
 function openDevToolsClient(url) {
