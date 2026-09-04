@@ -7,6 +7,9 @@ import {
 } from "./extension-crypto.js";
 
 const keyAccounts = new WeakMap();
+const READSPACE_CONTENT_VERSION = 5;
+const READSPACE_TITLE_MAX_LENGTH = 120;
+const READSPACE_SERIALIZED_MAX_BYTES = 180_000;
 
 async function authorizedRequest(path, options = {}, key) {
   const account = keyAccounts.get(key);
@@ -20,7 +23,9 @@ async function authorizedRequest(path, options = {}, key) {
     ...options,
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
-      "Content-Type": "application/json",
+      ...(typeof options.body === "string"
+        ? { "Content-Type": "application/json" }
+        : {}),
       ...(options.headers || {}),
     },
     credentials: "omit",
@@ -33,14 +38,32 @@ async function authorizedRequest(path, options = {}, key) {
     throw new Error("Cloud request could not be confirmed. Check your library before retrying a save.");
   }
   await assertLocalAccount(account);
-  if (response.status === 401 || response.status === 403) {
-    await reportCloudFailure(session.accessToken, response.status === 401 ? "reconnect_required" : "restricted");
+  if (response.status === 401) {
+    await reportCloudFailure(session.accessToken, "reconnect_required");
+    throw new Error("Cloud access is unavailable. Your saved key remains on this device.");
+  }
+  if (response.status === 403) {
+    const forbiddenPayload = await response.json().catch(() => null);
+    if (forbiddenPayload?.error?.code === "pro_required") {
+      throw new Error("Annotations require FavLock Pro.");
+    }
+    await reportCloudFailure(session.accessToken, "restricted");
     throw new Error("Cloud access is unavailable. Your saved key remains on this device.");
   }
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => null);
   await assertLocalAccount(account);
   if (!response.ok) {
+    if (
+      response.status === 400 &&
+      payload?.error?.code === "quota_exceeded" &&
+      payload?.error?.details?.resource === "highlights" &&
+      payload.error.details.limit === 100
+    ) {
+      throw new Error(
+        "Free includes up to 100 highlights. Upgrade to Pro for unlimited highlights.",
+      );
+    }
     throw new Error(
       payload?.error?.message || "FavLock request failed.",
     );
@@ -213,6 +236,7 @@ async function loadBookmarkUrlIndex(key) {
       folderId: organization.folderId,
       tagIds: new Set(organization.tagIds),
       listIds: new Set(organization.listIds),
+      isHighlightSource: decrypted.bookmark.isHighlightSource === true,
     });
   }
   return index;
@@ -273,7 +297,7 @@ export async function loadSearchableBookmarks({ folders = [], tags = [] } = {}) 
   );
   const tagNamesById = new Map(tags.map((tag) => [tag.id, tag.name]));
   const bookmarks = await Promise.all(
-    rows.map(async (bookmark) => {
+    rows.filter((bookmark) => bookmark.isHighlightSource !== true).map(async (bookmark) => {
       try {
         const url = normalizeBookmarkUrl(
           await decryptField(bookmark.encryptedUrl, key),
@@ -317,6 +341,7 @@ export async function loadSavedPageState(url) {
     folderId: existing.folderId,
     tagIds: [...existing.tagIds],
     listIds: [...existing.listIds],
+    isHighlightSource: existing.isHighlightSource,
   };
 }
 
@@ -561,4 +586,295 @@ export async function saveCurrentPage({
     await setBookmarkListMemberships(bookmarkId, targetListIds, key);
   }
   return { bookmarkId, updatedExisting: false };
+}
+
+function normalizeReaderDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+export function serializeReaderArticle(article) {
+  const sourceUrl = normalizeBookmarkUrl(article?.sourceUrl);
+  const title = String(article?.title || "").trim().slice(0, READSPACE_TITLE_MAX_LENGTH);
+  if (!sourceUrl || !title || !String(article?.html || "").trim()) {
+    throw new Error("This article could not be prepared for encrypted storage.");
+  }
+
+  const payload = JSON.stringify({
+    version: READSPACE_CONTENT_VERSION,
+    title,
+    siteName: String(article?.siteName || "").trim().slice(0, 200),
+    byline: String(article?.byline || "").trim().slice(0, 300),
+    publishedAt: normalizeReaderDate(article?.publishedAt),
+    updatedAt: normalizeReaderDate(article?.updatedAt),
+    sourceUrl,
+    html: String(article.html),
+    capturedAt: normalizeReaderDate(article?.capturedAt) || new Date().toISOString(),
+  });
+  if (new TextEncoder().encode(payload).byteLength > READSPACE_SERIALIZED_MAX_BYTES) {
+    throw new Error("This article is too large to save to Readspace.");
+  }
+  return payload;
+}
+
+export async function saveReadspaceArticle(article) {
+  const session = await getValidSession();
+  const key = await getKey();
+  if (!session) throw new Error("Connect the extension to FavLock first.");
+  const serialized = serializeReaderArticle(article);
+  const response = await authorizedRequest(
+    "/v1/entries",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        kind: "read",
+        encryptedTitle: await encryptField(
+          JSON.parse(serialized).title,
+          key,
+        ),
+        encryptedContent: await encryptField(serialized, key),
+        dueDate: null,
+        folderId: null,
+        existingTagIds: [],
+        newEncryptedTagNames: [],
+      }),
+    },
+    key,
+  );
+  if (!response?.data?.entryId) {
+    throw new Error("FavLock could not confirm the saved article.");
+  }
+  return { entryId: response.data.entryId };
+}
+
+function validateHighlightPayload(payload) {
+  const exact = String(payload?.quote?.exact || "").replace(/\s+/g, " ").trim();
+  if (!exact || exact.length > 10_000) {
+    throw new Error("Select between 1 and 10,000 characters to save a highlight.");
+  }
+  const integer = (value) => Number.isSafeInteger(value) && value >= 0;
+  const position = payload?.position;
+  const dom = payload?.dom;
+  return {
+    version: 1,
+    quote: {
+      exact,
+      prefix: String(payload?.quote?.prefix || "").slice(-128),
+      suffix: String(payload?.quote?.suffix || "").slice(0, 128),
+    },
+    position:
+      integer(position?.start) && integer(position?.end) && position.end > position.start
+        ? { start: position.start, end: position.end }
+        : null,
+    dom:
+      typeof dom?.startPath === "string" && dom.startPath.length <= 1000 &&
+      typeof dom?.endPath === "string" && dom.endPath.length <= 1000 &&
+      integer(dom.startOffset) && integer(dom.endOffset)
+        ? {
+            startPath: dom.startPath,
+            startOffset: dom.startOffset,
+            endPath: dom.endPath,
+            endOffset: dom.endOffset,
+          }
+        : null,
+    color: ["yellow", "green", "blue", "pink"].includes(payload?.color)
+      ? payload.color
+      : "yellow",
+    note: String(payload?.note || "").slice(0, 10_000),
+    capturedAt: Number.isNaN(Date.parse(payload?.capturedAt))
+      ? new Date().toISOString()
+      : new Date(payload.capturedAt).toISOString(),
+  };
+}
+
+async function encryptStructuredHighlightPayload(payload, key) {
+  const validated = validateHighlightPayload(payload);
+  const note = validated.note.trim();
+  const [encryptedQuote, encryptedAnchors, encryptedAnnotation] = await Promise.all([
+    encryptField(JSON.stringify(validated.quote), key),
+    encryptField(JSON.stringify({
+      position: validated.position,
+      dom: validated.dom,
+      capturedAt: validated.capturedAt,
+    }), key),
+    note ? encryptField(note, key) : Promise.resolve(null),
+  ]);
+  return {
+    version: 1,
+    encryptedQuote,
+    encryptedAnchors,
+    encryptedAnnotation,
+    color: validated.color,
+  };
+}
+
+async function decryptStructuredHighlightPayload(payload, key) {
+  if (payload?.version !== 1) throw new Error("Unsupported highlight payload.");
+  const [quote, anchors, note] = await Promise.all([
+    decryptField(payload.encryptedQuote, key).then(JSON.parse),
+    decryptField(payload.encryptedAnchors, key).then(JSON.parse),
+    payload.encryptedAnnotation
+      ? decryptField(payload.encryptedAnnotation, key)
+      : Promise.resolve(""),
+  ]);
+  return validateHighlightPayload({
+    version: 1,
+    quote,
+    position: anchors?.position,
+    dom: anchors?.dom,
+    color: payload.color,
+    note,
+    capturedAt: anchors?.capturedAt,
+  });
+}
+
+export async function saveWebHighlight({ title, url, payload }) {
+  const session = await getValidSession();
+  const key = await getKey();
+  if (!session) throw new Error("Connect the extension to FavLock first.");
+  const normalizedUrl = normalizeBookmarkUrl(url);
+  if (!normalizedUrl) throw new Error("Highlights work on regular web pages.");
+  const index = await loadBookmarkUrlIndex(key);
+  let bookmarkId = index.get(normalizedUrl)?.id || null;
+  if (!bookmarkId) {
+    const fallbackTitle = new URL(normalizedUrl).hostname.replace(/^www\./, "");
+    const created = await authorizedRequest(
+      "/v1/bookmarks/highlight-source",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          encryptedTitle: await encryptField(String(title || "").trim() || fallbackTitle, key),
+          encryptedUrl: await encryptField(normalizedUrl, key),
+        }),
+      },
+      key,
+    );
+    bookmarkId = created?.data?.bookmarkId;
+  }
+  if (!bookmarkId) throw new Error("FavLock could not save the source bookmark.");
+  const structuredPayload = await encryptStructuredHighlightPayload(payload, key);
+  const created = await authorizedRequest(
+    "/v1/highlights",
+    {
+      method: "POST",
+      body: JSON.stringify({ bookmarkId, payload: structuredPayload }),
+    },
+    key,
+  );
+  if (!created?.data?.highlightId) {
+    throw new Error("FavLock could not confirm the encrypted highlight.");
+  }
+  return { highlightId: created.data.highlightId, bookmarkId };
+}
+
+export async function loadWebHighlightsForUrl(url) {
+  const normalizedUrl = normalizeBookmarkUrl(url);
+  if (!normalizedUrl) return [];
+  const key = await getKey();
+  const bookmarkId = (await loadBookmarkUrlIndex(key)).get(normalizedUrl)?.id;
+  if (!bookmarkId) return [];
+
+  const encryptedRows = [];
+  let offset = 0;
+  do {
+    const query = new URLSearchParams({
+      bookmarkId,
+      limit: "200",
+      offset: String(offset),
+    });
+    const response = await authorizedRequest(`/v1/highlights?${query}`, {}, key);
+    if (!Array.isArray(response?.data?.items)) {
+      throw new Error("FavLock returned invalid encrypted highlights.");
+    }
+    encryptedRows.push(...response.data.items);
+    const nextOffset = response.data.nextOffset;
+    if (nextOffset === null) break;
+    if (!Number.isSafeInteger(nextOffset) || nextOffset <= offset) {
+      throw new Error("FavLock returned invalid highlight pagination.");
+    }
+    offset = nextOffset;
+  } while (true);
+
+  const highlights = await Promise.all(
+    encryptedRows.map(async (row) => {
+      try {
+        const decryptedPayload = await decryptStructuredHighlightPayload(
+          row?.payload,
+          key,
+        );
+        return {
+          id: String(row?.id || ""),
+          payload: decryptedPayload,
+        };
+      } catch {
+        return null;
+      }
+    }),
+  );
+  return highlights.filter((highlight) => highlight?.id);
+}
+
+export async function canAnnotateWebHighlights() {
+  const key = await getKey();
+  const response = await authorizedRequest("/v1/account/plan", {}, key);
+  return response?.data?.id === "pro";
+}
+
+export async function updateWebHighlightAnnotation(
+  highlightId,
+  note,
+) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(highlightId)) {
+    throw new Error("FavLock received an invalid highlight.");
+  }
+  const key = await getKey();
+  const normalizedNote = String(note || "").trim().slice(0, 10_000);
+  const update = {
+    encryptedAnnotation: normalizedNote
+      ? await encryptField(normalizedNote, key)
+      : null,
+  };
+  await authorizedRequest(
+    `/v1/highlights/${encodeURIComponent(highlightId)}/annotation`,
+    {
+      method: "PUT",
+      body: JSON.stringify(update),
+    },
+    key,
+  );
+}
+
+export async function updateWebHighlightColor(
+  highlightId,
+  color,
+) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(highlightId)) {
+    throw new Error("FavLock received an invalid highlight.");
+  }
+  if (!["yellow", "green", "blue", "pink"].includes(color)) {
+    throw new Error("FavLock received an invalid highlight color.");
+  }
+  const key = await getKey();
+  const update = { color };
+  await authorizedRequest(
+    `/v1/highlights/${encodeURIComponent(highlightId)}/color`,
+    {
+      method: "PUT",
+      body: JSON.stringify(update),
+    },
+    key,
+  );
+}
+
+export async function deleteWebHighlight(highlightId) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(highlightId)) {
+    throw new Error("FavLock received an invalid highlight.");
+  }
+  const key = await getKey();
+  await authorizedRequest(
+    `/v1/highlights/${encodeURIComponent(highlightId)}`,
+    { method: "DELETE" },
+    key,
+  );
 }

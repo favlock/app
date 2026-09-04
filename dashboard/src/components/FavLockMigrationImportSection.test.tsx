@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
   parseEncryptedFavLockArchiveFile: vi.fn(),
   parseFavLockExport: vi.fn(),
   retryBookmarkCacheSync: vi.fn(),
+  summarizeFavLockExport: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -70,11 +71,13 @@ vi.mock("../context/useEncryption", () => ({
 vi.mock("../hooks/useAccountPlanQuery", () => ({
   useAccountPlan: () => ({
     data: {
+      id: "free",
       name: "Free",
       limits: {
         bookmarks: 1000,
         entries: 1000,
         readspace: 1000,
+        highlights: 100,
         collections: 100,
         tags: 100,
         lists: 3,
@@ -97,15 +100,7 @@ vi.mock("../lib/encryption", () => ({
 }));
 vi.mock("../lib/favLockExportValidation", () => ({
   parseFavLockExport: mocks.parseFavLockExport,
-  summarizeFavLockExport: () => ({
-    collections: 0,
-    lists: 0,
-    tags: 1,
-    bookmarks: 0,
-    notes: 0,
-    todos: 0,
-    readspace: 0,
-  }),
+  summarizeFavLockExport: mocks.summarizeFavLockExport,
 }));
 vi.mock("../lib/libraryMigrationApi", () => ({
   migrateFavLockArchive: mocks.migrateFavLockArchive,
@@ -135,6 +130,16 @@ describe("FavLockMigrationImportSection", () => {
     mocks.parseEncryptedFavLockArchiveFile.mockReset().mockReturnValue({});
     mocks.parseFavLockExport.mockReset().mockReturnValue(archive);
     mocks.retryBookmarkCacheSync.mockReset();
+    mocks.summarizeFavLockExport.mockReset().mockReturnValue({
+      collections: 0,
+      lists: 0,
+      tags: 1,
+      bookmarks: 0,
+      notes: 0,
+      todos: 0,
+      readspace: 0,
+      highlights: 0,
+    });
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
@@ -220,5 +225,112 @@ describe("FavLockMigrationImportSection", () => {
     expect(container.textContent).toContain(
       "Your original recovery key now unlocks this account",
     );
+  });
+
+  it("does not silently drop Pro annotations when migrating to a Free account", async () => {
+    mocks.parseFavLockExport.mockReturnValue({
+      ...archive,
+      version: 2,
+      selection: { ...archive.selection, highlights: true },
+      data: {
+        ...archive.data,
+        highlights: [{
+          id: "30000000-0000-4000-8000-000000000001",
+          bookmarkId: "40000000-0000-4000-8000-000000000001",
+          payload: {
+            version: 1,
+            quote: { exact: "Quote", prefix: "", suffix: "" },
+            position: null,
+            dom: null,
+            color: "yellow",
+            note: "Private annotation",
+            capturedAt: timestamp,
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        }],
+      },
+    });
+    await act(async () => root.render(<FavLockMigrationImportSection />));
+
+    const fileInput = container.querySelector<HTMLInputElement>(
+      "#favlock-migration-file",
+    )!;
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["{}"], "account.favlock")],
+    });
+    const recoveryKeyInput = container.querySelector<HTMLInputElement>(
+      "#favlock-migration-recovery-key",
+    )!;
+    const setInputValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    await act(async () => {
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      setInputValue.call(recoveryKeyInput, "ABCD1234EFGH5678IJKL9012MNOP3456");
+      recoveryKeyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const reviewButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Review archive"),
+    )!;
+    await act(async () => reviewButton.click());
+    const importButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Import into this account"),
+    )!;
+    await act(async () => importButton.click());
+
+    expect(container.textContent).toContain(
+      "FavLock Pro is required to migrate them without losing annotations.",
+    );
+    expect(mocks.migrateFavLockArchive).not.toHaveBeenCalled();
+  });
+
+  it("blocks a Free migration containing more than 100 highlights", async () => {
+    mocks.summarizeFavLockExport.mockReturnValue({
+      collections: 0,
+      lists: 0,
+      tags: 0,
+      bookmarks: 0,
+      notes: 0,
+      todos: 0,
+      readspace: 0,
+      highlights: 101,
+    });
+    await act(async () => root.render(<FavLockMigrationImportSection />));
+
+    const fileInput = container.querySelector<HTMLInputElement>(
+      "#favlock-migration-file",
+    )!;
+    Object.defineProperty(fileInput, "files", {
+      configurable: true,
+      value: [new File(["{}"], "account.favlock")],
+    });
+    const recoveryKeyInput = container.querySelector<HTMLInputElement>(
+      "#favlock-migration-recovery-key",
+    )!;
+    const setInputValue = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )!.set!;
+    await act(async () => {
+      fileInput.dispatchEvent(new Event("change", { bubbles: true }));
+      setInputValue.call(recoveryKeyInput, "ABCD1234EFGH5678IJKL9012MNOP3456");
+      recoveryKeyInput.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    const reviewButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Review archive"),
+    )!;
+    await act(async () => reviewButton.click());
+    const importButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.includes("Import into this account"),
+    )!;
+    await act(async () => importButton.click());
+
+    expect(container.textContent).toContain(
+      "This archive has 101 highlights, but the Free plan allows 100.",
+    );
+    expect(mocks.migrateFavLockArchive).not.toHaveBeenCalled();
   });
 });

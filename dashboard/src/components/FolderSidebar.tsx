@@ -287,7 +287,9 @@ export default function FolderSidebar({
   const { data: bookmarkCounts } = useBookmarkCounts();
   const { data: noteCount = 0 } = useNoteCount();
   const { data: todoCount = 0 } = useTodoCount();
-  const { data: readspaceCount = 0 } = useReadspaceCount();
+  const { data: readspaceArticleCount = 0 } = useReadspaceCount();
+  const readspaceItemCount =
+    readspaceArticleCount + (accountPlan?.highlightAccess.count ?? 0);
   const { data: listCount = 0 } = useListCount();
   const { data: trashCount = 0 } = useTrashCount();
   const currentTheme =
@@ -454,7 +456,7 @@ export default function FolderSidebar({
                 {(bookmarkCounts?.bookmarkCount ?? 0) +
                   noteCount +
                   todoCount +
-                  readspaceCount}
+                  readspaceArticleCount}
               </span>
             </button>
           </li>
@@ -514,7 +516,7 @@ export default function FolderSidebar({
             >
               <span className="flex items-center gap-2">
                 <BookOpen size={16} aria-hidden="true" />
-                Reading
+                Readspace
               </span>
               <span
                 className={`rounded-md px-1.5 py-0.5 text-sm ${
@@ -523,7 +525,7 @@ export default function FolderSidebar({
                     : "text-[var(--app-muted)]"
                 }`}
               >
-                {readspaceCount}
+                {readspaceItemCount}
               </span>
             </Link>
           </li>

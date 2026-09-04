@@ -5,7 +5,7 @@ import {
   postAuthenticatedJsonWithoutBody,
 } from "./authenticatedApi";
 
-export type TrashResourceType = "bookmark" | "note" | "todo" | "read";
+export type TrashResourceType = "bookmark" | "note" | "todo" | "read" | "highlight";
 
 export type TrashItem = {
   id: string;
@@ -26,6 +26,7 @@ const TRASH_RESOURCE_TYPES = new Set<TrashResourceType>([
   "note",
   "todo",
   "read",
+  "highlight",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {

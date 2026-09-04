@@ -27,6 +27,7 @@ describe("ResourceUsageSection", () => {
         bookmarks: 250,
         entries: 5,
         readspace: 4,
+        highlights: 25,
         collections: 25,
         tags: 100,
         lists: 2,
@@ -43,6 +44,7 @@ describe("ResourceUsageSection", () => {
           bookmarks: 1000,
           entries: 10,
           readspace: 10,
+          highlights: 100,
           collections: 0,
           tags: 0,
           lists: 3,
@@ -68,7 +70,7 @@ describe("ResourceUsageSection", () => {
     });
 
     const meters = [...container.querySelectorAll<HTMLElement>("[role=progressbar]")];
-    expect(meters).toHaveLength(4);
+    expect(meters).toHaveLength(5);
 
     expect(meters[0].getAttribute("aria-label")).toBe("Bookmarks used");
     expect(meters[0].getAttribute("aria-valuenow")).toBe("250");
@@ -89,9 +91,13 @@ describe("ResourceUsageSection", () => {
     expect(meters[2].getAttribute("aria-valuemax")).toBe("10");
     expect((meters[2].firstElementChild as HTMLElement).style.width).toBe("40%");
 
-    expect(meters[3].getAttribute("aria-label")).toBe("Lists used");
-    expect(meters[3].getAttribute("aria-valuenow")).toBe("2");
-    expect(meters[3].getAttribute("aria-valuemax")).toBe("3");
+    expect(meters[3].getAttribute("aria-label")).toBe("Highlights used");
+    expect(meters[3].getAttribute("aria-valuenow")).toBe("25");
+    expect(meters[3].getAttribute("aria-valuemax")).toBe("100");
+
+    expect(meters[4].getAttribute("aria-label")).toBe("Lists used");
+    expect(meters[4].getAttribute("aria-valuenow")).toBe("2");
+    expect(meters[4].getAttribute("aria-valuemax")).toBe("3");
 
     expect(
       container.querySelector('[aria-label="Collections usage is unlimited"]'),
@@ -113,6 +119,7 @@ describe("ResourceUsageSection", () => {
           bookmarks: 0,
           entries: 1000,
           readspace: 250,
+          highlights: 0,
           collections: 0,
           tags: 0,
           lists: 0,
@@ -144,6 +151,7 @@ describe("ResourceUsageSection", () => {
         bookmarks: 1001,
         entries: 10,
         readspace: 11,
+        highlights: 101,
         collections: 2500,
         tags: 2500,
         lists: 4,
@@ -168,6 +176,9 @@ describe("ResourceUsageSection", () => {
     const listsExceeded = container.querySelector<HTMLElement>(
       '[aria-label="Lists limit exceeded"]',
     )!;
+    const highlightsExceeded = container.querySelector<HTMLElement>(
+      '[aria-label="Highlights limit exceeded"]',
+    )!;
 
     expect(exceeded.firstElementChild?.classList.contains("bg-red-500")).toBe(
       true,
@@ -181,6 +192,9 @@ describe("ResourceUsageSection", () => {
     expect(listsExceeded.firstElementChild?.classList.contains("bg-red-500")).toBe(
       true,
     );
+    expect(
+      highlightsExceeded.firstElementChild?.classList.contains("bg-red-500"),
+    ).toBe(true);
     expect(container.textContent).toContain("1 over limit");
     expect(container.textContent).toContain("Limit reached");
     expect(

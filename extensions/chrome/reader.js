@@ -1,4 +1,5 @@
 import { FAVLOCK_CONFIG } from "./config.js";
+import { saveReadspaceArticle } from "./extension-data.js";
 
 const captureId = new URLSearchParams(location.search).get("capture");
 const articleDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -82,18 +83,16 @@ async function saveToReading() {
   const button = document.getElementById("saveButton");
   const buttonLabel = document.getElementById("saveButtonLabel");
   button.disabled = true;
-  buttonLabel.textContent = "Opening…";
+  buttonLabel.textContent = "Saving…";
 
   try {
-    const saveUrl = new URL(FAVLOCK_CONFIG.dashboardUrl);
-    saveUrl.pathname = `${saveUrl.pathname.replace(/\/+$/, "")}/readspace`;
-    saveUrl.searchParams.set("capture", captureId);
-    saveUrl.searchParams.set("chromeExtensionId", chrome.runtime.id);
-    await chrome.tabs.create({ url: saveUrl.toString() });
+    await saveReadspaceArticle(article);
+    await chrome.storage.session.remove(`readerCapture:${captureId}`);
+    buttonLabel.textContent = "Saved";
+    setStatus("Article encrypted and saved to Readspace.");
   } catch (error) {
     console.error("Failed to save the article:", error);
-    setStatus("Could not open FavLock. Try again.");
-  } finally {
+    setStatus(error instanceof Error ? error.message : "Could not save this article.");
     button.disabled = false;
     buttonLabel.textContent = "Save to Readspace";
   }

@@ -111,4 +111,71 @@ describe("ChromeExtensionPrompt", () => {
       "Get more from FavLock in Chrome",
     );
   });
+
+  it("renders the dismissible Readspace variant only when Chrome is missing", async () => {
+    await act(async () => {
+      root.render(
+        <ChromeExtensionPrompt
+          enabled
+          userId="account-a"
+          variant="inline"
+        />,
+      );
+    });
+
+    expect(document.body.textContent).toContain(
+      "Install FavLock for Chrome to save articles directly to Readspace.",
+    );
+
+    await act(async () => {
+      document
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Dismiss Chrome extension suggestion"]',
+        )!
+        .click();
+    });
+
+    expect(
+      localStorage.getItem(CHROME_EXTENSION_PROMPT_DISMISSED_KEY),
+    ).toBe("1");
+    expect(document.body.textContent).not.toContain(
+      "Install FavLock for Chrome",
+    );
+  });
+
+  it("synchronizes dismissal between mounted prompt variants", async () => {
+    await act(async () => {
+      root.render(
+        <>
+          <ChromeExtensionPrompt enabled userId="account-a" />
+          <ChromeExtensionPrompt
+            enabled
+            userId="account-a"
+            variant="inline"
+          />
+        </>,
+      );
+    });
+
+    expect(
+      document.querySelectorAll(
+        'button[aria-label="Dismiss Chrome extension suggestion"]',
+      ),
+    ).toHaveLength(2);
+
+    await act(async () => {
+      document
+        .querySelectorAll<HTMLButtonElement>(
+          'button[aria-label="Dismiss Chrome extension suggestion"]',
+        )[1]
+        .click();
+    });
+
+    expect(document.body.textContent).not.toContain(
+      "Get more from FavLock in Chrome",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Install FavLock for Chrome",
+    );
+  });
 });

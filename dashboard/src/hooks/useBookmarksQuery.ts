@@ -28,7 +28,9 @@ export const useBookmarkCounts = () => {
     queryKey: [...BOOKMARKS_QUERY_KEY, "counts", user?.id],
     enabled: !!user && !!bookmarkCacheSyncedAt,
     queryFn: async () => {
-      const bookmarks = await getCachedBookmarksForUser(user!.id);
+      const bookmarks = (await getCachedBookmarksForUser(user!.id)).filter(
+        (bookmark) => !bookmark.is_highlight_source,
+      );
       return {
         bookmarkCount: bookmarks.length,
         favoriteCount: bookmarks.filter((bookmark) => bookmark.is_favorite)
@@ -45,7 +47,7 @@ export const useBookmarkCounts = () => {
 
 export const useBookmarks = (
   folderId: string | null = null,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; includeHighlightSources?: boolean },
 ) => {
   const { user, bookmarkCacheSyncedAt } = useAuth();
   return useQuery({
@@ -55,14 +57,19 @@ export const useBookmarks = (
       folderId,
       user?.id,
       bookmarkCacheSyncedAt,
+      options?.includeHighlightSources ? "with-highlight-sources" : "visible-only",
     ],
     enabled:
       (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt,
-    queryFn: async () =>
-      bookmarksForView(
-        await getCachedBookmarksForUser(user!.id),
-        bookmarkView(folderId),
-      ),
+    queryFn: async () => {
+      const bookmarks = await getCachedBookmarksForUser(user!.id);
+      if (options?.includeHighlightSources) {
+        return [...bookmarks].sort((left, right) =>
+          right.created_at.localeCompare(left.created_at),
+        );
+      }
+      return bookmarksForView(bookmarks, bookmarkView(folderId));
+    },
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 1000 * 60 * 10,
   });
