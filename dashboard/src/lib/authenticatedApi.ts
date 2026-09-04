@@ -81,6 +81,15 @@ async function requestAuthenticated(
       throw new CloudAccessError("reconnect_required", cloudStatusMessage("reconnect_required"));
     }
     if (response.status === 403) {
+      const payload: unknown = typeof response.clone === "function"
+        ? await response.clone().json().catch(() => null)
+        : null;
+      const error = payload && typeof payload === "object" && "error" in payload
+        ? payload.error
+        : null;
+      if (error && typeof error === "object" && "code" in error && error.code === "pro_required") {
+        throw new Error("Annotations require FavLock Pro.");
+      }
       reportCloudFailure(session.accessToken, "restricted");
       throw new CloudAccessError("restricted", cloudStatusMessage("restricted"));
     }
@@ -91,7 +100,7 @@ async function requestAuthenticated(
       if (error && typeof error === "object" && "code" in error && error.code === "quota_exceeded" && "details" in error) {
         const details = error.details;
         if (details && typeof details === "object" && "resource" in details && "limit" in details &&
-          typeof details.resource === "string" && ["bookmarks", "entries", "readspace", "collections", "tags", "lists"].includes(details.resource) &&
+          typeof details.resource === "string" && ["bookmarks", "entries", "readspace", "highlights", "collections", "tags", "lists"].includes(details.resource) &&
           typeof details.limit === "number" && Number.isSafeInteger(details.limit) && details.limit >= 0 && details.limit <= 2147483647) {
           throw new CloudAccessError("quota_exceeded", `Your plan allows up to ${details.limit} ${details.resource}. Your existing data remains available.`, { resource: details.resource, limit: details.limit });
         }

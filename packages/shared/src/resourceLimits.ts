@@ -8,6 +8,7 @@ export type ResourceLimits = {
   /** Notes and todos combined. */
   entries: number;
   readspace: number;
+  highlights: number;
   /** Zero means unlimited. */
   collections: number;
   /** Zero means unlimited. */
@@ -22,6 +23,7 @@ export type PlanDefinition = {
   trashRecoveryDays: number;
   limits: ResourceLimits;
   bookmarkAccess: BookmarkAccess;
+  highlightAccess: HighlightAccess;
 };
 
 export type BookmarkAccessMode = "normal" | "grace" | "recovery";
@@ -34,6 +36,12 @@ export type BookmarkAccess = {
   cleanupAt: string | null;
 };
 
+export type HighlightAccess = {
+  count: number;
+  limit: number;
+  cleanupAt: string | null;
+};
+
 export const PLANS = {
   free: {
     id: "free",
@@ -43,6 +51,7 @@ export const PLANS = {
       bookmarks: 1_000,
       entries: 50,
       readspace: 25,
+      highlights: 100,
       collections: 0,
       tags: 0,
       lists: 3,
@@ -54,6 +63,11 @@ export const PLANS = {
       graceEndsAt: null,
       cleanupAt: null,
     },
+    highlightAccess: {
+      count: 0,
+      limit: 100,
+      cleanupAt: null,
+    },
   },
   pro: {
     id: "pro",
@@ -63,6 +77,7 @@ export const PLANS = {
       bookmarks: 0,
       entries: 1_000,
       readspace: 250,
+      highlights: 0,
       collections: 0,
       tags: 0,
       lists: 0,
@@ -72,6 +87,11 @@ export const PLANS = {
       count: 0,
       limit: 0,
       graceEndsAt: null,
+      cleanupAt: null,
+    },
+    highlightAccess: {
+      count: 0,
+      limit: 0,
       cleanupAt: null,
     },
   },

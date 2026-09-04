@@ -100,12 +100,24 @@ async function decryptTrash(
   userId: string,
   decryptField: DecryptField,
 ): Promise<CachedTrashItem> {
+  const decryptedTitle = await decryptField(item.encryptedTitle);
+  let title = decryptedTitle;
+  if (item.resourceType === "highlight") {
+    try {
+      const quote = JSON.parse(decryptedTitle) as { exact?: unknown };
+      if (typeof quote.exact === "string" && quote.exact.trim()) {
+        title = quote.exact;
+      }
+    } catch {
+      // Keep the decrypted value as a safe fallback for legacy ciphertext.
+    }
+  }
   return {
     id: item.id,
     user_id: userId,
     resourceId: item.resourceId,
     resourceType: item.resourceType,
-    title: await decryptField(item.encryptedTitle),
+    title,
     url: item.encryptedUrl ? await decryptField(item.encryptedUrl) : null,
     deletedAt: item.deletedAt,
     expiresAt: item.expiresAt,

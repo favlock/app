@@ -3,6 +3,7 @@ import {
   Bookmark,
   BookOpen,
   FolderClosed,
+  Highlighter,
   ListChecks,
   NotebookTabs,
   Tags,
@@ -174,6 +175,13 @@ export default function ResourceUsageSection() {
             limit={accountPlan.limits.readspace}
             icon={BookOpen}
             barClassName="bg-amber-500"
+          />
+          <UsageMeter
+            label="Highlights"
+            used={data.highlights}
+            limit={accountPlan.limits.highlights}
+            icon={Highlighter}
+            barClassName="bg-yellow-500"
           />
           <UsageMeter
             label="Collections"

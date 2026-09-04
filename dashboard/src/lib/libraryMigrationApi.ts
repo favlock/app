@@ -5,6 +5,7 @@ import {
 } from "./authenticatedApi";
 import type { FavLockExport } from "./dataExport";
 import { encryptField, VERIFY_CONSTANT } from "./encryption";
+import { encryptWebHighlightPayload } from "./webHighlight";
 
 const MIGRATION_BATCH_ITEM_LIMIT = 500;
 const MIGRATION_BATCH_MAX_BYTES = 450_000;
@@ -63,6 +64,18 @@ export type EncryptedMigrationItem =
       isCompleted: boolean;
       completedAt: string | null;
       dueDate: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+  | {
+      type: "highlight";
+      id: string;
+      bookmarkId: string | null;
+      entryId: string | null;
+      encryptedQuote: string;
+      encryptedAnchors: string;
+      encryptedAnnotation: string | null;
+      color: "yellow" | "green" | "blue" | "pink";
       createdAt: string;
       updatedAt: string;
     };
@@ -224,6 +237,25 @@ export async function prepareEncryptedMigrationItems(
     });
   }
   await addEntries(archive.data.readspace ?? [], "read");
+  for (const highlight of archive.data.highlights ?? []) {
+    const payload = await encryptWebHighlightPayload(highlight.payload, encryptField);
+    items.push({
+      type: "highlight",
+      id: crypto.randomUUID(),
+      bookmarkId: highlight.bookmarkId
+        ? mappedId(bookmarkIds, highlight.bookmarkId)
+        : null,
+      entryId: highlight.entryId
+        ? mappedId(entryIds, highlight.entryId)
+        : null,
+      encryptedQuote: payload.encryptedQuote,
+      encryptedAnchors: payload.encryptedAnchors,
+      encryptedAnnotation: payload.encryptedAnnotation,
+      color: payload.color,
+      createdAt: highlight.createdAt,
+      updatedAt: highlight.updatedAt,
+    });
+  }
   for (const list of archive.data.lists ?? []) {
     for (const item of list.items) {
       items.push({

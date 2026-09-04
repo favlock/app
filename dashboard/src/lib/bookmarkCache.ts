@@ -547,7 +547,11 @@ export async function searchCachedBookmarks(
       store.index(USER_ID_INDEX).getAll(userId),
     )) as StoredBookmark[]) ?? [];
 
-  return searchStoredBookmarks(stored, query, options);
+  return searchStoredBookmarks(
+    stored.filter((bookmark) => !bookmark.is_highlight_source),
+    query,
+    options,
+  );
 }
 
 export async function getCachedBookmarksForUser(

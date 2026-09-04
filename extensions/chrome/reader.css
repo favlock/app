@@ -92,14 +92,28 @@ body {
   text-decoration: none;
 }
 
-.reader-brand img {
+.reader-logo {
   display: block;
   width: 106px;
+  flex: none;
+}
+
+.reader-logo img {
+  display: block;
+  width: 100%;
   height: auto;
 }
 
-:root[data-theme="dark"] .reader-brand img {
-  filter: brightness(0) invert(1);
+.reader-logo-dark {
+  display: none !important;
+}
+
+:root[data-theme="dark"] .reader-logo-light {
+  display: none;
+}
+
+:root[data-theme="dark"] .reader-logo-dark {
+  display: block !important;
 }
 
 .reader-label {
@@ -358,7 +372,7 @@ a:focus-visible {
     flex: none;
   }
 
-  .reader-brand img {
+  .reader-logo {
     width: 94px;
   }
 

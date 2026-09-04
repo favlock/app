@@ -44,7 +44,9 @@ export default function BookmarkDuplicateCleanupSection() {
     setStatus(null);
 
     try {
-      const data = await getCachedBookmarksForUser(user.id);
+      const data = (await getCachedBookmarksForUser(user.id)).filter(
+        (bookmark) => !bookmark.is_highlight_source,
+      );
 
       if (
         !cryptoKey &&

@@ -25,6 +25,8 @@ function invalidateLibraryQueries(queryClient: ReturnType<typeof useQueryClient>
   queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
   queryClient.invalidateQueries({ queryKey: ["folders"] });
   queryClient.invalidateQueries({ queryKey: ["tags"] });
+  queryClient.invalidateQueries({ queryKey: ["highlights"] });
+  queryClient.invalidateQueries({ queryKey: ["account-plan"] });
   queryClient.invalidateQueries({ queryKey: RESOURCE_USAGE_QUERY_KEY });
   invalidateEntryQueries(queryClient);
 }

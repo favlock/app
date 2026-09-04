@@ -63,6 +63,10 @@ import ReadspaceSearchResults from "../components/ReadspaceSearchResults";
 import { useReadspaceFullTextSearch } from "../hooks/useReadspaceFullTextSearch";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useHighlights } from "../hooks/useHighlightsQuery";
+import { useBookmarks } from "../hooks/useBookmarksQuery";
+import { searchHighlights } from "../lib/highlightSearch";
+import HighlightSearchResults from "../components/HighlightSearchResults";
 
 export default function Dashboard() {
   const { setIsMobileSidebarOpen, openAddBookmark } =
@@ -80,7 +84,10 @@ export default function Dashboard() {
   const { data: folders = [] } = useFolders();
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const cachedBookmarksQuery = useCachedBookmarks();
-  const cachedBookmarks = cachedBookmarksQuery.data ?? [];
+  const cachedBookmarks = useMemo(
+    () => cachedBookmarksQuery.data ?? [],
+    [cachedBookmarksQuery.data],
+  );
   const updateSearchEngine = useUpdateSearchEngine();
   const { data: userInfo } = useUserInfo();
   const searchHistory = useSearchHistory();
@@ -163,6 +170,11 @@ export default function Dashboard() {
   const selectedTagName = selectedTag?.name;
   const normalizedBookmarkSearch = debouncedBookmarkSearch.trim();
   const isSearchView = normalizedBookmarkSearch.length > 0;
+  const highlightsQuery = useHighlights(isSearchView);
+  const highlightSourceBookmarksQuery = useBookmarks(null, {
+    enabled: isSearchView,
+    includeHighlightSources: true,
+  });
   const isFavoritesView = location.pathname === "/favorites";
   const isUnsortedView = location.pathname === "/unsorted";
   const effectiveFolderId = isFavoritesView
@@ -229,6 +241,23 @@ export default function Dashboard() {
     matches: [],
     total: 0,
   };
+  const highlightSearchMatches = useMemo(
+    () => searchHighlights(
+      highlightsQuery.data ?? [],
+      highlightSourceBookmarksQuery.data ?? cachedBookmarks,
+      readspaceArticles,
+      normalizedBookmarkSearch,
+      { includeAnnotations: fullTextSearchEnabled },
+    ),
+    [
+      cachedBookmarks,
+      fullTextSearchEnabled,
+      highlightSourceBookmarksQuery.data,
+      highlightsQuery.data,
+      normalizedBookmarkSearch,
+      readspaceArticles,
+    ],
+  );
   const notesQuery = useNotes({
     enabled: shouldLoadCollectionEntries,
   });
@@ -287,9 +316,11 @@ export default function Dashboard() {
       notesQuery.isLoading ||
       todosQuery.isLoading ||
       readspaceQuery.isLoading ||
-      readspaceSearchQuery.isLoading
+      readspaceSearchQuery.isLoading ||
+      highlightsQuery.isLoading ||
+      highlightSourceBookmarksQuery.isLoading
     ) {
-      return "Searching bookmarks, documents, tasks, and Readspace...";
+      return "Searching bookmarks, documents, tasks, Readspace, and highlights...";
     }
     const bookmarkLabel = `${bookmarkSearchResults} ${
       bookmarkSearchResults === 1 ? "bookmark" : "bookmarks"
@@ -303,13 +334,19 @@ export default function Dashboard() {
     const readspaceLabel = `${readspaceSearchResult.total} ${
       readspaceSearchResult.total === 1 ? "article" : "articles"
     }`;
-    return `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
+    const highlightLabel = `${highlightSearchMatches.length} ${
+      highlightSearchMatches.length === 1 ? "highlight" : "highlights"
+    }`;
+    return `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
   }, [
     normalizedBookmarkSearch,
     bookmarkIndexStatus,
     fullTextSearchEnabled,
     bookmarkSearchLoading,
     bookmarkSearchResults,
+    highlightSearchMatches.length,
+    highlightSourceBookmarksQuery.isLoading,
+    highlightsQuery.isLoading,
     noteSearchMatches.length,
     notesQuery.isLoading,
     readspaceQuery.isLoading,
@@ -464,7 +501,15 @@ export default function Dashboard() {
                         ? readspaceSearchQuery.error.message
                         : readspaceSearchQuery.error
                           ? "Could not search Readspace article text."
-                          : null)
+                          : highlightsQuery.error instanceof Error
+                            ? highlightsQuery.error.message
+                            : highlightsQuery.error
+                              ? "Could not search highlights."
+                              : highlightSourceBookmarksQuery.error instanceof Error
+                                ? highlightSourceBookmarksQuery.error.message
+                                : highlightSourceBookmarksQuery.error
+                                  ? "Could not load highlight sources."
+                                  : null)
         }
         onRetryBookmarkSearch={() => {
           retryBookmarkCacheSync();
@@ -472,13 +517,15 @@ export default function Dashboard() {
           void todosQuery.refetch();
           void readspaceQuery.refetch();
           void readspaceSearchQuery.refetch();
+          void highlightsQuery.refetch();
+          void highlightSourceBookmarksQuery.refetch();
         }}
       />
 
       {normalizedBookmarkSearch ? (
         <div
           className="space-y-3 px-3 lg:px-0"
-          aria-label="Search results from documents, tasks, and articles"
+          aria-label="Search results from documents, tasks, articles, and highlights"
         >
           <NoteSearchResults
             matches={noteSearchMatches}
@@ -490,6 +537,10 @@ export default function Dashboard() {
           />
           <ReadspaceSearchResults
             result={readspaceSearchResult}
+            query={normalizedBookmarkSearch}
+          />
+          <HighlightSearchResults
+            matches={highlightSearchMatches}
             query={normalizedBookmarkSearch}
           />
         </div>

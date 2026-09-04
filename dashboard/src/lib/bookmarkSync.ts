@@ -59,6 +59,7 @@ async function decryptBookmark(
     created_at: bookmark.createdAt,
     is_favorite: bookmark.isFavorite,
     favorited_at: bookmark.favoritedAt,
+    is_highlight_source: bookmark.isHighlightSource,
     folders: await Promise.all(
       bookmark.folders.map(async (folder) => ({
         id: folder.id,

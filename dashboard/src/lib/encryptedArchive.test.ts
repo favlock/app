@@ -19,6 +19,7 @@ const emptySource: ExportSourceData = {
   notes: [],
   todos: [],
   readspace: [],
+  highlights: [],
 };
 const selection = {
   bookmarks: true,

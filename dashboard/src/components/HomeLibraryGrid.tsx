@@ -51,6 +51,10 @@ export default function HomeLibraryGrid({
   onDeleteArticle,
 }: HomeLibraryGridProps) {
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
+  const visibleBookmarkCount = useMemo(
+    () => bookmarks.filter((bookmark) => !bookmark.is_highlight_source).length,
+    [bookmarks],
+  );
   const items = useMemo(
     () => mergeHomeLibraryItems(bookmarks, notes, todos, articles),
     [articles, bookmarks, notes, todos],
@@ -75,8 +79,8 @@ export default function HomeLibraryGrid({
             </h2>
           </div>
           <p className="mt-0.5 text-sm text-[var(--app-muted)]">
-            {bookmarks.length}{" "}
-            {bookmarks.length === 1 ? "bookmark" : "bookmarks"}
+            {visibleBookmarkCount}{" "}
+            {visibleBookmarkCount === 1 ? "bookmark" : "bookmarks"}
             {" · "}
             {notes.length} {notes.length === 1 ? "document" : "documents"}
             {" · "}

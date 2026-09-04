@@ -386,6 +386,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ["notes"],
             ["todos"],
             ["readspace"],
+            ["highlights"],
+            ["resource-usage"],
+            ["account-plan"],
             ["trash"],
           ]) {
             void queryClient.invalidateQueries({ queryKey });

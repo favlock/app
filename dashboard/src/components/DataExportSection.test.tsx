@@ -9,6 +9,7 @@ const { loadBookmarks, encryptArchive, buildExport, triggerUnlock } = vi.hoisted
   buildExport: vi.fn(),
   triggerUnlock: vi.fn(),
 }));
+const highlights = [{ id: "highlight-1" }];
 vi.mock("../context/useAuth", () => ({ useAuth: () => ({ user: { id: "local-user" }, cloudStatus: "available" }) }));
 vi.mock("../context/useEncryption", () => ({ useEncryption: () => ({ cryptoKey: {}, keyLoading: false, triggerUnlock }) }));
 vi.mock("../hooks/useFoldersQuery", () => ({ useFolders: () => ({ data: [] }) }));
@@ -17,6 +18,7 @@ vi.mock("../hooks/useListsQuery", () => ({ useLists: () => ({ data: [] }) }));
 vi.mock("../hooks/useNotesQuery", () => ({ useNotes: () => ({ data: [] }) }));
 vi.mock("../hooks/useTodosQuery", () => ({ useTodos: () => ({ data: [] }) }));
 vi.mock("../hooks/useReadspaceQuery", () => ({ useReadspace: () => ({ data: [] }) }));
+vi.mock("../hooks/useHighlightsQuery", () => ({ useHighlights: () => ({ data: highlights }) }));
 vi.mock("../lib/bookmarkExportRepository", () => ({ loadAllBookmarksForExport: loadBookmarks }));
 vi.mock("../lib/dataExport", () => ({ buildFavLockExport: buildExport, buildBrowserBookmarksHtml: vi.fn() }));
 vi.mock("../lib/encryptedArchive", () => ({ encryptFavLockArchive: encryptArchive, serializeEncryptedFavLockArchive: () => "synthetic-archive" }));
@@ -79,6 +81,10 @@ describe("DataExportSection connectivity guard", () => {
     await act(async () => root.render(<DataExportSection />));
     await act(async () => exportButton().click());
     expect(loadBookmarks).toHaveBeenCalledWith("local-user");
+    expect(buildExport).toHaveBeenCalledWith(
+      expect.objectContaining({ highlights }),
+      expect.objectContaining({ bookmarks: true, highlights: true }),
+    );
     expect(encryptArchive).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("Export downloaded");

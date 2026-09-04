@@ -9,10 +9,13 @@ import { Button } from "./ui/button";
 
 export const CHROME_EXTENSION_PROMPT_DISMISSED_KEY =
   "favlock.chrome-extension-prompt.dismissed.v1";
+const CHROME_EXTENSION_PROMPT_DISMISSED_EVENT =
+  "favlock:chrome-extension-prompt-dismissed";
 
 interface ChromeExtensionPromptProps {
   enabled: boolean;
   userId: string;
+  variant?: "floating" | "inline";
 }
 
 function hasDismissedChromeExtensionPrompt(): boolean {
@@ -29,6 +32,7 @@ function hasDismissedChromeExtensionPrompt(): boolean {
 export default function ChromeExtensionPrompt({
   enabled,
   userId,
+  variant = "floating",
 }: ChromeExtensionPromptProps) {
   const [dismissed, setDismissed] = useState(
     hasDismissedChromeExtensionPrompt,
@@ -40,6 +44,21 @@ export default function ChromeExtensionPrompt({
       supportsFavLockChromeExtension(navigator.userAgent, navigator.vendor),
     [],
   );
+
+  useEffect(() => {
+    const syncDismissal = () => {
+      setDismissed(true);
+    };
+    window.addEventListener(
+      CHROME_EXTENSION_PROMPT_DISMISSED_EVENT,
+      syncDismissal,
+    );
+    return () =>
+      window.removeEventListener(
+        CHROME_EXTENSION_PROMPT_DISMISSED_EVENT,
+        syncDismissal,
+      );
+  }, []);
 
   useEffect(() => {
     if (!enabled || !userId || dismissed || !extensionSupported) {
@@ -70,9 +89,49 @@ export default function ChromeExtensionPrompt({
       // Keep the prompt dismissed for this page even when storage is blocked.
     }
     setDismissed(true);
+    window.dispatchEvent(new Event(CHROME_EXTENSION_PROMPT_DISMISSED_EVENT));
   };
 
   if (!visible) return null;
+
+  if (variant === "inline") {
+    return (
+      <aside
+        aria-label="Chrome extension suggestion"
+        className="relative flex items-start gap-2.5 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_7%,white)] px-3 py-2.5 pr-11 text-sm leading-5 text-[var(--app-muted)] sm:items-center"
+      >
+        <span className="inline-flex h-5 flex-none items-center justify-center self-center">
+          <Puzzle
+            size={17}
+            className="text-[var(--app-primary)]"
+            aria-hidden="true"
+          />
+        </span>
+        <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            Install FavLock for Chrome to save articles directly to Readspace.
+          </p>
+          <a
+            href={CHROME_EXTENSION_URL}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex flex-none items-center gap-1 self-start rounded-sm font-semibold text-[var(--app-primary)] underline decoration-[color-mix(in_oklab,var(--app-primary)_35%,transparent)] underline-offset-2 transition-colors hover:decoration-[var(--app-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--app-primary)_25%,transparent)] sm:self-center"
+          >
+            Get Chrome extension
+            <ExternalLink className="size-3.5" aria-hidden="true" />
+          </a>
+        </div>
+        <button
+          type="button"
+          onClick={dismiss}
+          className="theme-button-icon absolute right-1 top-1 inline-flex size-9"
+          aria-label="Dismiss Chrome extension suggestion"
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </aside>
+    );
+  }
 
   return (
     <aside
