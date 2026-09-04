@@ -1,5 +1,14 @@
 # Chrome extension changelog
 
+## 1.9.0 — September 5, 2026
+
+Minimum supported FavLock dashboard version: **1.9.0**.
+
+- Highlight text on web pages and save encrypted highlights to the associated Readspace article.
+- See whether the current page has saved highlights and open its reader directly from the extension.
+- Grant page access only when using highlighting, with clearer highlighting settings and controls.
+- Improved reader presentation and Readspace category-color consistency.
+
 ## 1.8.0 — September 1, 2026
 
 Minimum supported FavLock dashboard version: **1.7.0**.
