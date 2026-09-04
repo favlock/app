@@ -560,7 +560,7 @@ export default function Readspace() {
                       {capture.title}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--app-muted)]">
-                      {[capture.siteName, capture.byline, sourceDates(capture)]
+                      {[capture.siteName, sourceDates(capture)]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
