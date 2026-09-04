@@ -17,7 +17,10 @@
           rel="noreferrer"
           aria-label="Open FavLock"
         >
-          <img src="favlock-logo.svg" alt="FavLock" />
+          <span class="reader-logo" aria-hidden="true">
+            <img class="reader-logo-light" src="favlock-logo.svg" alt="" />
+            <img class="reader-logo-dark" src="favlock-logo-dark.svg" alt="" />
+          </span>
           <span class="reader-label">Reader</span>
         </a>
         <div class="reader-actions">
@@ -65,7 +68,6 @@
         <h1 id="title" class="article-title"></h1>
         <div class="article-meta">
           <span id="siteName" class="site-name"></span>
-          <span id="byline"></span>
           <time id="publishedDate"></time>
           <time id="updatedDate"></time>
           <a id="sourceLink" target="_blank" rel="noreferrer noopener">Original</a>

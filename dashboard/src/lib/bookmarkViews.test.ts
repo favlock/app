@@ -29,6 +29,7 @@ const bookmarks = [
     folders: [{ id: "folder-b" } as Folder],
   }),
   bookmark("3"),
+  bookmark("4", { is_highlight_source: true }),
 ];
 
 describe("bookmarksForView", () => {
@@ -41,5 +42,12 @@ describe("bookmarksForView", () => {
   it("sorts normal views by creation time and favorites by favorite time", () => {
     expect(bookmarksForView(bookmarks, { kind: "all" }).map(({ id }) => id)).toEqual(["3", "2", "1"]);
     expect(bookmarksForView(bookmarks, { kind: "favorites" }).map(({ id }) => id)).toEqual(["2", "1"]);
+  });
+
+  it("keeps internal highlight sources out of every bookmark view", () => {
+    expect(bookmarksForView(bookmarks, { kind: "all" }).map(({ id }) => id))
+      .not.toContain("4");
+    expect(bookmarksForView(bookmarks, { kind: "unsorted" }).map(({ id }) => id))
+      .not.toContain("4");
   });
 });

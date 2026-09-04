@@ -29,6 +29,11 @@ function parseAccountPlan(value: unknown): PlanDefinition {
     throw new Error(ACCOUNT_PLAN_ERROR);
   }
   const bookmarkAccess = bookmarkAccessValue as Record<string, unknown>;
+  const highlightAccessValue = plan.highlightAccess;
+  if (!highlightAccessValue || typeof highlightAccessValue !== "object") {
+    throw new Error(ACCOUNT_PLAN_ERROR);
+  }
+  const highlightAccess = highlightAccessValue as Record<string, unknown>;
 
   if (
     typeof plan.id !== "string" ||
@@ -39,6 +44,7 @@ function parseAccountPlan(value: unknown): PlanDefinition {
     !isNonNegativeInteger(limits.bookmarks) ||
     !isNonNegativeInteger(limits.entries) ||
     !isNonNegativeInteger(limits.readspace) ||
+    !isNonNegativeInteger(limits.highlights) ||
     !isNonNegativeInteger(limits.collections) ||
     !isNonNegativeInteger(limits.tags) ||
     !isNonNegativeInteger(limits.lists) ||
@@ -46,7 +52,10 @@ function parseAccountPlan(value: unknown): PlanDefinition {
     !isNonNegativeInteger(bookmarkAccess.count) ||
     !isNonNegativeInteger(bookmarkAccess.limit) ||
     !isNullableDate(bookmarkAccess.graceEndsAt) ||
-    !isNullableDate(bookmarkAccess.cleanupAt)
+    !isNullableDate(bookmarkAccess.cleanupAt) ||
+    !isNonNegativeInteger(highlightAccess.count) ||
+    !isNonNegativeInteger(highlightAccess.limit) ||
+    !isNullableDate(highlightAccess.cleanupAt)
   ) {
     throw new Error(ACCOUNT_PLAN_ERROR);
   }
@@ -59,6 +68,7 @@ function parseAccountPlan(value: unknown): PlanDefinition {
       bookmarks: limits.bookmarks,
       entries: limits.entries,
       readspace: limits.readspace,
+      highlights: limits.highlights,
       collections: limits.collections,
       tags: limits.tags,
       lists: limits.lists,
@@ -69,6 +79,11 @@ function parseAccountPlan(value: unknown): PlanDefinition {
       limit: bookmarkAccess.limit,
       graceEndsAt: bookmarkAccess.graceEndsAt,
       cleanupAt: bookmarkAccess.cleanupAt,
+    },
+    highlightAccess: {
+      count: highlightAccess.count,
+      limit: highlightAccess.limit,
+      cleanupAt: highlightAccess.cleanupAt,
     },
   };
 }

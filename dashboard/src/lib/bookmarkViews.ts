@@ -16,6 +16,7 @@ export function bookmarksForView(
   view: BookmarkView,
 ): Bookmark[] {
   const matching = bookmarks.filter((bookmark) => {
+    if (bookmark.is_highlight_source) return false;
     switch (view.kind) {
       case "favorites":
         return bookmark.is_favorite === true;

@@ -16,6 +16,7 @@ import { useNotes } from "../hooks/useNotesQuery";
 import { useReadspace } from "../hooks/useReadspaceQuery";
 import { useTags } from "../hooks/useTagsQuery";
 import { useTodos } from "../hooks/useTodosQuery";
+import { useHighlights } from "../hooks/useHighlightsQuery";
 import { useBrowserOnline } from "../hooks/useBrowserOnline";
 import { isBrowserOnline, OFFLINE_EXPORT_MESSAGE } from "../lib/network";
 import {
@@ -68,6 +69,11 @@ const CATEGORY_DETAILS: Array<{
     label: "Readspace",
     description: "Saved reading content, collections, and tags",
   },
+  {
+    id: "highlights",
+    label: "Highlights",
+    description: "Quotes, annotations, colors, and their saved page or article source",
+  },
 ];
 
 const INITIAL_SELECTION: ExportSelection = {
@@ -75,6 +81,7 @@ const INITIAL_SELECTION: ExportSelection = {
   notes: true,
   todos: true,
   readspace: true,
+  highlights: true,
 };
 
 function downloadFile(contents: string, filename: string, type: string) {
@@ -108,6 +115,7 @@ export default function DataExportSection() {
   const notesQuery = useNotes({ enabled: format === "encrypted" });
   const todosQuery = useTodos({ enabled: format === "encrypted" });
   const readspaceQuery = useReadspace(format === "encrypted");
+  const highlightsQuery = useHighlights();
 
   const relevantQueries = useMemo(
     () =>
@@ -119,6 +127,7 @@ export default function DataExportSection() {
             notesQuery,
             todosQuery,
             readspaceQuery,
+            ...(selection.highlights && !localOnly ? [highlightsQuery] : []),
           ]
         : [foldersQuery],
     [
@@ -128,7 +137,9 @@ export default function DataExportSection() {
       localOnly,
       notesQuery,
       readspaceQuery,
+      highlightsQuery,
       selection.bookmarks,
+      selection.highlights,
       tagsQuery,
       todosQuery,
     ],
@@ -140,7 +151,15 @@ export default function DataExportSection() {
   const hasSelection = Object.values(selection).some(Boolean);
 
   const setCategory = (category: ExportCategory, checked: boolean) => {
-    setSelection((current) => ({ ...current, [category]: checked }));
+    setSelection((current) => ({
+      ...current,
+      [category]: checked,
+      ...(category === "bookmarks" && !checked ? { highlights: false } : {}),
+      ...(category === "readspace" && !checked ? { highlights: false } : {}),
+      ...(category === "highlights" && checked
+        ? { bookmarks: true, readspace: true }
+        : {}),
+    }));
     setExported(false);
   };
 
@@ -163,11 +182,17 @@ export default function DataExportSection() {
       if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
       if (format === "html") {
         downloadFile(
-          buildBrowserBookmarksHtml(bookmarks, foldersQuery.data ?? []),
+          buildBrowserBookmarksHtml(
+            bookmarks.filter((bookmark) => !bookmark.is_highlight_source),
+            foldersQuery.data ?? [],
+          ),
           `favlock-bookmarks-${date}.html`,
           "text/html;charset=utf-8",
         );
       } else {
+        const archiveSelection = localOnly
+          ? { ...selection, highlights: false }
+          : selection;
         const archive = buildFavLockExport(
           {
             bookmarks,
@@ -177,8 +202,9 @@ export default function DataExportSection() {
             notes: notesQuery.data ?? [],
             todos: todosQuery.data ?? [],
             readspace: readspaceQuery.data ?? [],
+            highlights: highlightsQuery.data ?? [],
           },
-          selection,
+          archiveSelection,
         );
         const encryptedArchive = await encryptFavLockArchive(archive, cryptoKey);
         if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
@@ -306,7 +332,8 @@ export default function DataExportSection() {
                 <CheckboxField key={category.id}>
                   <Checkbox
                     color="emerald"
-                    checked={selection[category.id]}
+                    checked={category.id === "highlights" && localOnly ? false : !!selection[category.id]}
+                    disabled={category.id === "highlights" && localOnly}
                     onChange={(checked) => setCategory(category.id, checked)}
                   />
                   <Label>{category.label}</Label>

@@ -227,14 +227,29 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("Check your inbox");
   });
 
-  it("shows Google and email authentication in the unified production flow", async () => {
+  it("shows email first, then the provider options in the unified production flow", async () => {
     await renderAuthPage();
 
     expect(container.textContent).toContain("Welcome to FavLock");
     expect(container.textContent).toContain("Continue with Google");
+    expect(container.textContent).toContain("Continue with Apple");
     expect(container.textContent).toContain("Continue with email");
     expect(container.textContent).toContain("By continuing");
     expect(container.querySelector('input[type="email"]')).toBeNull();
+    const optionLabels = Array.from(container.querySelectorAll("button")).map(
+      (button) => button.getAttribute("aria-label") ?? button.textContent?.trim(),
+    );
+    expect(optionLabels.indexOf("Continue with email")).toBeLessThan(
+      optionLabels.indexOf("Continue with Google"),
+    );
+    expect(optionLabels.indexOf("Continue with Google")).toBeLessThan(
+      optionLabels.indexOf("Continue with Apple"),
+    );
+    const googleButton = findButton(container, "Continue with Google");
+    const appleButton = findButton(container, "Continue with Apple");
+    expect(googleButton.className).toBe(appleButton.className);
+    expect(googleButton.getAttribute("style")).toBeNull();
+    expect(appleButton.getAttribute("style")).toBeNull();
   });
 
   it("opens signup options directly and keeps signup when returning from email", async () => {
@@ -501,11 +516,34 @@ describe("AuthPage", () => {
     });
   });
 
+  it("preserves Pro checkout through Apple authentication", async () => {
+    signInWithOAuth.mockResolvedValue({ data: {}, error: null });
+    await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
+
+    await act(async () => {
+      findButton(container, "Continue with Apple").click();
+    });
+
+    expect(signInWithOAuth).toHaveBeenCalledWith({
+      provider: "apple",
+      options: {
+        redirectTo: expect.stringMatching(/\/checkout$/),
+      },
+    });
+  });
+
   it("does not pass untrusted destinations to Google", async () => {
     signInWithOAuth.mockResolvedValue({ data: {}, error: null });
     await renderAuthPage("/login?mode=sign-up&next=https%3A%2F%2Fattacker.example");
     await act(async () => findButton(container, "Continue with Google").click());
     expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "google", options: { redirectTo: expect.stringMatching(/^https?:\/\/[^/]+\/$/) } });
+  });
+
+  it("does not pass untrusted destinations to Apple", async () => {
+    signInWithOAuth.mockResolvedValue({ data: {}, error: null });
+    await renderAuthPage("/login?mode=sign-up&next=https%3A%2F%2Fattacker.example");
+    await act(async () => findButton(container, "Continue with Apple").click());
+    expect(signInWithOAuth).toHaveBeenCalledWith({ provider: "apple", options: { redirectTo: expect.stringMatching(/^https?:\/\/[^/]+\/$/) } });
   });
 
   it("does not render raw OAuth descriptions (the callback boundary handles safe categories)", async () => {

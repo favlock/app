@@ -12,6 +12,7 @@ const responseBody = {
       bookmarks: 1_000,
       entries: 50,
       readspace: 25,
+      highlights: 100,
       collections: 0,
       tags: 0,
       lists: 3,
@@ -21,6 +22,11 @@ const responseBody = {
       count: 925,
       limit: 1_000,
       graceEndsAt: null,
+      cleanupAt: null,
+    },
+    highlightAccess: {
+      count: 75,
+      limit: 100,
       cleanupAt: null,
     },
   },
@@ -66,6 +72,7 @@ describe("fetchAccountPlan", () => {
           bookmarks: 0,
           entries: 1_000,
           readspace: 250,
+          highlights: 0,
           lists: 0,
         },
         bookmarkAccess: {
@@ -73,6 +80,11 @@ describe("fetchAccountPlan", () => {
           count: 1_250,
           limit: 0,
           graceEndsAt: null,
+          cleanupAt: null,
+        },
+        highlightAccess: {
+          count: 1_250,
+          limit: 0,
           cleanupAt: null,
         },
       },
@@ -92,6 +104,7 @@ describe("fetchAccountPlan", () => {
         bookmarks: 0,
         entries: 1_000,
         readspace: 250,
+        highlights: 0,
         collections: 0,
         tags: 0,
         lists: 0,
@@ -103,6 +116,34 @@ describe("fetchAccountPlan", () => {
         graceEndsAt: null,
         cleanupAt: null,
       },
+      highlightAccess: {
+        count: 1_250,
+        limit: 0,
+        cleanupAt: null,
+      },
+    });
+  });
+
+  it("maps an active highlight cleanup deadline", async () => {
+    const cleanupResponse = {
+      data: {
+        ...responseBody.data,
+        highlightAccess: {
+          count: 125,
+          limit: 100,
+          cleanupAt: "2027-03-02T12:00:00.000Z",
+        },
+      },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify(cleanupResponse), { status: 200 }),
+      ),
+    );
+
+    await expect(fetchAccountPlan("current.jwt.token")).resolves.toMatchObject({
+      highlightAccess: cleanupResponse.data.highlightAccess,
     });
   });
 

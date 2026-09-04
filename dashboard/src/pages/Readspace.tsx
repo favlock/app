@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  AlertTriangle,
   BookOpen,
-  CheckCircle2,
-  ExternalLink,
   LoaderCircle,
   Menu,
-  Puzzle,
   Search,
   ShieldCheck,
 } from "lucide-react";
@@ -34,9 +32,8 @@ import ReadspaceArticleDialog from "../components/ReadspaceArticleDialog";
 import ReadspaceCard from "../components/ReadspaceCard";
 import ReadspaceOrganizationDialog from "../components/ReadspaceOrganizationDialog";
 import ReadspaceOrganizationFields from "../components/ReadspaceOrganizationFields";
+import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
 import { prepareBookmarkTags } from "../lib/bookmarkWrites";
-import { CHROME_EXTENSION_URL } from "../lib/appUrls";
-import { isGoogleChrome } from "../lib/chromeExtension";
 import { Button } from "../components/ui/button";
 import {
   Dialog,
@@ -47,6 +44,24 @@ import {
 import { useDebounce } from "../hooks/useDebounce";
 import { useReadspaceFullTextSearch } from "../hooks/useReadspaceFullTextSearch";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useBookmarks } from "../hooks/useBookmarksQuery";
+import {
+  useDeleteHighlight,
+  useDeleteHighlights,
+  useHighlights,
+  useUpdateHighlightAnnotation,
+  useUpdateHighlightColor,
+  type WebHighlight,
+} from "../hooks/useHighlightsQuery";
+import ReadspaceHighlights from "../components/ReadspaceHighlights";
+import HighlightExportDialog from "../components/HighlightExportDialog";
+import HighlightAnnotationEditor from "../components/HighlightAnnotationEditor";
+import ProUpgradeDialog from "../components/ProUpgradeDialog";
+import {
+  loadReadspaceView,
+  saveReadspaceView,
+  type ReadspaceView,
+} from "../lib/readspaceViewPreference";
 
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const EXTENSION_READY = "FAVLOCK_CHROME_EXTENSION_READY";
@@ -54,7 +69,6 @@ const EXTENSION_PING = "FAVLOCK_CHROME_EXTENSION_PING";
 const CAPTURE_REQUEST = "FAVLOCK_READER_CAPTURE_REQUEST";
 const CAPTURE_RESULT = "FAVLOCK_READER_CAPTURE_RESULT";
 const CAPTURE_DELETE = "FAVLOCK_READER_CAPTURE_DELETE";
-type ExtensionStatus = "installed" | "missing" | "unsupported";
 
 const dateFormatter = new Intl.DateTimeFormat(undefined, {
   month: "short",
@@ -101,9 +115,25 @@ export default function Readspace() {
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
     useEncryption();
   const { data: entries = [], isLoading, error, refetch } = useReadspace();
+  const { data: bookmarks = [] } = useBookmarks(null, {
+    includeHighlightSources: true,
+  });
+  const highlightsQuery = useHighlights();
+  const deleteHighlight = useDeleteHighlight();
+  const deleteHighlights = useDeleteHighlights();
+  const updateHighlightAnnotation = useUpdateHighlightAnnotation();
+  const updateHighlightColor = useUpdateHighlightColor();
   const { data: readspaceCount = 0 } = useReadspaceCount();
-  const { data: accountPlan } = useAccountPlan();
+  const { data: accountPlan, isLoading: accountPlanLoading } = useAccountPlan();
   const fullTextSearchEnabled = accountPlan?.id === "pro";
+  const highlightCleanupAt = accountPlan?.highlightAccess.cleanupAt ?? null;
+  const highlightLimit = accountPlan?.highlightAccess.limit ?? 0;
+  const highlightExcess = accountPlan
+    ? Math.max(
+        0,
+        accountPlan.highlightAccess.count - accountPlan.highlightAccess.limit,
+      )
+    : 0;
   const { data: folders = [], isLoading: foldersLoading } = useFolders();
   const { data: existingTags = [] } = useTags();
   const createEntry = useCreateReadspaceEntry();
@@ -115,6 +145,11 @@ export default function Readspace() {
   const requestStartedRef = useRef(false);
   const [query, setQuery] = useState(
     () => new URLSearchParams(location.search).get("q") ?? "",
+  );
+  const [view, setView] = useState<ReadspaceView>(() =>
+    new URLSearchParams(location.search).get("view") === "highlights"
+      ? "highlights"
+      : loadReadspaceView(),
   );
   const [capture, setCapture] = useState<ReaderReference | null>(null);
   const [captureError, setCaptureError] = useState<string | null>(null);
@@ -130,6 +165,18 @@ export default function Readspace() {
     null,
   );
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [highlightDeleteTarget, setHighlightDeleteTarget] =
+    useState<WebHighlight | null>(null);
+  const [highlightDeleteError, setHighlightDeleteError] = useState<string | null>(null);
+  const [annotationTarget, setAnnotationTarget] = useState<WebHighlight | null>(null);
+  const [annotationText, setAnnotationText] = useState("");
+  const [annotationError, setAnnotationError] = useState<string | null>(null);
+  const [highlightColorError, setHighlightColorError] = useState<string | null>(null);
+  const [highlightExportTarget, setHighlightExportTarget] = useState<{
+    highlights: WebHighlight[];
+    scopeLabel: string;
+  } | null>(null);
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const { extensionId, captureId } = useMemo(
     () => getCaptureParams(location.search),
     [location.search],
@@ -137,11 +184,6 @@ export default function Readspace() {
   const extensionOrigin = extensionId
     ? `chrome-extension://${extensionId}`
     : null;
-  const extensionStatus: ExtensionStatus = bridgeReady
-    ? "installed"
-    : isGoogleChrome(navigator.userAgent, navigator.vendor)
-      ? "missing"
-      : "unsupported";
 
   const parsedEntries = useMemo(
     () =>
@@ -172,6 +214,66 @@ export default function Readspace() {
   const visibleEntries = debouncedQuery
     ? readspaceSearchResult.matches.map((match) => match.article)
     : parsedEntries;
+
+  async function confirmHighlightDelete() {
+    if (!highlightDeleteTarget) return;
+    setHighlightDeleteError(null);
+    try {
+      await deleteHighlight.mutateAsync(highlightDeleteTarget.id);
+      setHighlightDeleteTarget(null);
+    } catch (highlightError) {
+      setHighlightDeleteError(
+        highlightError instanceof Error
+          ? highlightError.message
+          : "Could not delete the encrypted highlight.",
+      );
+    }
+  }
+
+  function openAnnotation(highlight: WebHighlight) {
+    if (accountPlan?.id !== "pro") {
+      setUpgradeDialogOpen(true);
+      return;
+    }
+    setAnnotationError(null);
+    setAnnotationText(highlight.payload.note);
+    setAnnotationTarget(highlight);
+  }
+
+  async function saveAnnotation(note = annotationText) {
+    if (!annotationTarget) return;
+    setAnnotationError(null);
+    try {
+      await updateHighlightAnnotation.mutateAsync({
+        highlight: annotationTarget,
+        note,
+      });
+      setAnnotationTarget(null);
+      setAnnotationText("");
+    } catch (annotationSaveError) {
+      setAnnotationError(
+        annotationSaveError instanceof Error
+          ? annotationSaveError.message
+          : "Could not save the encrypted annotation.",
+      );
+    }
+  }
+
+  async function changeHighlightColor(
+    highlight: WebHighlight,
+    color: WebHighlight["payload"]["color"],
+  ) {
+    setHighlightColorError(null);
+    try {
+      await updateHighlightColor.mutateAsync({ highlight, color });
+    } catch (colorError) {
+      setHighlightColorError(
+        colorError instanceof Error
+          ? colorError.message
+          : "Could not update the highlight color.",
+      );
+    }
+  }
   useEffect(() => {
     const openEntryId = new URLSearchParams(location.search).get("open");
     if (!openEntryId || readTarget?.entry.id === openEntryId) return;
@@ -360,10 +462,10 @@ export default function Readspace() {
             </button>
             <div>
               <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[var(--app-ink)] sm:text-[2rem] sm:leading-tight">
-                Reading
+                Readspace
               </h1>
               <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
-                Your private, distraction-free article library
+                Your private articles and web highlights
               </p>
             </div>
           </div>
@@ -372,61 +474,28 @@ export default function Readspace() {
 
       <section className="px-3 lg:px-0">
         <div className="app-surface rounded-[1.15rem] p-3 sm:p-4">
-          <div
-            className={`flex items-start gap-2.5 rounded-xl border px-3 py-2.5 text-sm leading-5 ${
-              extensionStatus === "installed"
-                ? "border-emerald-600/20 bg-emerald-500/8 text-emerald-800"
-                : "border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_7%,white)] text-[var(--app-muted)]"
-            }`}
-            role="status"
-          >
-            <span
-              className={`inline-flex h-5 flex-none items-center justify-center ${
-                extensionStatus === "installed" ? "self-start" : "self-center"
-              }`}
-            >
-              {extensionStatus === "installed" ? (
-                <CheckCircle2
-                  size={17}
-                  className="text-emerald-600"
-                  aria-hidden="true"
-                />
-              ) : (
-                <Puzzle
-                  size={17}
-                  className="text-[var(--app-primary)]"
-                  aria-hidden="true"
-                />
-              )}
-            </span>
-            {extensionStatus === "installed" ? (
-              <p>
-                FavLock for Chrome is installed. Open any article and use the
-                extension to save it to Readspace.
-              </p>
-            ) : extensionStatus === "missing" ? (
-              <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <p>
-                  Install FavLock for Chrome to save articles directly to
-                  Readspace.
-                </p>
-                <a
-                  href={CHROME_EXTENSION_URL}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="inline-flex flex-none items-center gap-1 self-start rounded-sm font-semibold text-[var(--app-primary)] underline decoration-[color-mix(in_oklab,var(--app-primary)_35%,transparent)] underline-offset-2 transition-colors hover:decoration-[var(--app-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[color-mix(in_oklab,var(--app-primary)_25%,transparent)] sm:self-center"
-                >
-                  Get Chrome extension
-                  <ExternalLink className="size-3.5" aria-hidden="true" />
-                </a>
-              </div>
-            ) : (
-              <p>
-                Saving new articles requires the FavLock extension, currently
-                available only on Google Chrome. Saved articles can still be
-                read here in this browser.
-              </p>
-            )}
+          <ChromeExtensionPrompt
+            enabled
+            userId={user?.id ?? ""}
+            variant="inline"
+          />
+          <div className="mt-3 flex gap-1 rounded-xl bg-[color-mix(in_oklab,var(--app-line)_7%,transparent)] p-1" role="tablist" aria-label="Readspace content">
+            {(["articles", "highlights"] as const).map((nextView) => (
+              <button
+                key={nextView}
+                type="button"
+                role="tab"
+                aria-selected={view === nextView}
+                onClick={() => {
+                  setView(nextView);
+                  saveReadspaceView(nextView);
+                  setQuery("");
+                }}
+                className={`min-h-10 flex-1 rounded-lg px-3 text-sm font-semibold capitalize transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)] ${view === nextView ? "bg-[var(--app-card)] text-[var(--app-ink)] shadow-sm" : "text-[var(--app-muted)] hover:text-[var(--app-ink)]"}`}
+              >
+                {nextView} {nextView === "highlights" && highlightsQuery.data?.length ? `(${highlightsQuery.data.length})` : ""}
+              </button>
+            ))}
           </div>
           <div className="mt-3 flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 shadow-sm focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
             <Search size={18} className="text-[var(--app-muted)]" />
@@ -435,16 +504,47 @@ export default function Readspace() {
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={
-                fullTextSearchEnabled
+                view === "highlights"
+                  ? "Search highlighted text and sources…"
+                  : fullTextSearchEnabled
                   ? "Search full article text…"
                   : "Search titles, tags, and collections…"
               }
-              aria-label="Search saved articles"
+              aria-label={view === "highlights" ? "Search highlights" : "Search saved articles"}
               className="min-w-0 flex-1 border-0 bg-transparent py-2 text-sm outline-none placeholder:text-[var(--app-muted)] sm:text-base"
             />
           </div>
         </div>
       </section>
+
+      {view === "highlights" && highlightCleanupAt && highlightExcess > 0 ? (
+        <section className="px-3 lg:px-0" aria-label="Highlight retention notice">
+          <div
+            className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+            role="alert"
+          >
+            <div className="flex min-w-0 items-start gap-2.5">
+              <AlertTriangle className="mt-0.5 size-5 flex-none text-amber-600" aria-hidden="true" />
+              <div>
+                <p className="font-semibold">
+                  {highlightExcess.toLocaleString()} newer {highlightExcess === 1 ? "highlight" : "highlights"} will be deleted on {dateFormatter.format(new Date(highlightCleanupAt))}.
+                </p>
+                <p className="mt-1 text-sm leading-5 text-amber-900/80">
+                  Free keeps your oldest {highlightLimit.toLocaleString()} highlights. Export or delete the excess, or upgrade to keep everything.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              color="amber"
+              className="flex-none self-start sm:self-center"
+              onClick={() => setUpgradeDialogOpen(true)}
+            >
+              Upgrade to Pro
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       {capture || (captureId && !captureError) || captureError ? (
         <section className="px-3 lg:px-0">
@@ -460,7 +560,7 @@ export default function Readspace() {
                       {capture.title}
                     </h3>
                     <p className="mt-1 text-sm text-[var(--app-muted)]">
-                      {[capture.siteName, capture.byline, sourceDates(capture)]
+                      {[capture.siteName, sourceDates(capture)]
                         .filter(Boolean)
                         .join(" · ")}
                     </p>
@@ -519,7 +619,39 @@ export default function Readspace() {
       ) : null}
 
       <section className="px-3 lg:px-0">
-        {isLoading ? (
+        {view === "highlights" && highlightColorError ? (
+          <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+            {highlightColorError}
+          </p>
+        ) : null}
+        {view === "highlights" ? (
+          <ReadspaceHighlights
+            highlights={highlightsQuery.data ?? []}
+            bookmarks={bookmarks}
+            articles={parsedEntries}
+            query={debouncedQuery}
+            loading={highlightsQuery.isLoading}
+            error={!!highlightsQuery.error}
+            deletingId={deleteHighlight.isPending ? (highlightDeleteTarget?.id ?? null) : null}
+            annotatingId={updateHighlightAnnotation.isPending ? (annotationTarget?.id ?? null) : null}
+            coloringId={updateHighlightColor.isPending ? (updateHighlightColor.variables?.highlight.id ?? null) : null}
+            annotationDisabled={accountPlanLoading || accountPlan?.id !== "pro"}
+            annotationProRequired={!accountPlanLoading && accountPlan?.id === "free"}
+            onRetry={() => void highlightsQuery.refetch()}
+            onAnnotate={openAnnotation}
+            onColorChange={(highlight, color) => void changeHighlightColor(highlight, color)}
+            onExport={(highlights, scopeLabel) => setHighlightExportTarget({ highlights, scopeLabel })}
+            onOpenArticle={(entryId) => {
+              const target = parsedEntries.find(({ entry }) => entry.id === entryId);
+              if (target) setReadTarget(target);
+            }}
+            onDelete={(highlight) => {
+              setHighlightDeleteError(null);
+              setHighlightDeleteTarget(highlight);
+            }}
+            onDeleteSelected={(selectedHighlights) => deleteHighlights.mutateAsync(selectedHighlights)}
+          />
+        ) : isLoading ? (
           <div
             className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
             role="status"
@@ -640,6 +772,64 @@ export default function Readspace() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={!!highlightDeleteTarget}
+        onClose={() => setHighlightDeleteTarget(null)}
+        size="sm"
+      >
+        <DialogTitle>Move this highlight to Trash?</DialogTitle>
+        <DialogDescription>
+          You can restore the encrypted highlight during your plan’s recovery period. The source bookmark remains saved.
+        </DialogDescription>
+        {highlightDeleteError ? (
+          <p className="mt-3 text-sm text-red-600" role="alert">{highlightDeleteError}</p>
+        ) : null}
+        <DialogActions>
+          <Button type="button" plain onClick={() => setHighlightDeleteTarget(null)}>Cancel</Button>
+          <Button type="button" color="red" disabled={deleteHighlight.isPending} onClick={() => void confirmHighlightDelete()}>
+            {deleteHighlight.isPending ? "Moving…" : "Move to Trash"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={!!annotationTarget}
+        onClose={() => {
+          if (updateHighlightAnnotation.isPending) return;
+          setAnnotationTarget(null);
+          setAnnotationError(null);
+        }}
+        size="sm"
+        className="bg-[color-mix(in_oklab,var(--app-card)_94%,white)]! [--gutter:0.5rem]!"
+      >
+        <HighlightAnnotationEditor
+          value={annotationText}
+          saving={updateHighlightAnnotation.isPending}
+          error={annotationError}
+          canRemove={!!annotationTarget?.payload.note}
+          onChange={setAnnotationText}
+          onCancel={() => {
+            setAnnotationTarget(null);
+            setAnnotationError(null);
+          }}
+          onSave={() => void saveAnnotation()}
+          onRemove={() => void saveAnnotation("")}
+        />
+      </Dialog>
+
+      <ProUpgradeDialog
+        open={upgradeDialogOpen}
+        onClose={() => setUpgradeDialogOpen(false)}
+      />
+
+      {highlightExportTarget ? <HighlightExportDialog
+        highlights={highlightExportTarget.highlights}
+        bookmarks={bookmarks}
+        articles={parsedEntries}
+        scopeLabel={highlightExportTarget.scopeLabel}
+        onClose={() => setHighlightExportTarget(null)}
+      /> : null}
 
       <ReadspaceArticleDialog
         article={readTarget}

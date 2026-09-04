@@ -9,6 +9,16 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "September 5, 2026",
+    changes: [
+      "Highlight text on saved web pages from Chrome, then review, annotate, search, and export those highlights in Readspace.",
+      "Sign up or sign in with Apple alongside Google and email.",
+      "Import a local encrypted library into an existing account with safer validation and clearer recovery guidance.",
+      "Browse Readspace with improved layouts, preserved category colors, and a cleaner reading view.",
+    ],
+  },
+  {
+    version: "1.8.0",
     date: "September 1, 2026",
     changes: [
       "Search saved bookmarks from the Chrome extension by title, URL, Collection, or tag, with focused Save and Search views.",

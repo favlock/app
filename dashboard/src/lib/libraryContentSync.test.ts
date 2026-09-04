@@ -154,6 +154,50 @@ describe("library content incremental sync", () => {
     );
   });
 
+  it("uses the selected quote as a decrypted highlight Trash preview", async () => {
+    const trashId = "11111111-1111-4111-8111-111111111111";
+    mocks.getLibraryContentCacheMeta.mockResolvedValue({
+      key: "content-sync:user-1",
+      revision: "1",
+      lastSyncedAt: "2026-08-20T09:00:00.000Z",
+    });
+    mocks.fetchLibrarySyncStatus.mockResolvedValue({ revision: "2", deltaFloor: "0" });
+    mocks.fetchLibrarySyncChanges.mockResolvedValue([{
+      resourceType: "trash",
+      resourceId: trashId,
+      revision: "2",
+      operation: "upsert",
+    }]);
+    mocks.fetchTrashItems.mockResolvedValue([{
+      id: trashId,
+      resourceId: "22222222-2222-4222-8222-222222222222",
+      resourceType: "highlight",
+      encryptedTitle: "enc:quote",
+      encryptedUrl: null,
+      deletedAt: "2026-08-20T10:00:00.000Z",
+      expiresAt: "2026-09-19T10:00:00.000Z",
+    }]);
+
+    await syncLibraryContentToLocalCache(
+      "user-1",
+      "current.jwt.token",
+      async () => JSON.stringify({ exact: "Selected private text", prefix: "", suffix: "" }),
+    );
+
+    expect(mocks.applyLibraryContentCacheDelta).toHaveBeenCalledWith(
+      "user-1",
+      expect.objectContaining({
+        upserts: expect.objectContaining({
+          trash: [expect.objectContaining({
+            resourceType: "highlight",
+            title: "Selected private text",
+            url: null,
+          })],
+        }),
+      }),
+    );
+  });
+
   it("resolves changed entry ciphertext through the API and decrypts it locally", async () => {
     const entryId = "55555555-5555-4555-8555-555555555555";
     mocks.getLibraryContentCacheMeta.mockResolvedValue({

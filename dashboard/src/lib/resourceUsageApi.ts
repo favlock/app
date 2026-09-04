@@ -7,6 +7,7 @@ export interface ResourceUsage {
   bookmarks: number;
   entries: number;
   readspace: number;
+  highlights: number;
   collections: number;
   tags: number;
   lists: number;
@@ -30,6 +31,7 @@ function parseResourceUsage(value: unknown): ResourceUsage {
     !isNonNegativeInteger(usage.bookmarks) ||
     !isNonNegativeInteger(usage.entries) ||
     !isNonNegativeInteger(usage.readspace) ||
+    !isNonNegativeInteger(usage.highlights) ||
     !isNonNegativeInteger(usage.collections) ||
     !isNonNegativeInteger(usage.tags) ||
     !isNonNegativeInteger(usage.lists)
@@ -41,6 +43,7 @@ function parseResourceUsage(value: unknown): ResourceUsage {
     bookmarks: usage.bookmarks,
     entries: usage.entries,
     readspace: usage.readspace,
+    highlights: usage.highlights,
     collections: usage.collections,
     tags: usage.tags,
     lists: usage.lists,

@@ -7,7 +7,10 @@ export function useCachedBookmarks(enabled = true) {
 
   return useQuery({
     queryKey: ["bookmarks", "local-cache", user?.id],
-    queryFn: () => getCachedBookmarksForUser(user!.id),
+    queryFn: async () =>
+      (await getCachedBookmarksForUser(user!.id)).filter(
+        (bookmark) => !bookmark.is_highlight_source,
+      ),
     enabled: enabled && !!user && !!bookmarkCacheSyncedAt,
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 1000 * 60 * 10,
