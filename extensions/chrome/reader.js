@@ -40,12 +40,6 @@ function datesDisplayTheSame(publishedAt, updatedAt) {
   );
 }
 
-function formatByline(value) {
-  const byline = String(value || "").trim();
-  if (!byline) return "";
-  return /^by\b/i.test(byline) ? byline : `By ${byline}`;
-}
-
 async function loadArticle() {
   if (!captureId) {
     setStatus("This reading view has expired. Open it again from the FavLock extension.");
@@ -62,7 +56,6 @@ async function loadArticle() {
   document.title = `${article.title} | FavLock Reader`;
   document.getElementById("title").textContent = article.title;
   document.getElementById("siteName").textContent = article.siteName || "Article";
-  document.getElementById("byline").textContent = formatByline(article.byline);
   setArticleDate("publishedDate", "Published", article.publishedAt);
   setArticleDate(
     "updatedDate",

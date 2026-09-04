@@ -10,11 +10,13 @@ import {
   type WebHighlight,
 } from "../hooks/useHighlightsQuery";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import { getCollectionBadgeColor } from "../constants/colors";
 import { captureArticleSelection, getArticleHighlightMenuPosition, renderArticleHighlights } from "../lib/articleHighlight";
 import type { ReadspaceContent } from "../lib/readspaceContent";
 import type { WebHighlightColor, WebHighlightPayload } from "../lib/webHighlight";
 import type { ReadspaceEntry } from "../types/bookmark";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from "./ui/dialog";
 import ProUpgradeDialog from "./ProUpgradeDialog";
 import { CollapsibleAnnotation } from "./ReadspaceHighlights";
@@ -225,7 +227,6 @@ export default function ReadspaceArticleDialog({
   const metadata = article
     ? [
         article.content.siteName,
-        article.content.byline,
         ...sourceDates(article.content),
       ].filter(Boolean)
     : [];
@@ -273,10 +274,13 @@ export default function ReadspaceArticleDialog({
             {article.entry.folder || article.entry.tags?.length ? (
               <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600">
                 {article.entry.folder ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-zinc-950/6 px-2.5 py-1">
+                  <Badge
+                    color={getCollectionBadgeColor(article.entry.folder.color)}
+                    className="gap-1! rounded-full! px-2.5! py-1! text-xs!"
+                  >
                     <FolderIcon size={12} aria-hidden="true" />
                     {article.entry.folder.name}
-                  </span>
+                  </Badge>
                 ) : null}
                 {article.entry.tags?.map((tag) => (
                   <span
