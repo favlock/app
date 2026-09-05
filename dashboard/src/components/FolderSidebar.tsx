@@ -117,7 +117,6 @@ interface FolderSidebarProps {
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
   onStartOnboarding?: () => void;
-  onOpenDataTransfer?: () => void;
 }
 
 interface SortableCollectionProps {
@@ -227,7 +226,6 @@ export default function FolderSidebar({
   selectedTagId,
   onSelectTag,
   onStartOnboarding,
-  onOpenDataTransfer,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
   const { user, signOut, isLocalAccount } = useAuth();
@@ -1018,29 +1016,37 @@ export default function FolderSidebar({
           <Link
             to="/settings"
             aria-current={location.pathname === "/settings" ? "page" : undefined}
-            className={`mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
+            className={`theme-nav-button mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
               location.pathname === "/settings"
                 ? "theme-nav-button-active"
-                : "theme-nav-button"
+                : ""
             }`}
           >
             <SettingsIcon size={16} />
             <span className="text-sm flex-1 text-left">Settings</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={onOpenDataTransfer}
-            className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+          <Link
+            to="/data-transfer"
+            aria-current={location.pathname === "/data-transfer" ? "page" : undefined}
+            className={`theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+              location.pathname === "/data-transfer"
+                ? "theme-nav-button-active"
+                : ""
+            }`}
           >
             <ArrowDownUp size={16} aria-hidden="true" />
             <span className="text-sm flex-1 text-left">Data transfer</span>
-          </button>
+          </Link>
 
           <Link
             to="/support"
             aria-current={location.pathname === "/support" ? "page" : undefined}
-            className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+            className={`theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+              location.pathname === "/support"
+                ? "theme-nav-button-active"
+                : ""
+            }`}
           >
             <LifeBuoy size={16} />
             <span className="text-sm flex-1 text-left">Support</span>

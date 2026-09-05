@@ -23,6 +23,7 @@ const Readspace = lazy(() => import("./pages/Readspace"));
 const Lists = lazy(() => import("./pages/Lists"));
 const Trash = lazy(() => import("./pages/Trash"));
 const Settings = lazy(() => import("./pages/Settings"));
+const DataTransfer = lazy(() => import("./pages/DataTransfer"));
 const Support = lazy(() => import("./pages/Support"));
 const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
 
@@ -119,6 +120,7 @@ function App() {
                   <Route path="/lists" element={<Lists />} />
                   <Route path="/trash" element={<Trash />} />
                   <Route path="/support" element={<Support />} />
+                  <Route path="/data-transfer" element={<DataTransfer />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

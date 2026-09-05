@@ -161,7 +161,7 @@ export default function Settings() {
           <div
             role="tablist"
             aria-label="Settings sections"
-            className="inline-flex flex-wrap rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_65%,transparent)] p-1"
+            className="flex w-fit max-w-full flex-wrap gap-1 rounded-2xl border bg-[var(--app-highlight)]/50 p-1 backdrop-blur-md liquid-divider"
           >
             <button
               id="profile-tab"
@@ -174,13 +174,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "profile")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "profile"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <UserRound className="size-4" aria-hidden="true" />
+              <UserRound size={14} aria-hidden="true" />
               Profile
             </button>
             <button
@@ -194,13 +194,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "preferences")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "preferences"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              <SlidersHorizontal size={14} aria-hidden="true" />
               Preferences
             </button>
             <button
@@ -214,13 +214,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "security")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "security"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <ShieldCheck className="size-4" aria-hidden="true" />
+              <ShieldCheck size={14} aria-hidden="true" />
               Security &amp; privacy
             </button>
             <button
@@ -232,13 +232,13 @@ export default function Settings() {
               tabIndex={activeTab === "usage" ? 0 : -1}
               onClick={() => selectTab("usage")}
               onKeyDown={(event) => selectTabFromKeyboard(event, "usage")}
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "usage"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <Gauge className="size-4" aria-hidden="true" />
+              <Gauge size={14} aria-hidden="true" />
               Plan &amp; usage
             </button>
           </div>

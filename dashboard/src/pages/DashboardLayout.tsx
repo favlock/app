@@ -105,7 +105,9 @@ export default function DashboardLayout() {
     ? (tagSlugIndex.idBySlug.get(tagSlug) ?? null)
     : null;
   const dataTransferHashView: DataTransferView | null =
-    location.hash === "#import-bookmarks"
+    location.pathname === "/data-transfer"
+      ? null
+      : location.hash === "#import-bookmarks"
       ? "import"
       : location.hash === "#export-data"
         ? "export"
@@ -533,10 +535,6 @@ export default function DashboardLayout() {
                     setIsMobileSidebarOpen(false);
                     setIsOnboardingOpen(true);
                   }}
-                  onOpenDataTransfer={() => {
-                    setIsMobileSidebarOpen(false);
-                    setDataTransferView("chooser");
-                  }}
                 />
               </div>
             </Headless.DialogPanel>
@@ -552,7 +550,6 @@ export default function DashboardLayout() {
               onStartOnboarding={() => {
                 setIsOnboardingOpen(true);
               }}
-              onOpenDataTransfer={() => setDataTransferView("chooser")}
             />
           </aside>
 
