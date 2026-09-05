@@ -38,6 +38,7 @@ import LocalPrivacySection from "../components/LocalPrivacySection";
 import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySection";
 import BookmarkDuplicateCleanupSection from "../components/BookmarkDuplicateCleanupSection";
 import BillingSection from "../components/BillingSection";
+import AppearancePreference from "../components/AppearancePreference";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
 import { hasPasswordSignIn } from "../lib/auth";
 
@@ -275,7 +276,7 @@ export default function Settings() {
                           className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3"
                           role="alert"
                         >
-                          <Text className="text-red-600!  text-sm">
+                          <Text className="text-red-600! dark:text-red-300!  text-sm">
                             {error}
                           </Text>
                         </div>
@@ -288,10 +289,10 @@ export default function Settings() {
                           aria-live="polite"
                         >
                           <Check
-                            className="w-4 h-4 text-emerald-600 "
+                            className="w-4 h-4 text-emerald-600 dark:text-emerald-300 "
                             aria-hidden="true"
                           />
-                          <Text className="text-emerald-600!  text-sm">
+                          <Text className="text-emerald-600! dark:text-emerald-300!  text-sm">
                             {success}
                           </Text>
                         </div>
@@ -330,7 +331,7 @@ export default function Settings() {
                             disabled
                             className="opacity-60 cursor-not-allowed"
                           />
-                          <Description className="text-sm text-gray-500 mt-1">
+                          <Description className="text-sm text-gray-500 dark:text-[var(--app-muted)] mt-1">
                             Email cannot be changed
                           </Description>
                         </Field>
@@ -361,6 +362,7 @@ export default function Settings() {
                 role="tabpanel"
                 aria-labelledby="preferences-tab"
               >
+                <AppearancePreference />
                 <BookmarkSearchShortcutPreference />
               </div>
             ) : activeTab === "security" ? (
@@ -430,16 +432,16 @@ function CloudOnlySettingsSection({
   return (
     <section
       aria-disabled="true"
-      className="rounded-2xl border border-gray-200/80 bg-gray-50/80 p-4 opacity-75 shadow-sm sm:p-5"
+      className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-gray-50/80 dark:bg-[var(--app-card)]/80 p-4 opacity-75 shadow-sm sm:p-5"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <Cloud className="size-4 text-gray-500" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-        <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700">
+        <Cloud className="size-4 text-gray-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-[var(--app-ink)]">{title}</h3>
+        <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
           Cloud only
         </span>
       </div>
-      <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
+      <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
         {description}
       </p>
     </section>

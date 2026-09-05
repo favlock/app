@@ -97,7 +97,7 @@ export default function CollectionLibraryGrid({
 
       {error ? (
         <div
-          className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700"
+          className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700 dark:text-red-300"
           role="alert"
         >
           <p>{error}</p>
@@ -124,12 +124,12 @@ export default function CollectionLibraryGrid({
           {[0, 1, 2, 3].map((item) => (
             <div
               key={item}
-              className="min-h-44 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/50"
+              className="min-h-44 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50"
             />
           ))}
         </div>
       ) : items.length === 0 && !error ? (
-        <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_78%,white)] px-5 py-9 text-center">
+        <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_78%,var(--app-highlight))] px-5 py-9 text-center">
           <Library
             size={34}
             className="mx-auto text-[var(--app-primary)]"

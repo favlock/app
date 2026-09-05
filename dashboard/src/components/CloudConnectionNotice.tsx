@@ -35,7 +35,7 @@ export default function CloudConnectionNotice() {
           <p className="font-semibold text-[var(--app-ink)]">{title}</p>
           <p className="mt-1 leading-6">{connectionError || (offline ? "You can browse your saved local library; cloud changes need a connection." : cloudStatusMessage(cloudStatus))}</p>
         </div>
-        {error && <p role="alert" className="mt-3 font-medium text-red-800">{error}</p>}
+        {error && <p role="alert" className="mt-3 font-medium text-red-800 dark:text-red-200">{error}</p>}
         {!offline && <div className="mt-3 flex flex-wrap items-center gap-2">
           <button type="button" disabled={pending} className="app-connection-notice-action disabled:opacity-50" onClick={async () => {
             const nextAttempt: ConnectionAttempt = { scope, pending: true, error: null };

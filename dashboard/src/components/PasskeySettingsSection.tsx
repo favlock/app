@@ -149,15 +149,15 @@ export default function PasskeySettingsSection() {
   return (
     <section
       id="passkey"
-      className="scroll-mt-6 rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm sm:p-5"
+      className="scroll-mt-6 rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm sm:p-5"
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <KeyRound className="size-4 text-gray-500" aria-hidden="true" />
-            <h3 className="text-sm font-semibold text-gray-900">Passkey</h3>
+            <KeyRound className="size-4 text-gray-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Passkey</h3>
           </div>
-          <Text className="mt-1 text-sm text-gray-600">
+          <Text className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">
             {passkeyRecord
               ? "Replace the passkey that protects your encryption key. Keep your recovery key available until the new passkey is saved."
               : "Create a passkey to protect your encryption key and unlock FavLock without entering the recovery key."}
@@ -193,7 +193,7 @@ export default function PasskeySettingsSection() {
       {unavailable ? (
         <div
           role="status"
-          className="mt-4 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700"
+          className="mt-4 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-300"
         >
           This browser or passkey provider cannot protect your encryption key.
           Keep your recovery key somewhere private instead.
@@ -205,10 +205,10 @@ export default function PasskeySettingsSection() {
           role={status.type === "error" ? "alert" : "status"}
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
             status.type === "error"
-              ? "bg-red-500/10 text-red-600"
+              ? "bg-red-500/10 text-red-600 dark:text-red-300"
               : status.type === "success"
-                ? "bg-emerald-500/10 text-emerald-600"
-                : "bg-sky-500/10 text-sky-600"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
           }`}
         >
           {status.message}

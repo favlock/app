@@ -34,19 +34,19 @@ export default class AppErrorBoundary extends Component<
     return (
       <main className="flex min-h-screen items-center justify-center bg-[var(--app-bg,#f7fafc)] px-5 py-10">
         <section
-          className="w-full max-w-md rounded-2xl border border-red-500/20 bg-white p-6 text-center shadow-lg"
+          className="w-full max-w-md rounded-2xl border border-red-500/20 bg-[var(--app-highlight)] p-6 text-center shadow-lg"
           aria-labelledby="app-error-title"
         >
-          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-red-500/10 text-red-600 dark:text-red-300">
             <AlertTriangle aria-hidden="true" />
           </div>
           <h1
             id="app-error-title"
-            className="mt-4 text-xl font-bold text-gray-900"
+            className="mt-4 text-xl font-bold text-gray-900 dark:text-[var(--app-ink)]"
           >
             Something went wrong
           </h1>
-          <p className="mt-2 text-sm leading-6 text-gray-600">
+          <p className="mt-2 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
             Your bookmarks are safe. Try loading this screen again, or reload
             the app if the problem continues.
           </p>

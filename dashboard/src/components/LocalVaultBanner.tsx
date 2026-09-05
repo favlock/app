@@ -18,7 +18,7 @@ export default function LocalVaultBanner({
     <>
       <section
         aria-label="Local vault"
-        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-amber-50/85 px-4 py-3 text-amber-950 shadow-sm"
+        className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/25 bg-amber-50/85 dark:bg-[var(--app-butter)] px-4 py-3 text-amber-950 dark:text-[var(--app-ink)] shadow-sm"
       >
         <div className="flex min-w-0 items-start gap-3">
           <span className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/15">
@@ -26,7 +26,7 @@ export default function LocalVaultBanner({
           </span>
           <div>
             <p className="text-sm font-semibold">Stored only on this device</p>
-            <p className="mt-0.5 text-xs leading-5 text-amber-900/75">
+            <p className="mt-0.5 text-xs leading-5 text-amber-900/75 dark:text-[var(--app-muted)]">
               Your encrypted local vault is not synced. {bookmarkCount} of{" "}
               {LOCAL_BOOKMARK_LIMIT} bookmarks used. Create a free account or
               sign in to sync it.
@@ -37,7 +37,7 @@ export default function LocalVaultBanner({
           <button
             type="button"
             onClick={() => setShowEncryptedData(true)}
-            className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-xl border border-amber-900/20 bg-white/65 px-4 py-2 text-sm font-semibold text-amber-950 transition hover:bg-white focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
+            className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-xl border border-amber-900/20 bg-[var(--app-highlight)]/65 px-4 py-2 text-sm font-semibold text-amber-950 dark:text-[var(--app-ink)] transition hover:bg-[var(--app-highlight)] focus:outline-none focus:ring-2 focus:ring-amber-700 focus:ring-offset-2"
           >
             <Eye className="size-4" aria-hidden="true" />
             View encrypted data

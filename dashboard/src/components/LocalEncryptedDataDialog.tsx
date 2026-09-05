@@ -62,10 +62,10 @@ export default function LocalEncryptedDataDialog({
         <div className="rounded-xl border border-emerald-600/20 bg-emerald-500/8 p-4">
           <div className="flex gap-3">
             <LockKeyhole
-              className="mt-0.5 size-5 shrink-0 text-emerald-700"
+              className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-300"
               aria-hidden="true"
             />
-            <p className="text-sm leading-6 text-emerald-950">
+            <p className="text-sm leading-6 text-emerald-950 dark:text-emerald-200">
               Titles, URLs, Collection names, and Tag names are encrypted.
               Timestamps, relationships, counts, and favorite state remain
               visible metadata so the app can organize the vault.
@@ -74,52 +74,52 @@ export default function LocalEncryptedDataDialog({
         </div>
 
         {loading ? (
-          <p className="mt-5 text-sm text-zinc-600" role="status">
+          <p className="mt-5 text-sm text-zinc-600 dark:text-[var(--app-muted)]" role="status">
             Reading encrypted records…
           </p>
         ) : error ? (
           <p
-            className="mt-5 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-700"
+            className="mt-5 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             {error}
           </p>
         ) : items.length === 0 ? (
-          <div className="mt-5 rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center">
-            <Database className="mx-auto size-6 text-zinc-500" aria-hidden="true" />
-            <p className="mt-2 text-sm font-semibold text-zinc-900">
+          <div className="mt-5 rounded-xl border border-dashed border-zinc-300 dark:border-[var(--app-line)]/20 px-5 py-8 text-center">
+            <Database className="mx-auto size-6 text-zinc-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+            <p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-[var(--app-ink)]">
               No encrypted records yet
             </p>
-            <p className="mt-1 text-sm text-zinc-600">
+            <p className="mt-1 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
               Save a bookmark, Collection, or Tag and open this view again.
             </p>
           </div>
         ) : (
           <div className="mt-5 space-y-4">
-            <p className="text-sm leading-6 text-zinc-600">
+            <p className="text-sm leading-6 text-zinc-600 dark:text-[var(--app-muted)]">
               For readability, this view shows only a limited sample.
             </p>
             {items.map((item, itemIndex) => (
               <section
                 key={`${item.kind}-${itemIndex}`}
-                className="rounded-xl border border-zinc-200 bg-zinc-50/80 p-4"
+                className="rounded-xl border border-zinc-200 dark:border-[var(--app-line)]/20 bg-zinc-50/80 dark:bg-[var(--app-card)]/80 p-4"
               >
-                <p className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-zinc-500 dark:text-[var(--app-muted)]">
                   {item.kind}
                 </p>
                 <dl className="mt-3 space-y-3">
                   {item.protectedFields.map((field) => (
                     <div key={field.label}>
-                      <dt className="text-xs font-semibold text-zinc-700">
+                      <dt className="text-xs font-semibold text-zinc-700 dark:text-[var(--app-ink)]">
                         Encrypted {field.label}
                       </dt>
-                      <dd className="mt-1 max-h-24 overflow-y-auto break-all rounded-lg bg-zinc-950 px-3 py-2 font-mono text-xs leading-5 text-emerald-300">
+                      <dd className="mt-1 max-h-24 overflow-y-auto break-all rounded-lg bg-zinc-950 dark:bg-[var(--app-line)] px-3 py-2 font-mono text-xs leading-5 text-emerald-300">
                         {field.ciphertext}
                       </dd>
                     </div>
                   ))}
                 </dl>
-                <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600">
+                <dl className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-600 dark:text-[var(--app-muted)]">
                   {item.metadata.map((field) => (
                     <div key={field.label} className="flex gap-1">
                       <dt className="font-semibold">{field.label}:</dt>

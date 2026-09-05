@@ -33,7 +33,7 @@ function RouteFallback() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-[#f7fafc] text-sm font-medium text-[#4f5566]"
+      className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] text-sm font-medium text-[var(--app-muted)]"
       role="status"
       aria-live="polite"
     >

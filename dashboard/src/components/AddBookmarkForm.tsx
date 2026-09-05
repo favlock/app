@@ -419,7 +419,7 @@ export default function AddBookmarkForm({
                 URL <span className="text-[var(--app-primary)]">*</span>
               </Label>
               <Input
-                className="liquid-input before:bg-[color-mix(in_oklab,var(--app-card)_84%,white)]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
+                className="liquid-input before:bg-[color-mix(in_oklab,var(--app-card)_84%,var(--app-highlight))]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
                 id={urlInputId}
                 type="url"
                 placeholder="https://example.com"
@@ -450,7 +450,7 @@ export default function AddBookmarkForm({
                 )}
               </Label>
               <Input
-                className="liquid-input before:bg-[color-mix(in_oklab,var(--app-card)_84%,white)]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
+                className="liquid-input before:bg-[color-mix(in_oklab,var(--app-card)_84%,var(--app-highlight))]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
                 id={titleInputId}
                 type="text"
                 placeholder={
@@ -468,7 +468,7 @@ export default function AddBookmarkForm({
 
             <details
               open={isEditMode ? true : undefined}
-              className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_62%,white)] p-3"
+              className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_62%,var(--app-highlight))] p-3"
             >
               <summary className="cursor-pointer select-none text-sm font-semibold text-[var(--app-ink)]">
                 Organize{" "}
@@ -533,7 +533,7 @@ export default function AddBookmarkForm({
                   {listsQuery.isLoading ? (
                     <p className="text-sm text-[var(--app-muted)]">Loading Lists...</p>
                   ) : listsQuery.error ? (
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-red-600 dark:text-red-300">
                       Could not load Lists. Close this dialog and try again.
                     </p>
                   ) : lists.length ? (
@@ -548,10 +548,10 @@ export default function AddBookmarkForm({
                           className={`flex min-h-10 items-center gap-2 rounded-xl border px-3 text-left text-sm font-medium transition ${
                             selected
                               ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-card))] text-[var(--app-primary)]"
-                              : "border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-white/55 text-[var(--app-ink)] hover:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)]"
+                              : "border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[var(--app-highlight)]/55 text-[var(--app-ink)] hover:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)]"
                           }`}
                         >
-                          <span className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-white" : "border-[color-mix(in_oklab,var(--app-line)_24%,transparent)] text-transparent"}`}>
+                          <span className={`flex size-5 shrink-0 items-center justify-center rounded-md border ${selected ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-[var(--app-on-primary)]" : "border-[color-mix(in_oklab,var(--app-line)_24%,transparent)] text-transparent"}`}>
                             <Check size={13} aria-hidden="true" />
                           </span>
                           <ListChecks size={15} aria-hidden="true" />
@@ -590,7 +590,7 @@ export default function AddBookmarkForm({
                     }}
                     placeholder="Add or search tag..."
                     disabled={tags.length >= 10}
-                    className="liquid-input flex-1 before:bg-[color-mix(in_oklab,var(--app-card)_84%,white)]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
+                    className="liquid-input flex-1 before:bg-[color-mix(in_oklab,var(--app-card)_84%,var(--app-highlight))]! after:ring-[color-mix(in_oklab,var(--app-primary)_62%,transparent)]!"
                   >
                     {(option) => (
                       <ComboboxOption value={option}>
@@ -620,7 +620,7 @@ export default function AddBookmarkForm({
                   </div>
                 )}
                 {tags.length >= 10 && (
-                  <p className="text-sm text-amber-600 ">
+                  <p className="text-sm text-amber-600 dark:text-amber-300 ">
                     You reached the 10-tag limit.
                   </p>
                 )}

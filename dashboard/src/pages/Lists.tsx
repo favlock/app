@@ -236,7 +236,7 @@ export default function Lists() {
       </header>
 
       {error ? (
-        <p className="mx-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 lg:mx-1" role="alert">
+        <p className="mx-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300 lg:mx-1" role="alert">
           {error}
         </p>
       ) : null}
@@ -249,7 +249,7 @@ export default function Lists() {
             placeholder="List name"
             maxLength={80}
             autoFocus
-            className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+            className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
           />
           <Button type="button" outline onClick={() => setCreating(false)}>Cancel</Button>
           <Button type="submit" color="emerald" disabled={createList.isPending}>Create</Button>
@@ -261,7 +261,7 @@ export default function Lists() {
           {listsQuery.isLoading ? (
             <p className="px-3 py-4 text-sm text-[var(--app-muted)]">Loading Lists…</p>
           ) : listsQuery.error ? (
-            <button type="button" className="w-full rounded-xl px-3 py-4 text-left text-sm text-red-600" onClick={() => void listsQuery.refetch()}>
+            <button type="button" className="w-full rounded-xl px-3 py-4 text-left text-sm text-red-600 dark:text-red-300" onClick={() => void listsQuery.refetch()}>
               Could not load Lists. Try again.
             </button>
           ) : lists.length ? (
@@ -310,7 +310,7 @@ export default function Lists() {
                         onChange={(event) => setNameDraft(event.target.value)}
                         maxLength={80}
                         autoFocus
-                        className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+                        className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
                       />
                       <Button type="submit" color="emerald" disabled={renameList.isPending}>Save</Button>
                     </form>
@@ -428,16 +428,16 @@ export default function Lists() {
                     const completed = !!item.completed_at;
                     const VideoIcon = isYouTubeUrl(item.bookmark.url) ? Youtube : FileText;
                     return (
-                      <li key={item.bookmark.id} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/55 p-3">
+                      <li key={item.bookmark.id} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/55 p-3">
                         <button
                           type="button"
                           onClick={() => void toggleItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id, completed: !completed }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not update progress."))}
-                          className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition ${completed ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-white" : "border-[color-mix(in_oklab,var(--app-line)_25%,transparent)] text-transparent hover:border-[var(--app-primary)]"}`}
+                          className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition ${completed ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-[var(--app-on-primary)]" : "border-[color-mix(in_oklab,var(--app-line)_25%,transparent)] text-transparent hover:border-[var(--app-primary)]"}`}
                           aria-label={completed ? `Mark ${item.bookmark.title} incomplete` : `Mark ${item.bookmark.title} complete`}
                         >
                           <CheckCircle2 size={16} aria-hidden="true" />
                         </button>
-                        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isYouTubeUrl(item.bookmark.url) ? "bg-red-500/10 text-red-600" : "bg-sky-500/10 text-sky-700"}`}>
+                        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isYouTubeUrl(item.bookmark.url) ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-sky-500/10 text-sky-700 dark:text-sky-300"}`}>
                           <VideoIcon size={17} aria-hidden="true" />
                         </span>
                         <div className="min-w-0 flex-1">

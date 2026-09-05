@@ -79,12 +79,12 @@ export function getDisplayColor(constant: ColorConstant | null | undefined): str
 
 export const COLLECTION_SURFACE_MAP: Record<ColorConstant, string> = {
   NONE: "var(--app-reading)",
-  RED: "#fbe9ed",
-  ORANGE: "#fff0e8",
-  YELLOW: "#fff2da",
-  GREEN: "#eef8ef",
-  CYAN: "#eef8f4",
-  BLUE: "#edf6fb",
-  PURPLE: "#f3edf9",
-  PINK: "#fbeef5",
+  RED: "var(--app-rose)",
+  ORANGE: "var(--app-peach)",
+  YELLOW: "var(--app-butter)",
+  GREEN: "var(--app-green)",
+  CYAN: "var(--app-mint)",
+  BLUE: "var(--app-sky)",
+  PURPLE: "var(--app-lavender)",
+  PINK: "var(--app-pink)",
 };

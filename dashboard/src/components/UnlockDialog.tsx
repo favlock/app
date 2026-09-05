@@ -204,7 +204,7 @@ export default function UnlockDialog() {
             </Button>
           )}
           {checkingPasskey && (
-            <Text className="mb-4 text-center text-sm text-zinc-500">
+            <Text className="mb-4 text-center text-sm text-zinc-500 dark:text-[var(--app-muted)]">
               Checking for a saved passkey...
             </Text>
           )}
@@ -265,7 +265,7 @@ export default function UnlockDialog() {
             onChange={handleFileUpload}
           />
           {error && (
-            <Text className="mt-2 text-red-600!  text-sm" role="alert">
+            <Text className="mt-2 text-red-600! dark:text-red-300!  text-sm" role="alert">
               {error}
             </Text>
           )}

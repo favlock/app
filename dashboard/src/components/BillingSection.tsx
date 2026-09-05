@@ -82,7 +82,7 @@ export default function BillingSection() {
   return (
     <section>
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-700">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/12 text-emerald-700 dark:text-emerald-300">
           <Sparkles className="size-5" aria-hidden="true" />
         </span>
         <div>
@@ -97,8 +97,8 @@ export default function BillingSection() {
         <div
           className={`mt-5 rounded-xl border px-4 py-3 text-sm ${
             hasPro
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-              : "border-amber-500/30 bg-amber-500/10 text-amber-800"
+              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+              : "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200"
           }`}
           role="status"
           aria-live="polite"
@@ -116,7 +116,7 @@ export default function BillingSection() {
               <p className="text-lg font-semibold liquid-ink">
                 {hasPro ? "FavLock Pro" : "Upgrade to Pro"}
               </p>
-              <span className="rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs font-semibold text-emerald-700">
+              <span className="rounded-full bg-emerald-500/12 px-2.5 py-1 text-xs font-semibold text-emerald-700 dark:text-emerald-300">
                 {hasPro ? "Active" : "More room"}
               </span>
             </div>
@@ -129,11 +129,11 @@ export default function BillingSection() {
             </p>
             {subscription?.status === "scheduled_cancel" ||
             subscription?.cancelAtPeriodEnd ? (
-              <p className="mt-3 text-sm font-medium text-amber-700">
+              <p className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                 Your subscription will end{periodEnd ? ` on ${periodEnd}` : " at the end of the billing period"}.
               </p>
             ) : subscription?.status === "past_due" ? (
-              <p className="mt-3 text-sm font-medium text-amber-700">
+              <p className="mt-3 text-sm font-medium text-amber-700 dark:text-amber-300">
                 A payment needs attention. Pro remains available during Creem&apos;s retry period.
               </p>
             ) : null}
@@ -168,12 +168,12 @@ export default function BillingSection() {
           </p>
         ) : null}
         {isError ? (
-          <p className="mt-4 text-sm text-red-600" role="alert">
+          <p className="mt-4 text-sm text-red-600 dark:text-red-300" role="alert">
             Billing status could not be loaded. Your plan limits are unaffected.
           </p>
         ) : null}
         {actionError ? (
-          <p className="mt-4 text-sm text-red-600" role="alert">
+          <p className="mt-4 text-sm text-red-600 dark:text-red-300" role="alert">
             {actionError}
           </p>
         ) : null}

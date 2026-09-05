@@ -195,14 +195,14 @@ export default function LocalVaultRestoreSection() {
         description="Restore bookmarks, Lists, Documents, Tasks, Collections, and Tags from an encrypted .favlock backup. Readspace and highlights are not restored to local vaults."
       />
 
-      <div className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-950" role="note">
+      <div className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 dark:bg-[var(--app-mint)] p-3 text-emerald-950 dark:text-emerald-200" role="note">
         <ShieldCheck className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <p className="text-sm leading-5">
           The file is decrypted only in this browser. Its recovery key opens
           the backup and is never sent to FavLock.
         </p>
       </div>
-      <div className="mt-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-amber-950" role="note">
+      <div className="mt-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-[var(--app-butter)] p-3 text-amber-950 dark:text-amber-200" role="note">
         <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <p className="text-sm leading-5">
           Restore requires an empty local vault. Restored data uses this
@@ -280,13 +280,13 @@ export default function LocalVaultRestoreSection() {
           </Button>
         </DataTransferActionBar>
       ) : summary ? (
-        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-          <p className="text-sm font-semibold text-gray-900">Ready to restore</p>
+        <div className="mt-5 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 p-4">
+          <p className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Ready to restore</p>
           <dl className="mt-3 grid grid-cols-3 gap-3 text-sm">
             {(["bookmarks", "collections", "tags"] as const).map((kind) => (
               <div key={kind}>
-                <dt className="capitalize text-gray-500">{kind}</dt>
-                <dd className="font-semibold text-gray-900">{summary[kind].toLocaleString()}</dd>
+                <dt className="capitalize text-gray-500 dark:text-[var(--app-muted)]">{kind}</dt>
+                <dd className="font-semibold text-gray-900 dark:text-[var(--app-ink)]">{summary[kind].toLocaleString()}</dd>
               </div>
             ))}
           </dl>
@@ -304,9 +304,9 @@ export default function LocalVaultRestoreSection() {
         </div>
       ) : null}
 
-      {error ? <p className="mt-4 text-sm text-red-700" role="alert">{error}</p> : null}
+      {error ? <p className="mt-4 text-sm text-red-700 dark:text-red-300" role="alert">{error}</p> : null}
       {completed ? (
-        <div className="mt-4 flex items-start gap-2 text-sm text-emerald-700" role="status">
+        <div className="mt-4 flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300" role="status">
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <p>Backup restored. Your existing local key and passkey still protect this vault.</p>
         </div>

@@ -473,7 +473,7 @@ export default function DashboardLayout() {
 
       <a
         href="#main-content"
-        className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-[var(--app-ink)] px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] focus:ring-offset-2"
+        className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-[var(--app-ink)] dark:text-[var(--app-bg)] px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] focus:ring-offset-2"
       >
         Skip to main content
       </a>

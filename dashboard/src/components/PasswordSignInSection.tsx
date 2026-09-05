@@ -90,7 +90,7 @@ export default function PasswordSignInSection({
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm sm:p-5">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <h3 className="text-sm font-semibold liquid-ink">
@@ -108,7 +108,7 @@ export default function PasswordSignInSection({
             role="alert"
             className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3"
           >
-            <Text className="text-sm text-red-600!">{error}</Text>
+            <Text className="text-sm text-red-600! dark:text-red-300!">{error}</Text>
           </div>
         )}
 
@@ -118,10 +118,10 @@ export default function PasswordSignInSection({
             className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
           >
             <Check
-              className="h-4 w-4 shrink-0 text-emerald-600"
+              className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300"
               aria-hidden="true"
             />
-            <Text className="text-sm text-emerald-600!">{success}</Text>
+            <Text className="text-sm text-emerald-600! dark:text-emerald-300!">{success}</Text>
           </div>
         )}
 

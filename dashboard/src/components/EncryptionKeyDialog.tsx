@@ -145,14 +145,14 @@ export default function EncryptionKeyDialog({
       <DialogBody>
         <div className="space-y-4">
           {!showRecoveryKey && (
-            <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-4">
+            <div className="rounded-xl border border-zinc-200 dark:border-[var(--app-line)]/20 bg-zinc-50 dark:bg-[var(--app-card)] p-4">
               <div className="flex gap-3">
-                <LockKeyhole className="mt-0.5 size-5 shrink-0 text-zinc-700" />
+                <LockKeyhole className="mt-0.5 size-5 shrink-0 text-zinc-700 dark:text-[var(--app-ink)]" />
                 <div>
-                  <p className="text-sm font-semibold text-zinc-950">
+                  <p className="text-sm font-semibold text-zinc-950 dark:text-[var(--app-ink)]">
                     Your library has its own key
                   </p>
-                  <p className="mt-1 text-sm text-zinc-600">
+                  <p className="mt-1 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
                     Choose one durable way to unlock it. FavLock cannot recover
                     your encrypted library if every passkey and recovery-key
                     copy is lost.
@@ -163,21 +163,21 @@ export default function EncryptionKeyDialog({
           )}
 
           {!showRecoveryKey && (
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-[var(--app-mint)] p-4">
               <div className="flex gap-3">
-                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-700" />
+                <ShieldCheck className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
                 <div>
-                  <p className="text-sm font-semibold text-emerald-950">
+                  <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
                     Recommended: protect it with a passkey
                   </p>
-                  <p className="mt-1 text-sm text-emerald-800">
+                  <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
                     A passkey protects an encrypted copy of this key and lets
                     you unlock it with your fingerprint, face, or device PIN.
                     {localOnly
                       ? " The encrypted passkey record stays in this browser until you migrate the vault."
                       : " If your passkey manager syncs it, you can also unlock on compatible devices after signing in."}
                   </p>
-                  <p className="mt-2 text-xs text-emerald-800">
+                  <p className="mt-2 text-xs text-emerald-800 dark:text-emerald-200">
                     {localOnly
                       ? "This passkey unlocks this local library. It does not create or sign in to a FavLock account."
                       : "This passkey unlocks your library after account sign-in. It does not sign you in to FavLock."}
@@ -190,14 +190,14 @@ export default function EncryptionKeyDialog({
           {showRecoveryKey && (
             <>
               {passkeySaved ? (
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-[var(--app-mint)] p-4">
                   <div className="flex gap-3">
-                    <KeyRound className="mt-0.5 size-5 shrink-0 text-emerald-700" />
+                    <KeyRound className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-300" />
                     <div>
-                      <p className="text-sm font-semibold text-emerald-950">
+                      <p className="text-sm font-semibold text-emerald-950 dark:text-emerald-200">
                         Encryption key protected
                       </p>
-                      <p className="mt-1 text-sm text-emerald-800">
+                      <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-200">
                         Your passkey is ready. You can also download the
                         recovery key below and keep it somewhere private.
                       </p>
@@ -205,16 +205,16 @@ export default function EncryptionKeyDialog({
                   </div>
                 </div>
               ) : !passkeySupported ? (
-                <Text className="text-sm text-amber-700">
+                <Text className="text-sm text-amber-700 dark:text-amber-300">
                   This browser or passkey provider cannot protect encryption
                   keys. Save the recovery key instead.
                 </Text>
               ) : null}
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-[var(--app-butter)] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="min-w-0">
                     <div
-                      className="select-all font-mono text-lg font-bold tracking-wide text-zinc-900 sm:text-xl"
+                      className="select-all font-mono text-lg font-bold tracking-wide text-zinc-900 dark:text-[var(--app-ink)] sm:text-xl"
                       aria-label="Recovery key"
                     >
                       {encryptionKey &&
@@ -227,7 +227,7 @@ export default function EncryptionKeyDialog({
                           </p>
                         ))}
                     </div>
-                    <Text className="mt-2 text-sm text-zinc-600">
+                    <Text className="mt-2 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
                       Keep this key private. Anyone with it can unlock your
                       encrypted library.
                     </Text>
@@ -250,7 +250,7 @@ export default function EncryptionKeyDialog({
               </div>
               {recoveryKeyCopied && (
                 <Text
-                  className="text-sm text-emerald-700!"
+                  className="text-sm text-emerald-700! dark:text-emerald-300!"
                   role="status"
                   aria-live="polite"
                 >
@@ -275,8 +275,8 @@ export default function EncryptionKeyDialog({
             </>
           )}
 
-          <details className="rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-600">
-            <summary className="cursor-pointer font-semibold text-zinc-800">
+          <details className="rounded-xl border border-zinc-200 dark:border-[var(--app-line)]/20 px-4 py-3 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
+            <summary className="cursor-pointer font-semibold text-zinc-800 dark:text-[var(--app-ink)]">
               How library protection works
             </summary>
             <p className="mt-2">
@@ -288,7 +288,7 @@ export default function EncryptionKeyDialog({
           </details>
 
           {error && (
-            <Text className="text-sm text-red-600!" role="alert">
+            <Text className="text-sm text-red-600! dark:text-red-300!" role="alert">
               {error}
             </Text>
           )}

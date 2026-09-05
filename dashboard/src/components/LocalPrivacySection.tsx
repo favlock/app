@@ -98,12 +98,12 @@ export default function LocalPrivacySection() {
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-2">
-        <LockKeyhole className="size-4 text-gray-500" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-gray-900">Local privacy</h3>
+        <LockKeyhole className="size-4 text-gray-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Local privacy</h3>
       </div>
-      <Text className="mt-1 text-sm text-gray-600">
+      <Text className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">
         Control what FavLock keeps in this browser profile.
       </Text>
 
@@ -124,14 +124,14 @@ export default function LocalPrivacySection() {
       <div className="mt-5 rounded-xl border border-amber-500/25 bg-amber-500/8 p-4">
         <div className="flex gap-3">
           <Database
-            className="mt-0.5 size-4 flex-none text-amber-700"
+            className="mt-0.5 size-4 flex-none text-amber-700 dark:text-amber-300"
             aria-hidden="true"
           />
           <div>
-            <p className="text-sm font-semibold text-gray-900">
+            <p className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
               Local search uses decrypted data
             </p>
-            <p className="mt-1 text-sm leading-6 text-gray-600">
+            <p className="mt-1 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
               {isLocalAccount
                 ? "Decrypted bookmarks, documents, tasks, collections, tags, and Lists are stored in this browser profile."
                 : "Decrypted bookmarks, documents, tasks, Readspace items, collections, tags, and Trash summaries are stored in a local IndexedDB library cache on this browser."}{" "}
@@ -146,23 +146,23 @@ export default function LocalPrivacySection() {
           role="status"
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
             status.type === "error"
-              ? "bg-red-500/10 text-red-600"
+              ? "bg-red-500/10 text-red-600 dark:text-red-300"
               : status.type === "success"
-                ? "bg-emerald-500/10 text-emerald-600"
-                : "bg-sky-500/10 text-sky-600"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                : "bg-sky-500/10 text-sky-600 dark:text-sky-300"
           }`}
         >
           {status.message}
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-3 border-t border-gray-200/80 pt-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mt-5 flex flex-col gap-3 border-t border-gray-200/80 dark:border-[var(--app-line)]/20 pt-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-2">
           <HardDrive
-            className="mt-0.5 size-4 flex-none text-gray-500"
+            className="mt-0.5 size-4 flex-none text-gray-500 dark:text-[var(--app-muted)]"
             aria-hidden="true"
           />
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-gray-600 dark:text-[var(--app-muted)]">
             Remove the saved key and decrypted search index without signing out.
           </p>
         </div>

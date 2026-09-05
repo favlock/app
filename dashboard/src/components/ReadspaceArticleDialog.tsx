@@ -30,7 +30,7 @@ const dateFormatter = new Intl.DateTimeFormat(undefined, {
   year: "numeric",
 });
 
-const articleClassName = "select-text py-7 font-serif text-[18px] leading-[1.72] text-zinc-800 sm:text-[19px] [&_a]:font-medium [&_a]:text-[#0f766e] [&_a]:underline [&_a]:decoration-[#0f766e]/35 [&_a]:underline-offset-3 [&_code]:rounded [&_code]:bg-zinc-950/6 [&_code]:px-1 [&_h1]:mb-3 [&_h1]:mt-10 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:mb-3 [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:leading-tight [&_h3]:mb-2 [&_h3]:mt-8 [&_h3]:text-xl [&_h3]:font-bold [&_h4]:mb-2 [&_h4]:mt-7 [&_h4]:font-bold [&_li]:my-1.5 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-7 [&_p]:my-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-7";
+const articleClassName = "select-text py-7 font-serif text-[18px] leading-[1.72] text-zinc-800 dark:text-[var(--app-ink)] sm:text-[19px] [&_a]:font-medium [&_a]:text-[var(--app-primary)] [&_a]:underline [&_a]:decoration-[var(--app-primary)]/35 [&_a]:underline-offset-3 [&_code]:rounded [&_code]:bg-zinc-950/6 [&_code]:px-1 [&_h1]:mb-3 [&_h1]:mt-10 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:leading-tight [&_h2]:mb-3 [&_h2]:mt-10 [&_h2]:text-2xl [&_h2]:font-bold [&_h2]:leading-tight [&_h3]:mb-2 [&_h3]:mt-8 [&_h3]:text-xl [&_h3]:font-bold [&_h4]:mb-2 [&_h4]:mt-7 [&_h4]:font-bold [&_li]:my-1.5 [&_ol]:my-5 [&_ol]:list-decimal [&_ol]:pl-7 [&_p]:my-5 [&_ul]:my-5 [&_ul]:list-disc [&_ul]:pl-7";
 
 export const ArticleBody = memo(function ArticleBody({
   articleRef,
@@ -241,38 +241,38 @@ export default function ReadspaceArticleDialog({
       {article ? (
         <>
           <style>{`
-            ::highlight(favlock-article-${namespace}-yellow) { background-color: #fde68a; color: inherit; }
-            ::highlight(favlock-article-${namespace}-green) { background-color: #bbf7d0; color: inherit; }
-            ::highlight(favlock-article-${namespace}-blue) { background-color: #bfdbfe; color: inherit; }
-            ::highlight(favlock-article-${namespace}-pink) { background-color: #fbcfe8; color: inherit; }
+            ::highlight(favlock-article-${namespace}-yellow) { background-color: #fde68a; color: #1d2230; }
+            ::highlight(favlock-article-${namespace}-green) { background-color: #bbf7d0; color: #1d2230; }
+            ::highlight(favlock-article-${namespace}-blue) { background-color: #bfdbfe; color: #1d2230; }
+            ::highlight(favlock-article-${namespace}-pink) { background-color: #fbcfe8; color: #1d2230; }
           `}</style>
           <div className="mx-auto max-w-3xl">
             <DialogTitle>
-              <span className="block font-serif text-3xl leading-tight tracking-tight text-zinc-950 sm:text-5xl">
+              <span className="block font-serif text-3xl leading-tight tracking-tight text-zinc-950 dark:text-[var(--app-ink)] sm:text-5xl">
                 {article.entry.title}
               </span>
             </DialogTitle>
-            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-zinc-600">
+            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-medium text-zinc-600 dark:text-[var(--app-muted)]">
               {metadata.map((item, index) => (
                 <span key={`${item}-${index}`} className="inline-flex items-center gap-2">
-                  {index > 0 ? <span className="text-zinc-300">•</span> : null}
+                  {index > 0 ? <span className="text-zinc-300 dark:text-[var(--app-muted)]">•</span> : null}
                   <span>{item}</span>
                 </span>
               ))}
               <span className="inline-flex items-center gap-2">
-                {metadata.length > 0 ? <span className="text-zinc-300">•</span> : null}
+                {metadata.length > 0 ? <span className="text-zinc-300 dark:text-[var(--app-muted)]">•</span> : null}
                 <a
                   href={article.content.sourceUrl}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="inline-flex items-center gap-1 font-semibold text-[#0f766e] hover:underline"
+                  className="inline-flex items-center gap-1 font-semibold text-[var(--app-primary)] hover:underline"
                 >
                   Original <ExternalLink size={13} aria-hidden="true" />
                 </a>
               </span>
             </div>
             {article.entry.folder || article.entry.tags?.length ? (
-              <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600">
+              <div className="mt-3 flex flex-wrap gap-1.5 text-xs font-medium text-zinc-600 dark:text-[var(--app-muted)]">
                 {article.entry.folder ? (
                   <Badge
                     color={getCollectionBadgeColor(article.entry.folder.color)}
@@ -285,7 +285,7 @@ export default function ReadspaceArticleDialog({
                 {article.entry.tags?.map((tag) => (
                   <span
                     key={tag.id}
-                    className="inline-flex items-center gap-1 rounded-full bg-violet-500/8 px-2.5 py-1 text-violet-700"
+                    className="inline-flex items-center gap-1 rounded-full bg-violet-500/8 px-2.5 py-1 text-violet-700 dark:text-violet-300"
                   >
                     <Tag size={11} aria-hidden="true" />#{tag.name}
                   </span>
@@ -300,34 +300,34 @@ export default function ReadspaceArticleDialog({
                 onSelection={detectSelection}
               />
             ) : (
-              <div className="my-8 rounded-xl bg-amber-50 p-4 text-sm leading-6 text-amber-950">
+              <div className="my-8 rounded-xl bg-amber-50 dark:bg-[var(--app-butter)] p-4 text-sm leading-6 text-amber-950 dark:text-amber-200">
                 This older Readspace entry contains only its source details. Open
                 the original article to read it.
               </div>
             )}
 
             {highlights.length ? (
-              <section className="mb-8 border-t border-zinc-950/10 pt-5" aria-label="Article highlights">
-                <h3 className="text-sm font-semibold text-zinc-950">
+              <section className="mb-8 border-t border-zinc-950/10 dark:border-[var(--app-line)]/10 pt-5" aria-label="Article highlights">
+                <h3 className="text-sm font-semibold text-zinc-950 dark:text-[var(--app-ink)]">
                   Highlights ({highlights.length})
                 </h3>
-                {colorError ? <p className="mt-2 text-xs text-red-600" role="alert">{colorError}</p> : null}
+                {colorError ? <p className="mt-2 text-xs text-red-600 dark:text-red-300" role="alert">{colorError}</p> : null}
                 <ul className="mt-3 space-y-2">
                   {highlights.map((highlight) => (
-                    <li key={highlight.id} className="rounded-xl bg-zinc-950/[0.035] p-3">
+                    <li key={highlight.id} className="rounded-xl bg-zinc-950 dark:bg-[var(--app-line)]/[0.035] p-3">
                       <div className="flex items-start gap-2">
                         <span className={{ yellow: "bg-amber-300", green: "bg-emerald-300", blue: "bg-sky-300", pink: "bg-pink-300" }[highlight.payload.color] + " mt-1 size-2.5 flex-none rounded-full"} />
-                        <p className="min-w-0 flex-1 text-sm leading-5 text-zinc-800">{highlight.payload.quote.exact}</p>
+                        <p className="min-w-0 flex-1 text-sm leading-5 text-zinc-800 dark:text-[var(--app-ink)]">{highlight.payload.quote.exact}</p>
                         <ProFeatureTooltip active={annotationProRequired}>
-                          <button type="button" disabled={!canAnnotate} className="rounded-md p-1.5 text-zinc-500 hover:bg-white hover:text-[#0f766e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] disabled:cursor-not-allowed disabled:opacity-45" aria-label={highlight.payload.note ? "Edit annotation" : "Add annotation"} onClick={() => openAnnotation(highlight)}>
+                          <button type="button" disabled={!canAnnotate} className="rounded-md p-1.5 text-zinc-500 dark:text-[var(--app-muted)] hover:bg-[var(--app-highlight)] hover:text-[var(--app-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)] disabled:cursor-not-allowed disabled:opacity-45" aria-label={highlight.payload.note ? "Edit annotation" : "Add annotation"} onClick={() => openAnnotation(highlight)}>
                             <MessageSquareText className="size-4" />
                           </button>
                         </ProFeatureTooltip>
-                        <button type="button" className="rounded-md p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600" aria-label="Delete highlight" onClick={() => setDeleteTarget(highlight)}>
+                        <button type="button" className="rounded-md p-1.5 text-zinc-500 dark:text-[var(--app-muted)] hover:bg-red-50 hover:dark:bg-[var(--app-rose)] hover:text-red-700 hover:dark:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-600" aria-label="Delete highlight" onClick={() => setDeleteTarget(highlight)}>
                           <Trash2 className="size-4" />
                         </button>
                       </div>
-                      {highlight.payload.note ? <div className="mt-2 pl-[18px] text-xs leading-5 text-zinc-600"><CollapsibleAnnotation text={highlight.payload.note} /></div> : null}
+                      {highlight.payload.note ? <div className="mt-2 pl-[18px] text-xs leading-5 text-zinc-600 dark:text-[var(--app-muted)]"><CollapsibleAnnotation text={highlight.payload.note} /></div> : null}
                       <div className="mt-2 flex gap-1 pl-[18px]" role="group" aria-label="Highlight color">
                         {([
                           ["yellow", "Yellow", "bg-amber-300"],
@@ -342,7 +342,7 @@ export default function ReadspaceArticleDialog({
                             aria-pressed={highlight.payload.color === color}
                             disabled={updateColor.isPending || highlight.payload.color === color}
                             onClick={() => void changeColor(highlight, color)}
-                            className={`size-4 rounded-full border border-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e] focus-visible:ring-offset-1 ${className} ${highlight.payload.color === color ? "ring-2 ring-zinc-700 ring-offset-1" : ""}`}
+                            className={`size-4 rounded-full border border-black/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)] focus-visible:ring-offset-1 ${className} ${highlight.payload.color === color ? "ring-2 ring-zinc-700 dark:ring-[var(--app-line)] ring-offset-1" : ""}`}
                           />
                         ))}
                       </div>
@@ -378,7 +378,7 @@ export default function ReadspaceArticleDialog({
                   </ProFeatureTooltip>
                 </div>
                 {annotationOpen ? (
-                  <div className="mt-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_58%,white)] p-3">
+                  <div className="mt-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_58%,var(--app-highlight))] p-3">
                     <div className="mb-2.5 flex items-start gap-2">
                       <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-card))] text-[var(--app-primary)]">
                         <MessageSquareText className="size-4" aria-hidden="true" />
@@ -416,12 +416,12 @@ export default function ReadspaceArticleDialog({
                     </div>
                   </div>
                 ) : null}
-                {saveError ? <p className="mt-2 text-xs text-red-600" role="alert">{saveError}</p> : null}
+                {saveError ? <p className="mt-2 text-xs text-red-600 dark:text-red-300" role="alert">{saveError}</p> : null}
               </div>
             </Portal>
           ) : null}
 
-          <DialogActions className="mx-auto max-w-3xl border-t border-zinc-950/10 pt-5">
+          <DialogActions className="mx-auto max-w-3xl border-t border-zinc-950/10 dark:border-[var(--app-line)]/10 pt-5">
             <Button type="button" outline onClick={onClose}>
               Close
             </Button>
@@ -449,7 +449,7 @@ export default function ReadspaceArticleDialog({
     <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} size="sm">
       <DialogTitle>Move this highlight to Trash?</DialogTitle>
       <DialogDescription>You can restore it during your plan’s recovery period. The saved article remains in Readspace.</DialogDescription>
-      {deleteError ? <p className="mt-3 text-sm text-red-600" role="alert">{deleteError}</p> : null}
+      {deleteError ? <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">{deleteError}</p> : null}
       <DialogActions>
         <Button type="button" plain disabled={deleteHighlight.isPending} onClick={() => setDeleteTarget(null)}>Cancel</Button>
         <Button type="button" color="red" disabled={deleteHighlight.isPending} onClick={() => void confirmDelete()}>{deleteHighlight.isPending ? "Moving…" : "Move to Trash"}</Button>

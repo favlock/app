@@ -622,7 +622,7 @@ function EntryEditorSession({
               {words.toLocaleString()} {words === 1 ? "word" : "words"}{" "}
               <span
                 className={
-                  contentLength > ENTRY_CONTENT_MAX_LENGTH ? "text-red-600" : ""
+                  contentLength > ENTRY_CONTENT_MAX_LENGTH ? "text-red-600 dark:text-red-300" : ""
                 }
               >
                 · {contentLength.toLocaleString()}/
@@ -662,7 +662,7 @@ function EntryEditorSession({
             </p>
           )}
           {contentLength > ENTRY_CONTENT_MAX_LENGTH && (
-            <p role="alert" className="mt-2 text-sm text-red-600">
+            <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-300">
               {plural} can contain up to{" "}
               {ENTRY_CONTENT_MAX_LENGTH.toLocaleString()} characters. Your text
               is still here; shorten it before saving.
@@ -673,7 +673,7 @@ function EntryEditorSession({
               <ErrorMessage className="mt-3">{error}</ErrorMessage>
             </div>
           )}
-          {draft.error && <p role="alert" className="mt-3 text-sm text-red-600">{draft.error}</p>}
+          {draft.error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">{draft.error}</p>}
           {!unlocked && <p role="status" className="mt-3 text-sm">Unlock your vault to continue writing.</p>}
           {changedElsewhere && <p role="alert" className="mt-3 text-sm text-[var(--app-muted)]">This document changed elsewhere. Autosave is paused; review your writing before replacing the account version.</p>}
           {dirty && !online && <p role="status" className="mt-3 text-sm text-[var(--app-muted)]">Offline · account save is waiting for a connection.</p>}

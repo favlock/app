@@ -7,9 +7,12 @@ keeping compact navigation and familiar library interactions.
 
 `dashboard/src/index.css` owns the shared tokens and component styles.
 Use Avenir Next with the system fallbacks in `--font-sans`, dark readable ink,
-a warm cream canvas, and teal primary actions. The dashboard has one fixed
-appearance. Legacy local and account theme preferences do not affect it; the
-account API still accepts those values for compatibility with older clients.
+a warm cream canvas, and teal primary actions. Settings → Preferences offers Light, Dark, and Auto. Auto is the default and
+follows device appearance changes. The choice is saved per browser under
+`favlock.appearance` and applied before React renders. Dark mode uses soft charcoal
+surfaces with muted pastel fills and light ink. Use `--app-highlight` for blended
+surface highlights and `--app-on-primary` for text on primary actions.
+Legacy account theme variants remain unchanged for API compatibility.
 
 Pastels are decorative sibling surfaces, not status colors:
 

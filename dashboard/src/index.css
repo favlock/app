@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-appearance="dark"], [data-appearance="dark"] *));
+
 @theme {
   --font-sans:
     "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
@@ -7,6 +9,16 @@
 }
 
 :root {
+  color-scheme: light;
+  --app-highlight: #ffffff;
+  --app-glint: rgb(255 255 255 / .7);
+  --app-on-primary: #ffffff;
+  --app-danger: #9b3434;
+  --app-mint-hover: #d9eeea;
+  --app-peach-hover: #f8e0d1;
+  --app-rose: #fbe9ed;
+  --app-green: #eef8ef;
+  --app-pink: #fbeef5;
   --app-bg: #fffaf0;
   --app-card: #fff8e7;
   --app-card-strong: #fff2da;
@@ -32,6 +44,78 @@
   --app-sky: #edf6fb;
   --app-sky-border: #bad4e5;
 }
+
+:root[data-appearance="dark"] {
+  color-scheme: dark;
+  --app-bg: #22262b;
+  --app-card: #2b3036;
+  --app-card-strong: #373c43;
+  --app-reading: #292e34;
+  --app-navigation: #282e33;
+  --app-highlight: #353c43;
+  --app-glint: rgb(255 255 255 / .06);
+  --app-ink: #ede9e1;
+  --app-muted: #b6bbc4;
+  --app-line: #c4c9d0;
+  --app-primary: #a6d6cb;
+  --app-on-primary: #203e39;
+  --app-accent: #e8c88e;
+  --app-secondary: #bad4e5;
+  --app-hero-start: #39382f;
+  --app-hero-mid: #2e3d37;
+  --app-hero-end: #2e3b45;
+  --app-mint: #2e403c;
+  --app-mint-border: #55766c;
+  --app-lavender: #3b3548;
+  --app-lavender-border: #736584;
+  --app-peach: #463933;
+  --app-peach-border: #866958;
+  --app-butter: #413d30;
+  --app-butter-border: #80734f;
+  --app-sky: #303e49;
+  --app-sky-border: #5b7589;
+  --app-rose: #46343c;
+  --app-green: #334136;
+  --app-pink: #443545;
+  --app-danger: #efb3b1;
+  --app-mint-hover: #3a504a;
+  --app-peach-hover: #56433c;
+}
+
+/* Preserve the brand mark independently of the surrounding interface palette. */
+.app-logo {
+  --logo-primary: #0f766e;
+  --logo-accent: #f59e0b;
+  --logo-ink: #1d2230;
+  --logo-wordmark-primary: #0f766e;
+}
+.app-logo > text { fill: var(--app-ink); }
+.app-logo > text:last-child { fill: var(--logo-wordmark-primary); }
+:root[data-appearance="dark"] .app-logo { --logo-wordmark-primary: #56b7a9; }
+
+.appearance-control {
+  --appearance-radius: 1rem;
+  display: flex;
+  width: min(100%, 22rem);
+  gap: .25rem;
+  padding: .25rem;
+  border: 1px solid var(--app-mint-border);
+  border-radius: var(--appearance-radius);
+  background: var(--app-reading);
+}
+.appearance-option { flex: 1; min-width: 0; cursor: pointer; }
+.appearance-option > span {
+  display: flex; align-items: center; justify-content: center; gap: .5rem;
+  min-height: 2.75rem; padding: .5rem;
+  border-radius: calc(var(--appearance-radius) - .25rem - 1px);
+  color: var(--app-muted); font-size: .875rem; font-weight: 600;
+}
+.appearance-option:hover > span { background: var(--app-card); color: var(--app-ink); }
+.appearance-option > input:checked + span {
+  background: var(--app-mint); color: var(--app-primary);
+  box-shadow: inset 0 0 0 1px var(--app-mint-border);
+}
+.appearance-option > input:focus-visible + span { outline: 3px solid var(--app-primary); outline-offset: 2px; }
 
 * {
   box-sizing: border-box;
@@ -285,7 +369,7 @@ body::before {
 
 .library-card:hover {
   border-color: color-mix(in oklab, var(--card-border) 65%, var(--app-primary));
-  background: color-mix(in oklab, var(--card-fill) 80%, white);
+  background: color-mix(in oklab, var(--card-fill) 80%, var(--app-highlight));
 }
 
 .library-card:focus-within {
@@ -295,7 +379,7 @@ body::before {
 
 .library-card-badge {
   border: 1px solid var(--card-border);
-  background: color-mix(in oklab, var(--card-fill) 50%, white);
+  background: color-mix(in oklab, var(--card-fill) 50%, var(--app-highlight));
   color: var(--app-ink);
 }
 
@@ -315,7 +399,7 @@ body::before {
 
 .app-library-nav .theme-nav-button-active > span:first-child > svg {
   background: var(--app-primary);
-  color: white;
+  color: var(--app-on-primary);
 }
 
 :where(a, button, summary):focus-visible {
@@ -349,12 +433,12 @@ body::before {
 }
 
 .theme-button-base[data-focus] {
-  outline-color: color-mix(in oklab, var(--app-primary) 65%, white);
+  outline-color: color-mix(in oklab, var(--app-primary) 65%, var(--app-highlight));
 }
 
 .theme-button-surface {
   border-color: color-mix(in oklab, var(--app-line) 11%, transparent);
-  background: color-mix(in oklab, var(--app-card) 82%, white);
+  background: color-mix(in oklab, var(--app-card) 82%, var(--app-highlight));
   color: var(--app-ink);
   box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 8%, transparent);
 }
@@ -362,13 +446,13 @@ body::before {
 .theme-button-surface:not(:disabled):hover,
 .theme-button-surface[data-hover]:not([data-disabled]) {
   border-color: color-mix(in oklab, var(--app-primary) 24%, transparent);
-  background: color-mix(in oklab, var(--app-card-strong) 58%, white);
+  background: color-mix(in oklab, var(--app-card-strong) 58%, var(--app-highlight));
   box-shadow: 0 2px 6px color-mix(in oklab, var(--app-line) 10%, transparent);
 }
 
 .theme-button-surface:not(:disabled):active,
 .theme-button-surface[data-active]:not([data-disabled]) {
-  background: color-mix(in oklab, var(--app-card-strong) 70%, white);
+  background: color-mix(in oklab, var(--app-card-strong) 70%, var(--app-highlight));
   box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 8%, transparent);
 }
 
@@ -377,9 +461,9 @@ body::before {
   min-height: 2.75rem;
   --btn-bg: var(--app-primary);
   --btn-border: color-mix(in oklab, var(--app-primary) 72%, var(--app-line));
-  --btn-hover-overlay: color-mix(in oklab, white 12%, transparent);
-  --btn-icon: color-mix(in oklab, white 72%, var(--app-primary));
-  color: white;
+  --btn-hover-overlay: color-mix(in oklab, var(--app-highlight) 12%, transparent);
+  --btn-icon: var(--app-on-primary);
+  color: var(--app-on-primary);
   box-shadow:
     0 1px 2px color-mix(in oklab, var(--app-line) 14%, transparent),
     0 5px 14px -8px color-mix(in oklab, var(--app-primary) 52%, transparent);
@@ -421,7 +505,7 @@ body::before {
   justify-content: center;
   border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
   border-radius: 0.7rem;
-  background: color-mix(in oklab, var(--app-card) 76%, white);
+  background: color-mix(in oklab, var(--app-card) 76%, var(--app-highlight));
   color: var(--app-muted);
   box-shadow: 0 1px 2px color-mix(in oklab, var(--app-line) 7%, transparent);
   cursor: pointer;
@@ -434,13 +518,13 @@ body::before {
 
 .theme-button-icon:not(:disabled):hover {
   border-color: color-mix(in oklab, var(--app-primary) 22%, transparent);
-  background: color-mix(in oklab, var(--app-card-strong) 58%, white);
+  background: color-mix(in oklab, var(--app-card-strong) 58%, var(--app-highlight));
   color: var(--app-primary);
   box-shadow: 0 2px 6px color-mix(in oklab, var(--app-line) 9%, transparent);
 }
 
 .theme-button-icon:not(:disabled):active {
-  background: color-mix(in oklab, var(--app-card-strong) 70%, white);
+  background: color-mix(in oklab, var(--app-card-strong) 70%, var(--app-highlight));
   box-shadow: none;
 }
 
@@ -479,6 +563,23 @@ body::before {
 .theme-nav-count-active {
   background: color-mix(in oklab, var(--app-primary) 18%, var(--app-card));
   color: var(--app-primary);
+}
+
+:root[data-appearance="dark"] .theme-button-danger {
+  --btn-bg: #50383e;
+  --btn-border: #865f68;
+  --btn-hover-overlay: rgb(239 179 177 / .08);
+  --btn-icon: var(--app-danger);
+  color: var(--app-danger);
+}
+
+:root[data-appearance="dark"] .theme-button-danger [data-slot="icon"] {
+  color: var(--app-danger);
+}
+
+:root[data-appearance="dark"] .theme-danger-button:hover {
+  background: var(--app-rose);
+  color: var(--app-danger);
 }
 
 .theme-danger-button:hover {
@@ -527,7 +628,7 @@ body::before {
 }
 
 .liquid-skeleton-surface {
-  background: color-mix(in oklab, var(--app-card) 90%, white);
+  background: color-mix(in oklab, var(--app-card) 90%, var(--app-highlight));
   border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
   border-radius: 1.5rem;
 }
@@ -536,7 +637,7 @@ body::before {
   background-image: linear-gradient(
     110deg,
     color-mix(in oklab, var(--app-line) 10%, transparent) 10%,
-    color-mix(in oklab, white 75%, transparent) 40%,
+    color-mix(in oklab, var(--app-highlight) 75%, transparent) 40%,
     color-mix(in oklab, var(--app-line) 10%, transparent) 70%
   );
   background-size: 220% 100%;
@@ -667,13 +768,13 @@ body::before {
 }
 
 .liquid-chip {
-  background: color-mix(in oklab, var(--app-accent) 18%, white);
+  background: color-mix(in oklab, var(--app-accent) 18%, var(--app-highlight));
   border: 1px solid color-mix(in oklab, var(--app-line) 14%, transparent);
-  color: color-mix(in oklab, var(--app-line) 72%, black);
+  color: var(--app-ink);
 }
 
 .liquid-input {
-  background: color-mix(in oklab, var(--app-card) 88%, white);
+  background: color-mix(in oklab, var(--app-card) 88%, var(--app-highlight));
   border-color: color-mix(in oklab, var(--app-line) 18%, transparent);
   color: var(--app-ink);
 }
@@ -781,7 +882,7 @@ body::before {
 .entry-link-panel, .entry-table-tools { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; padding: .5rem 0; font-size: .8rem; }
 .entry-link-panel input { flex: 1; min-width: 8rem; padding: .5rem; background: var(--app-card); border: 1px solid var(--app-muted); border-radius: .4rem; }
 .entry-link-panel button, .entry-table-tools button { padding: .5rem; text-decoration: underline; cursor: pointer; }
-.entry-link-panel p { width: 100%; color: #dc2626; }
+.entry-link-panel p { width: 100%; color: var(--app-danger); }
 @media (max-width: 639px) {
   .entry-writing-page { padding: 1.25rem 1rem 2rem; }
   .entry-writing-dialog-compact .entry-writing-page { padding-inline: 1rem; }
@@ -888,15 +989,15 @@ body::before {
 }
 
 .trash-action.theme-button-base [data-slot="icon"] { color: inherit; }
-.trash-action.theme-button-base:not(:disabled):hover { background: #d9eeea; }
+.trash-action.theme-button-base:not(:disabled):hover { background: var(--app-mint-hover); }
 
 .trash-action-danger.theme-button-base {
   border-color: var(--app-peach-border);
   background: var(--app-peach);
-  color: #9b3434;
+  color: var(--app-danger);
 }
 
-.trash-action-danger.theme-button-base:not(:disabled):hover { background: #f8e0d1; }
+.trash-action-danger.theme-button-base:not(:disabled):hover { background: var(--app-peach-hover); }
 
 .lists-page .theme-button-base {
   min-height: 2.75rem;
@@ -914,14 +1015,14 @@ body::before {
 }
 .lists-page .theme-button-surface [data-slot="icon"] { color: inherit; }
 .lists-page .theme-button-surface:hover:not(:disabled),
-.lists-page .theme-button-icon:hover:not(:disabled) { background: #d9eeea; }
+.lists-page .theme-button-icon:hover:not(:disabled) { background: var(--app-mint-hover); }
 .lists-page .list-icon-action { border-radius: 50%; flex-shrink: 0; }
 .lists-page .list-action-danger {
   border-color: var(--app-peach-border);
   background: var(--app-peach);
-  color: #9b3434;
+  color: var(--app-danger);
 }
-.lists-page .list-action-danger:hover:not(:disabled) { background: #f8e0d1; }
+.lists-page .list-action-danger:hover:not(:disabled) { background: var(--app-peach-hover); }
 
 .app-combobox > .app-combobox-input {
   min-height: 2.75rem;
@@ -934,7 +1035,7 @@ body::before {
   outline: 3px solid var(--app-primary);
   outline-offset: 2px;
 }
-.app-combobox > .app-combobox-input[data-invalid] { border-color: #b91c1c; }
+.app-combobox > .app-combobox-input[data-invalid] { border-color: var(--app-danger); }
 
 .collection-create-form :is(input, select) {
   min-height: 2.75rem;
@@ -957,7 +1058,7 @@ body::before {
 }
 .collection-create-toggle.theme-button-icon { border-radius: 50%; }
 .collection-create-form .theme-button-surface:hover,
-.collection-create-toggle.theme-button-icon:hover { background: #d9eeea; }
+.collection-create-toggle.theme-button-icon:hover { background: var(--app-mint-hover); }
 
 .library-show-more.theme-button-base {
   min-height: 2.75rem;
@@ -968,6 +1069,6 @@ body::before {
   box-shadow: none;
 }
 .library-show-more.theme-button-base [data-slot="icon"] { color: inherit; }
-.library-show-more.theme-button-base:hover:not(:disabled) { background: #d9eeea; }
+.library-show-more.theme-button-base:hover:not(:disabled) { background: var(--app-mint-hover); }
 .library-show-more.theme-button-base::before,
 .library-show-more.theme-button-base::after { border-radius: inherit; box-shadow: none; }
