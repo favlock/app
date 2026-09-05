@@ -358,7 +358,7 @@ export default function ReadspaceArticleDialog({
               <div
                 role="dialog"
                 aria-label="Save article highlight"
-                className={`fixed z-[70] -translate-x-1/2 overflow-y-auto rounded-2xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_94%,white)] p-2 shadow-[0_18px_48px_-20px_color-mix(in_oklab,var(--app-line)_48%,transparent),0_4px_14px_-8px_color-mix(in_oklab,var(--app-line)_24%,transparent)] ${annotationOpen ? "w-[min(22rem,calc(100vw-1.5rem))]" : "w-auto max-w-[calc(100vw-1.5rem)]"} ${selection.placement === "above" ? "-translate-y-full" : ""}`}
+                className={`fixed z-[70] -translate-x-1/2 overflow-y-auto app-popup-surface p-2 ${annotationOpen ? "w-[min(22rem,calc(100vw-1.5rem))]" : "w-auto max-w-[calc(100vw-1.5rem)]"} ${selection.placement === "above" ? "-translate-y-full" : ""}`}
                 style={{ left: selection.left, top: selection.top, maxHeight: selection.maxHeight }}
               >
                 <div className="flex items-center gap-1.5" role="group" aria-label="Highlight color">
@@ -430,7 +430,7 @@ export default function ReadspaceArticleDialog({
       ) : null}
     </Dialog>
 
-    <Dialog open={!!annotationTarget} onClose={() => setAnnotationTarget(null)} size="sm" className="bg-[color-mix(in_oklab,var(--app-card)_94%,white)]! [--gutter:0.5rem]!">
+    <Dialog open={!!annotationTarget} onClose={() => setAnnotationTarget(null)} size="sm" className="[--gutter:0.5rem]!">
       <HighlightAnnotationEditor
         value={annotationText}
         saving={updateAnnotation.isPending}

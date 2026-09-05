@@ -860,7 +860,7 @@ function CloudReadspace() {
           setAnnotationError(null);
         }}
         size="sm"
-        className="bg-[color-mix(in_oklab,var(--app-card)_94%,white)]! [--gutter:0.5rem]!"
+        className="[--gutter:0.5rem]!"
       >
         <HighlightAnnotationEditor
           value={annotationText}

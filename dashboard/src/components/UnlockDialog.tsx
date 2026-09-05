@@ -74,6 +74,17 @@ export default function UnlockDialog() {
     };
   }, [accessToken, isLocalAccount, needsUnlock, user?.id]);
 
+  useEffect(() => {
+    if (!scanning) return;
+    const desktop = window.matchMedia("(min-width: 1024px)");
+    const stopOnDesktop = () => {
+      if (desktop.matches) setScanning(false);
+    };
+    stopOnDesktop();
+    desktop.addEventListener("change", stopOnDesktop);
+    return () => desktop.removeEventListener("change", stopOnDesktop);
+  }, [scanning]);
+
   const unlockWithRawKey = useCallback(
     async (rawKey: string) => {
       setError(null);
@@ -197,7 +208,7 @@ export default function UnlockDialog() {
               Checking for a saved passkey...
             </Text>
           )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="recovery-key-actions grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1">
             <Button
               type="button"
               outline
@@ -213,7 +224,7 @@ export default function UnlockDialog() {
               outline
               disabled={busy}
               onClick={() => setScanning((value) => !value)}
-              className="justify-center"
+              className="justify-center lg:hidden"
             >
               <QrCode data-slot="icon" aria-hidden="true" />
               {scanning ? "Stop scanning" : "Scan QR"}

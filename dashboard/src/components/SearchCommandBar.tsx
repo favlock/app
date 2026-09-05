@@ -242,7 +242,7 @@ export default function SearchCommandBar({
               id="search-history-suggestions"
               role="listbox"
               aria-label="Recent searches"
-              className="absolute top-[calc(100%+0.4rem)] right-0 left-0 z-50 overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_94%,white)] p-1.5 shadow-[0_18px_45px_-22px_rgba(29,34,48,0.36)] backdrop-blur-xl"
+              className="absolute top-[calc(100%+0.4rem)] right-0 left-0 z-50 app-popup-surface [--popup-inset:0.375rem] p-1.5"
             >
               <div className="px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[var(--app-muted)] uppercase">
                 Recent searches

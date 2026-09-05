@@ -1,3 +1,4 @@
+import { useFolders } from "../hooks/useFoldersQuery";
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   CheckCircle2,
@@ -56,6 +57,8 @@ export default function EntryCard<TEntry extends Entry>({
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const { data: folders = [] } = useFolders();
+  const currentFolder = folders.find((folder) => folder.id === entry.folder?.id) ?? entry.folder;
   const isTodo = kind === "todo";
   const singular = isTodo ? "task" : "document";
   const previewHtml = sanitizeEntryHtml(entry.content);
@@ -101,6 +104,7 @@ export default function EntryCard<TEntry extends Entry>({
     <>
       <LibraryCard
         kind={kind}
+        collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={collectionMenuOpen}
         meta={

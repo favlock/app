@@ -144,7 +144,7 @@ function EmailConfirmation({
 
   return (
     <div ref={panelRef} tabIndex={-1} aria-labelledby="confirmation-heading" className="w-full text-center outline-none">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-emerald-700/20 bg-emerald-500/12 text-emerald-700 shadow-[0_4px_0_rgba(15,118,110,0.12)]">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] text-[var(--app-primary)]">
         <MailCheck className="size-7" aria-hidden="true" />
       </div>
 
@@ -152,7 +152,7 @@ function EmailConfirmation({
       <Text className="mt-2">{initiallySent ? "Your signup request was accepted. Check for a confirmation email at" : "Request a new link for the email you used to sign up."}</Text>
       {email && <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>}
 
-      <div className="mt-5 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 px-4 py-3 text-left">
+      <div className="mt-5 rounded-2xl border border-[var(--app-sky-border)] bg-[var(--app-sky)] px-4 py-3 text-left">
         <p className="text-sm font-semibold text-[#202229]">
           Confirm your email to finish signing up
         </p>
@@ -547,9 +547,9 @@ export default function AuthPage() {
               Continue with email
             </Button>
             <div className="my-5 flex items-center gap-4 text-sm text-[var(--app-muted)]" aria-hidden="true">
-              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span className="h-px flex-1 bg-[color-mix(in_oklab,var(--app-line)_16%,transparent)]" />
               <span>or</span>
-              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span className="h-px flex-1 bg-[color-mix(in_oklab,var(--app-line)_16%,transparent)]" />
             </div>
             <div className="space-y-3">
               <GoogleAuthButton
@@ -562,26 +562,32 @@ export default function AuthPage() {
               />
             </div>
             {!reconnecting && showLocalOption && (
-              <div className="pt-2">
-                <div className="mb-4 flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-[#777b85]">
-                  <span className="h-px flex-1 bg-[#1d2230]/10" />
-                  No account
-                  <span className="h-px flex-1 bg-[#1d2230]/10" />
+              <section
+                aria-labelledby="local-vault-heading"
+                className="mt-6 rounded-2xl border border-[var(--app-butter-border)] bg-[var(--app-butter)] p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--app-butter-border)] bg-[var(--app-reading)] text-[var(--app-primary)]">
+                    <HardDrive className="size-5" aria-hidden="true" />
+                  </span>
+                  <h2 id="local-vault-heading" className="text-sm font-semibold text-[var(--app-ink)]">
+                    Start without an account
+                  </h2>
                 </div>
+                <p id="local-vault-description" className="mt-3 text-sm leading-6 text-[var(--app-muted)]">
+                  Encrypted and stored only in this browser. No account or cloud connection.
+                </p>
                 <Button
                   type="button"
                   outline
-                  className="w-full"
+                  className="mt-4 min-h-12 w-full rounded-full!"
+                  aria-describedby="local-vault-description"
                   disabled={loading}
                   onClick={() => void createLocalVault()}
                 >
-                  <HardDrive data-slot="icon" aria-hidden="true" />
                   {loading ? "Creating local vault..." : "Try FavLock locally"}
                 </Button>
-                <Text className="mt-2 text-center text-xs">
-                  Encrypted and stored only in this browser. No account or cloud connection.
-                </Text>
-              </div>
+              </section>
             )}
           </div>
         ) : (
@@ -603,7 +609,7 @@ export default function AuthPage() {
             <div
               role="tablist"
               aria-label="Email authentication"
-              className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+              className="auth-email-tabs mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-reading)] p-1"
             >
               <button
                 id="email-sign-in-tab"
@@ -618,7 +624,7 @@ export default function AuthPage() {
                 }
                 className={`theme-nav-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold ${
                   emailMode === "sign-in"
-                    ? "theme-nav-button-active shadow-sm"
+                    ? "theme-nav-button-active"
                     : ""
                 }`}
               >
@@ -639,7 +645,7 @@ export default function AuthPage() {
                 }
                 className={`theme-nav-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold ${
                   emailMode === "sign-up"
-                    ? "theme-nav-button-active shadow-sm"
+                    ? "theme-nav-button-active"
                     : ""
                 }`}
               >
@@ -733,7 +739,7 @@ export default function AuthPage() {
                 <Text className="mt-4 text-center">
                   <Link
                     to="/reset-password"
-                    className="font-medium text-emerald-600 hover:underline"
+                    className="font-medium text-[var(--app-primary)] hover:underline"
                   >
                     Forgot password?
                   </Link>

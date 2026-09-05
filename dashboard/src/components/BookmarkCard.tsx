@@ -241,6 +241,7 @@ export default function BookmarkCard({
     <>
       <LibraryCard
         kind="bookmark"
+        collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={showFolderMenu}
         meta={
@@ -349,11 +350,7 @@ export default function BookmarkCard({
                 aria-haspopup="menu"
                 aria-expanded={showFolderMenu}
                 aria-controls={`folder-menu-${bookmark.id}`}
-                color={
-                  currentFolder
-                    ? getCollectionBadgeColor(currentFolder.color)
-                    : "zinc"
-                }
+                color={getCollectionBadgeColor(currentFolder?.color)}
                 className="max-w-full cursor-pointer text-sm transition-opacity hover:opacity-85"
                 title={currentFolder ? currentFolder.name : "No collection"}
               >
@@ -403,7 +400,7 @@ export default function BookmarkCard({
                             : (currentIndex - 1 + items.length) % items.length;
                     items[nextIndex]?.focus();
                   }}
-                  className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-[#1d2230]/20 bg-[#fff8e9] py-1.5 shadow-[0_8px_18px_-12px_rgba(29,34,48,0.42)]"
+                  className="absolute left-0 top-full z-50 mt-1.5 w-64 app-popup-surface app-collection-menu p-1"
                 >
                   <Button
                     onClick={() => moveToFolder(null)}
@@ -411,10 +408,10 @@ export default function BookmarkCard({
                     plain
                     role="menuitemradio"
                     aria-checked={currentFolderId === null}
-                    className={`w-full px-3 py-1.5 text-left text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                    className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                       currentFolderId === null
-                        ? "bg-[#ffefcb] font-medium text-[#0f766e]  "
-                        : "text-[#4f5566] hover:bg-[#ffefcb]/70  "
+                        ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]  "
+                        : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]  "
                     }`}
                   >
                     No collection
@@ -428,10 +425,11 @@ export default function BookmarkCard({
                       plain
                       role="menuitemradio"
                       aria-checked={currentFolderId === folder.id}
-                      className={`w-full px-3 py-1.5 text-left text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+              data-child={Boolean(folder.parent_id)}
+                      className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                         currentFolderId === folder.id
-                          ? "bg-[#ffefcb] font-medium text-[#0f766e]  "
-                          : "text-[#4f5566] hover:bg-[#ffefcb]/70  "
+                          ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]  "
+                          : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]  "
                       }`}
                     >
                       <span className="truncate" title={folder.name}>

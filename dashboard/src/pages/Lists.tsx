@@ -197,7 +197,7 @@ export default function Lists() {
   };
 
   return (
-    <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
+    <div className="lists-page w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
       <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
         <div className="flex items-start justify-between gap-4 py-1 sm:py-2">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -277,10 +277,11 @@ export default function Lists() {
                         setEditingName(false);
                         setError(null);
                       }}
-                      className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selectedListId === list.id ? "bg-[var(--app-primary)] text-white shadow-sm" : "hover:bg-[var(--app-card-strong)]"}`}
+                      aria-current={selectedListId === list.id ? "true" : undefined}
+                      className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selectedListId === list.id ? "bg-[var(--app-mint)] text-[var(--app-primary)] ring-1 ring-inset ring-[var(--app-mint-border)]" : "hover:bg-[var(--app-card-strong)]"}`}
                     >
                       <span className="block truncate text-sm font-semibold">{list.name}</span>
-                      <span className={`mt-1 block text-xs ${selectedListId === list.id ? "text-white/75" : "text-[var(--app-muted)]"}`}>
+                      <span className={`mt-1 block text-xs ${selectedListId === list.id ? "text-[var(--app-primary)]" : "text-[var(--app-muted)]"}`}>
                         {listProgress.completed} of {listProgress.total} completed
                       </span>
                     </button>
@@ -318,7 +319,7 @@ export default function Lists() {
                       <h2 className="truncate text-xl font-semibold text-[var(--app-ink)]">{selectedList.name}</h2>
                       <button
                         type="button"
-                        className="theme-button-icon inline-flex size-9"
+                        className="theme-button-icon list-icon-action inline-flex size-11"
                         aria-label="Rename List"
                         onClick={() => {
                           setNameDraft(selectedList.name);
@@ -345,7 +346,7 @@ export default function Lists() {
                   </Button>
                   <button
                     type="button"
-                    className="theme-button-icon inline-flex size-10 text-red-600"
+                    className="theme-button-icon list-icon-action list-action-danger inline-flex size-11"
                     aria-label="Delete List"
                     onClick={() => setDeleteTarget(selectedList)}
                   >
@@ -361,13 +362,14 @@ export default function Lists() {
               {addingItem ? (
                 <form
                   onSubmit={addItem}
-                  className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_6%,var(--app-card))] p-3"
+                  className="mt-4 rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] p-4"
                 >
-                  <label className="text-sm font-semibold text-[var(--app-ink)]">
+                  <p className="text-sm font-semibold text-[var(--app-ink)]">
                     Add an existing bookmark
-                  </label>
+                  </p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Combobox<Bookmark>
+                      aria-label="Search bookmarks"
                       value={selectedBookmark ?? undefined}
                       onChange={setSelectedBookmark}
                       options={availableBookmarks}
@@ -444,7 +446,7 @@ export default function Lists() {
                           </a>
                           <span className="mt-0.5 block truncate text-xs text-[var(--app-muted)]">{getMainDomain(item.bookmark.url)}</span>
                         </div>
-                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" className="theme-button-icon inline-flex size-9" aria-label={`Open ${item.bookmark.title}`}>
+                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" className="theme-button-icon list-icon-action inline-flex size-11" aria-label={`Open ${item.bookmark.title}`}>
                           <ExternalLink size={15} aria-hidden="true" />
                         </a>
                         <div className="flex">
@@ -454,7 +456,7 @@ export default function Lists() {
                           <button type="button" className="theme-button-icon inline-flex size-8" disabled={index === selectedList.items.length - 1 || reorderItems.isPending} aria-label={`Move ${item.bookmark.title} down`} onClick={() => void move(item.bookmark.id, "down")}>
                             <ChevronDown size={15} aria-hidden="true" />
                           </button>
-                          <button type="button" className="theme-button-icon inline-flex size-8 text-red-600" aria-label={`Remove ${item.bookmark.title} from List`} onClick={() => void removeItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not remove the item."))}>
+                          <button type="button" className="theme-button-icon list-action-danger inline-flex size-8" aria-label={`Remove ${item.bookmark.title} from List`} onClick={() => void removeItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not remove the item."))}>
                             <Trash2 size={14} aria-hidden="true" />
                           </button>
                         </div>

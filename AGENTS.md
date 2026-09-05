@@ -105,6 +105,11 @@ choose the interpretation that produces the largest change.
 
 ## Application engineering rules
 
+- For dashboard UI, follow the radius scale, nested-corner formula, and state
+  consistency rules in [Dashboard design system](docs/dashboard-design-system.md#radius-rules).
+  Apply them to inputs, buttons, tabs, cards, dialogs, menus, and layered surfaces;
+  keep radius decisions in shared components rather than per-page overrides.
+
 - Keep TypeScript strict and prefer explicit domain types over `any`, unchecked
   casts, or loosely shaped objects.
 - Keep React components focused. Put reusable state transitions, parsing,

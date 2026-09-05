@@ -45,7 +45,7 @@ vi.mock("../lib/passkeyEncryption", () => ({
 }));
 
 vi.mock("./KeyQrScanner", () => ({
-  default: () => null,
+  default: ({ active }: { active: boolean }) => active ? <span>QR scanner active</span> : null,
 }));
 
 describe("UnlockDialog", () => {
@@ -71,6 +71,7 @@ describe("UnlockDialog", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.unstubAllGlobals();
   });
 
   const enterKey = () => {
@@ -95,6 +96,28 @@ describe("UnlockDialog", () => {
       );
     });
   };
+
+  it("stops QR scanning when the viewport becomes desktop-sized", async () => {
+    let onChange = () => {};
+    const desktop = {
+      matches: false,
+      addEventListener: vi.fn((_event: string, listener: () => void) => { onChange = listener; }),
+      removeEventListener: vi.fn(),
+    };
+    vi.stubGlobal("matchMedia", vi.fn(() => desktop));
+    const scanButton = Array.from(document.querySelectorAll("button"))
+      .find((button) => button.textContent?.includes("Scan QR"))!;
+
+    await act(async () => scanButton.click());
+    expect(document.body.textContent).toContain("QR scanner active");
+
+    await act(async () => {
+      desktop.matches = true;
+      onChange();
+    });
+    expect(document.body.textContent).not.toContain("QR scanner active");
+    expect(desktop.removeEventListener).toHaveBeenCalledWith("change", onChange);
+  });
 
   it("remembers the key by default", async () => {
     enterKey();

@@ -1,3 +1,4 @@
+import { useFolders } from "../hooks/useFoldersQuery";
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   CalendarDays,
@@ -37,6 +38,8 @@ export default function ReadspaceCard({
 }) {
   const updateFolder = useUpdateEntryFolder();
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const { data: folders = [] } = useFolders();
+  const currentFolder = folders.find((folder) => folder.id === entry.folder?.id) ?? entry.folder;
   const hasPreview = Boolean(getEntryText(content.html).trim());
   const published = content.publishedAt
     ? dateFormatter.format(new Date(content.publishedAt))
@@ -65,6 +68,7 @@ export default function ReadspaceCard({
   return (
     <LibraryCard
       kind="read"
+      collectionColor={currentFolder?.color}
       onClick={handleCardClick}
       raised={collectionMenuOpen}
       meta={

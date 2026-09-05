@@ -2,16 +2,15 @@
 
 @theme {
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-    "Segoe UI", sans-serif;
-  --font-mono: "IBM Plex Mono", "Courier New", monospace;
+    "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Courier New", monospace;
 }
 
 :root {
-  --app-bg: #f7f1df;
+  --app-bg: #fffaf0;
   --app-card: #fff8e7;
-  --app-card-strong: #fff3ce;
-  --app-ink: #202229;
+  --app-card-strong: #fff2da;
+  --app-ink: #1d2230;
   --app-muted: #525768;
   --app-line: #1d2230;
   --app-primary: #0f766e;
@@ -20,51 +19,18 @@
   --app-hero-start: #f8f0d8;
   --app-hero-mid: #eaf6e3;
   --app-hero-end: #dff3fa;
-}
-
-html[data-theme-variant="retro"] {
-  --app-bg: #fff1d8;
-  --app-card: #fff8ea;
-  --app-card-strong: #ffe3b0;
-  --app-ink: #2d1f1b;
-  --app-muted: #6b5048;
-  --app-line: #3d2924;
-  --app-primary: #be123c;
-  --app-accent: #f97316;
-  --app-secondary: #0891b2;
-  --app-hero-start: #ffe7bf;
-  --app-hero-mid: #ffd6d6;
-  --app-hero-end: #d7f6ff;
-}
-
-html[data-theme-variant="neon"] {
-  --app-bg: #f7efff;
-  --app-card: #fff7ff;
-  --app-card-strong: #f4ddff;
-  --app-ink: #24133b;
-  --app-muted: #66507f;
-  --app-line: #3c245f;
-  --app-primary: #7c3aed;
-  --app-accent: #ec4899;
-  --app-secondary: #06b6d4;
-  --app-hero-start: #f5e8ff;
-  --app-hero-mid: #ffe1f1;
-  --app-hero-end: #d9fbff;
-}
-
-html[data-theme-variant="aurora"] {
-  --app-bg: #eefbf5;
-  --app-card: #f8fffd;
-  --app-card-strong: #dcfce7;
-  --app-ink: #172a2f;
-  --app-muted: #526f78;
-  --app-line: #243f46;
-  --app-primary: #0d9488;
-  --app-accent: #8b5cf6;
-  --app-secondary: #0ea5e9;
-  --app-hero-start: #dffbef;
-  --app-hero-mid: #ddf7ff;
-  --app-hero-end: #ede9fe;
+  --app-reading: #fffdf7;
+  --app-navigation: #fff8e8;
+  --app-mint: #eef8f4;
+  --app-mint-border: #a6d6cb;
+  --app-lavender: #f3edf9;
+  --app-lavender-border: #cdbce2;
+  --app-peach: #fff0e8;
+  --app-peach-border: #e6bdab;
+  --app-butter: #fff2da;
+  --app-butter-border: #e8c88e;
+  --app-sky: #edf6fb;
+  --app-sky-border: #bad4e5;
 }
 
 * {
@@ -80,25 +46,9 @@ body {
 
 body {
   font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", Inter,
-    "Segoe UI", sans-serif;
+    "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--app-ink);
-  background:
-    radial-gradient(
-      circle at 8% 0%,
-      color-mix(in oklab, var(--app-accent) 13%, transparent),
-      transparent 30%
-    ),
-    radial-gradient(
-      circle at 92% 0%,
-      color-mix(in oklab, var(--app-secondary) 9%, transparent),
-      transparent 28%
-    ),
-    linear-gradient(
-      180deg,
-      color-mix(in oklab, var(--app-hero-start) 46%, var(--app-bg)),
-      var(--app-bg) 42rem
-    );
+  background: var(--app-bg);
 }
 
 body::before {
@@ -108,6 +58,153 @@ body::before {
 #root {
   position: relative;
   z-index: 1;
+}
+
+/* Shared popup surfaces also apply to portaled menus. */
+.app-dialog-surface {
+  border: 1px solid var(--app-mint-border);
+  border-radius: 1.75rem;
+  background: var(--app-reading);
+  color: var(--app-ink);
+  box-shadow: 0 24px 64px -28px color-mix(in oklab, var(--app-line) 35%, transparent);
+}
+
+.app-dialog-surface[data-full-screen] {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.recovery-key-actions > .theme-button-base {
+  min-height: 2.75rem;
+  border-radius: 999px;
+}
+
+.app-dialog-actions > .theme-button-base:not(.theme-button-plain) {
+  min-height: 2.75rem;
+  border-radius: 999px;
+}
+
+.app-dialog-actions > .theme-button-base::before,
+.app-dialog-actions > .theme-button-base::after {
+  border-radius: inherit;
+}
+
+.app-popup-surface {
+  --popup-radius: 1rem;
+  --popup-inset: .25rem;
+  border: 1px solid var(--app-mint-border);
+  border-radius: var(--popup-radius);
+  background: var(--app-reading);
+  color: var(--app-ink);
+  box-shadow: 0 12px 32px -12px color-mix(in oklab, var(--app-line) 25%, transparent);
+}
+
+.app-popup-item,
+.app-popup-surface > [role="option"],
+.app-popup-surface > [role="menuitemradio"] {
+  border-radius: max(0px, calc(var(--popup-radius) - var(--popup-inset) - 1px));
+}
+
+.app-popup-surface > [role="menuitemradio"]:focus-visible {
+  outline: 2px solid var(--app-primary);
+  outline-offset: -2px;
+}
+
+.app-dialog-surface :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]), select, textarea):not(.entry-writing-title) {
+  min-height: 2.75rem;
+  border-radius: .75rem;
+}
+
+.app-dialog-surface span[data-slot="control"]:has(> :is(input, select, textarea))::before {
+  border-radius: calc(.75rem - 1px);
+  background: var(--app-reading);
+  box-shadow: none;
+}
+
+.app-dialog-surface span[data-slot="control"]:has(> :is(input, select, textarea))::after {
+  border-radius: .75rem;
+  box-shadow: none;
+}
+
+.app-dialog-surface span[data-slot="control"]:has(> :is(input, select, textarea):focus-visible)::after {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 2px;
+}
+
+@media (max-width: 639px) {
+  .app-dialog-sheet:not([data-full-screen]) {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+}
+
+/* Authentication shares the dashboard palette, with one quiet form surface. */
+.auth-layout {
+  background: var(--app-bg);
+}
+
+.auth-panel {
+  background: var(--app-mint);
+  border-color: var(--app-mint-border);
+  color: var(--app-ink);
+}
+
+.auth-panel h1 {
+  color: var(--app-ink);
+  letter-spacing: -.03em;
+  text-wrap: balance;
+}
+
+.auth-email-tabs {
+  --auth-tabs-radius: 1rem;
+  --auth-tabs-padding: .25rem;
+  border-radius: var(--auth-tabs-radius);
+  padding: var(--auth-tabs-padding);
+}
+
+.auth-email-tabs > [role="tab"] {
+  border-radius: calc(var(--auth-tabs-radius) - var(--auth-tabs-padding) - 1px);
+}
+
+.auth-email-tabs .theme-nav-button-active,
+.auth-email-tabs .theme-nav-button:not(:disabled):hover {
+  background: var(--app-mint);
+  color: var(--app-primary);
+}
+
+.auth-email-tabs .theme-nav-button-active {
+  box-shadow: inset 0 0 0 1px var(--app-mint-border);
+}
+
+.auth-panel .theme-button-primary {
+  min-height: 3rem;
+}
+
+.auth-panel [data-slot="control"]:has(> input) {
+  border-radius: .75rem;
+}
+
+.auth-panel [data-slot="control"]:has(> input)::before {
+  border-radius: inherit;
+  background: var(--app-reading);
+  box-shadow: none;
+}
+
+.auth-panel [data-slot="control"]:has(> input)::after {
+  border-radius: inherit;
+  box-shadow: none;
+}
+
+.auth-panel [data-slot="control"] > input {
+  min-height: 3rem;
+  border-radius: .75rem;
+  color: var(--app-ink);
+}
+
+.auth-panel [data-slot="control"]:has(> input:focus-visible)::after {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 2px;
 }
 
 /* Slightly overscan the fixed layer to prevent iOS compositor seams at the
@@ -158,35 +255,77 @@ body::before {
 }
 
 .retro-panel {
-  background: color-mix(in oklab, var(--app-card) 88%, white);
-  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
-  box-shadow: 0 10px 30px -24px color-mix(in oklab, var(--app-line) 28%, transparent);
+  background: color-mix(in oklab, var(--app-reading) 80%, var(--app-card));
+  border: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent);
 }
 
 .app-surface {
-  background: color-mix(in oklab, var(--app-card) 84%, white);
-  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
-  box-shadow:
-    0 1px 2px color-mix(in oklab, var(--app-line) 5%, transparent),
-    0 14px 34px -28px color-mix(in oklab, var(--app-line) 34%, transparent);
-  backdrop-filter: blur(18px) saturate(1.05);
+  background: color-mix(in oklab, var(--app-reading) 80%, var(--app-card));
+  border: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent);
+  box-shadow: 0 6px 24px -20px color-mix(in oklab, var(--app-line) 25%, transparent);
 }
 
 .app-sidebar {
-  background: color-mix(in oklab, var(--app-card) 82%, white);
-  border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
-  box-shadow:
-    0 1px 2px color-mix(in oklab, var(--app-line) 4%, transparent),
-    0 18px 48px -34px color-mix(in oklab, var(--app-line) 32%, transparent);
-  backdrop-filter: blur(22px) saturate(1.06);
+  background: color-mix(in oklab, var(--app-navigation) 75%, var(--app-card));
+  border: 1px solid color-mix(in oklab, var(--app-line) 13%, transparent);
+  box-shadow: 0 12px 32px -26px color-mix(in oklab, var(--app-line) 24%, transparent);
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in oklab, var(--app-line) 16%, transparent)
-    transparent;
+  scrollbar-color: color-mix(in oklab, var(--app-line) 16%, transparent) transparent;
+}
+
+/* Pastels identify sibling surfaces; labels and icons carry their meaning. */
+.library-card {
+  --card-fill: var(--app-reading);
+  --card-border: color-mix(in oklab, var(--app-line) 14%, transparent);
+  border: 1px solid var(--card-border);
+  border-radius: 1.5rem;
+  background: var(--card-fill);
+  transition: border-color 180ms ease-out, background-color 180ms ease-out;
+}
+
+.library-card:hover {
+  border-color: color-mix(in oklab, var(--card-border) 65%, var(--app-primary));
+  background: color-mix(in oklab, var(--card-fill) 80%, white);
+}
+
+.library-card:focus-within {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 3px;
+}
+
+.library-card-badge {
+  border: 1px solid var(--card-border);
+  background: color-mix(in oklab, var(--card-fill) 50%, white);
+  color: var(--app-ink);
+}
+
+.app-library-nav > li { --nav-fill: var(--app-mint); }
+.app-library-nav > li:nth-child(4n + 2) { --nav-fill: var(--app-lavender); }
+.app-library-nav > li:nth-child(4n + 3) { --nav-fill: var(--app-peach); }
+.app-library-nav > li:nth-child(4n + 4) { --nav-fill: var(--app-sky); }
+
+.app-library-nav .theme-nav-button > span:first-child > svg {
+  box-sizing: content-box;
+  flex-shrink: 0;
+  padding: .45rem;
+  border-radius: .7rem;
+  background: var(--nav-fill);
+  color: var(--app-ink);
+}
+
+.app-library-nav .theme-nav-button-active > span:first-child > svg {
+  background: var(--app-primary);
+  color: white;
+}
+
+:where(a, button, summary):focus-visible {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 3px;
 }
 
 .app-sidebar-label {
   color: color-mix(in oklab, var(--app-muted) 82%, var(--app-ink));
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   font-weight: 650;
   letter-spacing: 0.09em;
   line-height: 1.25rem;
@@ -234,6 +373,8 @@ body::before {
 }
 
 .theme-button-primary {
+  border-radius: 999px;
+  min-height: 2.75rem;
   --btn-bg: var(--app-primary);
   --btn-border: color-mix(in oklab, var(--app-primary) 72%, var(--app-line));
   --btn-hover-overlay: color-mix(in oklab, white 12%, transparent);
@@ -244,9 +385,14 @@ body::before {
     0 5px 14px -8px color-mix(in oklab, var(--app-primary) 52%, transparent);
 }
 
+.theme-button-primary::before,
+.theme-button-primary::after {
+  border-radius: inherit;
+}
+
 .theme-button-primary:not(:disabled):hover,
 .theme-button-primary[data-hover]:not([data-disabled]) {
-  filter: brightness(1.035);
+  filter: brightness(0.92);
   box-shadow:
     0 2px 4px color-mix(in oklab, var(--app-line) 12%, transparent),
     0 7px 18px -10px color-mix(in oklab, var(--app-primary) 56%, transparent);
@@ -299,7 +445,7 @@ body::before {
 }
 
 .theme-button-icon:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--app-primary) 65%, white);
+  outline: 3px solid var(--app-primary);
   outline-offset: 2px;
 }
 
@@ -312,13 +458,13 @@ body::before {
     color 150ms ease-out;
 }
 
-.theme-nav-button:hover {
+.theme-nav-button:not(:disabled):hover {
   background: color-mix(in oklab, var(--app-card-strong) 70%, transparent);
   color: var(--app-primary);
 }
 
 .theme-nav-button:focus-visible {
-  outline: 2px solid color-mix(in oklab, var(--app-primary) 65%, white);
+  outline: 3px solid var(--app-primary);
   outline-offset: 2px;
 }
 
@@ -383,9 +529,7 @@ body::before {
 .liquid-skeleton-surface {
   background: color-mix(in oklab, var(--app-card) 90%, white);
   border: 1px solid color-mix(in oklab, var(--app-line) 10%, transparent);
-  border-radius: 0.75rem;
-  box-shadow: 0 8px 24px -20px
-    color-mix(in oklab, var(--app-line) 30%, transparent);
+  border-radius: 1.5rem;
 }
 
 .liquid-skeleton {
@@ -564,20 +708,20 @@ body::before {
   display: flex; align-items: center; justify-content: space-between; gap: .75rem;
   padding: .85rem max(1rem, env(safe-area-inset-right)) .85rem max(1rem, env(safe-area-inset-left));
   border-bottom: 1px solid color-mix(in oklab, var(--app-line) 12%, transparent);
-  background: var(--app-card);
+  background: var(--app-mint);
 }
 .entry-writing-actions, .entry-copy-actions { display: flex; align-items: center; gap: .5rem; }
 .entry-writing-actions { flex: none; }
 .entry-writing-header h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.entry-writing-actions > button:not([data-slot]), .entry-copy-actions button {
+.entry-writing-actions > button:not(.theme-button-base), .entry-copy-actions button {
   display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
   min-height: 2.75rem; min-width: 2.75rem; padding: .4rem .6rem; border-radius: .5rem;
   cursor: pointer;
 }
-.entry-writing-actions button:hover, .entry-copy-actions button:hover { background: color-mix(in oklab, var(--app-primary) 9%, transparent); }
+.entry-writing-actions > button:not(.theme-button-base):hover, .entry-copy-actions button:hover { background: color-mix(in oklab, var(--app-primary) 9%, transparent); }
 .entry-writing-actions > button[aria-pressed="true"] { background: color-mix(in oklab, var(--app-primary) 12%, transparent); color: var(--app-primary); }
 .entry-writing-actions > .entry-writing-save { width: 5.5rem; flex: none; white-space: nowrap; }
-.entry-writing-actions button:disabled, .entry-toolbar button:disabled { opacity: .4; cursor: default; }
+.entry-writing-actions > button:not(.theme-button-base):disabled, .entry-toolbar button:disabled { opacity: .4; cursor: default; }
 .entry-writing-page { width: 100%; max-width: 54rem; margin: 0 auto; padding: 2rem 2.5rem max(2.5rem, env(safe-area-inset-bottom)); }
 .entry-writing-dialog-wide, .entry-writing-dialog-wide .entry-writing-page { max-width: none; }
 .entry-writing-title { width: 100%; min-width: 0; min-height: 2.75rem; padding: .5rem 0; border: none; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; color: var(--app-muted); font-size: 1.125rem; font-weight: 700; line-height: 1.5; letter-spacing: -.01em; outline: none; }
@@ -648,3 +792,182 @@ body::before {
   .entry-toolbar button { width: 2.75rem; height: 2.75rem; }
   .entry-toolbar select { flex: none; }
 }
+/* Connection notices remain visible without competing with primary actions. */
+.app-connection-notice {
+  --notice-fill: var(--app-sky);
+  --notice-border: var(--app-sky-border);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.875rem;
+  padding: 1rem;
+  border: 1px solid var(--notice-border);
+  border-radius: 1rem;
+  background: var(--notice-fill);
+  color: var(--app-ink);
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.app-connection-notice[data-tone="warning"] {
+  --notice-fill: var(--app-butter);
+  --notice-border: var(--app-butter-border);
+}
+
+.app-connection-notice-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--notice-border);
+  border-radius: 50%;
+  background: var(--app-reading);
+  color: var(--app-primary);
+}
+
+.app-connection-notice-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--notice-border);
+  border-radius: 999px;
+  background: var(--app-reading);
+  color: var(--app-primary);
+  font-weight: 600;
+}
+
+.app-connection-notice-action:hover:not(:disabled) {
+  background: var(--app-mint);
+}
+
+.app-connection-notice-action:focus-visible {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 2px;
+}
+
+/* Collection menus keep parent and child labels on a predictable left edge. */
+.app-collection-menu {
+  max-width: calc(100vw - 2rem);
+  max-height: min(20rem, 50dvh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-mint-border) transparent;
+}
+
+.app-collection-menu > [role="menuitemradio"] {
+  justify-content: flex-start;
+  text-align: left;
+  min-height: 2.75rem;
+  font-weight: 500;
+  padding-inline: 0.75rem;
+}
+
+.app-collection-menu > [role="menuitemradio"][data-child="true"] {
+  padding-inline-start: 1.75rem;
+}
+
+/* Trash actions share the app's pill geometry while retaining destructive cues. */
+.trash-action.theme-button-base {
+  min-height: 2.75rem;
+  border: 1px solid var(--app-mint-border);
+  border-radius: 999px;
+  background: var(--app-mint);
+  color: var(--app-primary);
+  box-shadow: none;
+}
+
+.trash-action.theme-button-base::before,
+.trash-action.theme-button-base::after {
+  border-radius: inherit;
+  box-shadow: none;
+  background: transparent;
+}
+
+.trash-action.theme-button-base [data-slot="icon"] { color: inherit; }
+.trash-action.theme-button-base:not(:disabled):hover { background: #d9eeea; }
+
+.trash-action-danger.theme-button-base {
+  border-color: var(--app-peach-border);
+  background: var(--app-peach);
+  color: #9b3434;
+}
+
+.trash-action-danger.theme-button-base:not(:disabled):hover { background: #f8e0d1; }
+
+.lists-page .theme-button-base {
+  min-height: 2.75rem;
+  border-radius: 999px;
+}
+.lists-page .theme-button-base::before,
+.lists-page .theme-button-base::after { border-radius: inherit; }
+
+.lists-page .theme-button-surface,
+.lists-page .theme-button-icon {
+  border: 1px solid var(--app-mint-border);
+  background: var(--app-mint);
+  color: var(--app-primary);
+  box-shadow: none;
+}
+.lists-page .theme-button-surface [data-slot="icon"] { color: inherit; }
+.lists-page .theme-button-surface:hover:not(:disabled),
+.lists-page .theme-button-icon:hover:not(:disabled) { background: #d9eeea; }
+.lists-page .list-icon-action { border-radius: 50%; flex-shrink: 0; }
+.lists-page .list-action-danger {
+  border-color: var(--app-peach-border);
+  background: var(--app-peach);
+  color: #9b3434;
+}
+.lists-page .list-action-danger:hover:not(:disabled) { background: #f8e0d1; }
+
+.app-combobox > .app-combobox-input {
+  min-height: 2.75rem;
+  border-radius: 0.75rem;
+  border-color: color-mix(in oklab, var(--app-muted) 25%, var(--app-reading));
+  background: var(--app-reading);
+  color: var(--app-ink);
+}
+.app-combobox > .app-combobox-input:focus {
+  outline: 3px solid var(--app-primary);
+  outline-offset: 2px;
+}
+.app-combobox > .app-combobox-input[data-invalid] { border-color: #b91c1c; }
+
+.collection-create-form :is(input, select) {
+  min-height: 2.75rem;
+  border-radius: 0.75rem;
+  background: var(--app-reading);
+  border-color: color-mix(in oklab, var(--app-muted) 25%, var(--app-reading));
+}
+.collection-create-form .theme-button-base {
+  min-height: 2.75rem;
+  border-radius: 999px;
+}
+.collection-create-form .theme-button-base::before,
+.collection-create-form .theme-button-base::after { border-radius: inherit; }
+.collection-create-form .theme-button-surface,
+.collection-create-toggle.theme-button-icon {
+  background: var(--app-mint);
+  color: var(--app-primary);
+  border-color: var(--app-mint-border);
+  box-shadow: none;
+}
+.collection-create-toggle.theme-button-icon { border-radius: 50%; }
+.collection-create-form .theme-button-surface:hover,
+.collection-create-toggle.theme-button-icon:hover { background: #d9eeea; }
+
+.library-show-more.theme-button-base {
+  min-height: 2.75rem;
+  border: 1px solid var(--app-mint-border);
+  border-radius: 999px;
+  background: var(--app-mint);
+  color: var(--app-primary);
+  box-shadow: none;
+}
+.library-show-more.theme-button-base [data-slot="icon"] { color: inherit; }
+.library-show-more.theme-button-base:hover:not(:disabled) { background: #d9eeea; }
+.library-show-more.theme-button-base::before,
+.library-show-more.theme-button-base::after { border-radius: inherit; box-shadow: none; }
