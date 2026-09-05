@@ -4,12 +4,18 @@ export interface Release {
   version: string;
   date: string;
   changes: string[];
+  announcementHighlights?: string[];
 }
 
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
     date: "September 5, 2026",
+    announcementHighlights: [
+      "Save highlights with the Chrome extension and revisit them in Readspace.",
+      "Sign in with Apple, Google, or email.",
+      "Safer library imports and a smoother Readspace experience.",
+    ],
     changes: [
       "Highlight text on saved web pages from Chrome, then review, annotate, search, and export those highlights in Readspace.",
       "Sign up or sign in with Apple alongside Google and email.",
