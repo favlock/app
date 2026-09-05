@@ -172,6 +172,7 @@ export default function HomeLibraryGrid({
               <Button
                 type="button"
                 outline
+                className="library-show-more"
                 onClick={() =>
                   setVisibleCount((current) => current + LOAD_MORE_ITEMS)
                 }

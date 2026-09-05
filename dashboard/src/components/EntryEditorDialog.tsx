@@ -28,7 +28,7 @@ import { Input } from "./ui/input";
 import { Combobox, ComboboxLabel, ComboboxOption } from "./ui/combobox";
 import {
   Dropdown,
-  DropdownButton,
+  DropdownFieldButton,
   DropdownItem,
   DropdownMenu,
 } from "./ui/dropdown";
@@ -368,7 +368,7 @@ function EntryEditorSession({
       onClose={() => (focused ? setFocused(false) : void requestClose())}
       size={isTodo ? "3xl" : "5xl"}
       fullScreen={focused}
-      className={`entry-writing-dialog ${isTodo ? "entry-writing-dialog-compact" : ""} ${fullWidth ? "entry-writing-dialog-wide" : ""} overflow-hidden bg-[var(--app-card)]! p-0! ring-0!`}
+      className={`entry-writing-dialog ${isTodo ? "entry-writing-dialog-compact" : ""} ${fullWidth ? "entry-writing-dialog-wide" : ""} overflow-hidden p-0!`}
     >
       <form
         onSubmit={handleSubmit}
@@ -520,10 +520,8 @@ function EntryEditorSession({
                   <Label className="text-[var(--app-ink)]!">Collection</Label>
                   <div data-slot="control">
                     <Dropdown>
-                      <DropdownButton
-                        outline
+                      <DropdownFieldButton
                         disabled={foldersLoading}
-                        className="w-full justify-between text-left"
                       >
                         {foldersLoading
                           ? "Loading collections..."
@@ -532,7 +530,7 @@ function EntryEditorSession({
                                 (folder) => folder.id === selectedFolderId,
                               )?.name || "Select collection"
                             : "No collection"}
-                      </DropdownButton>
+                      </DropdownFieldButton>
                       <DropdownMenu
                         anchor="bottom start"
                         className="min-w-[var(--button-width)]"

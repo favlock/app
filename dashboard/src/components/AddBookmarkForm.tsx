@@ -23,7 +23,7 @@ import { ErrorMessage, Field, Label } from "./ui/fieldset";
 import { Input } from "./ui/input";
 import {
   Dropdown,
-  DropdownButton,
+  DropdownFieldButton,
   DropdownMenu,
   DropdownItem,
 } from "./ui/dropdown";
@@ -374,10 +374,9 @@ export default function AddBookmarkForm({
         open={open}
         onClose={isPending ? () => {} : handleClose}
         size="xl"
-        backdropClassName="bg-[color-mix(in_oklab,var(--app-line)_28%,transparent)]! backdrop-blur-md"
-        className="overflow-hidden border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_92%,white)]! p-0! shadow-[0_28px_80px_-30px_color-mix(in_oklab,var(--app-line)_42%,transparent)] ring-0!"
+        className="overflow-hidden p-0!"
       >
-        <div className="relative border-b border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_26%,var(--app-card))] px-5 py-5 sm:px-8 sm:py-6">
+        <div className="relative border-b border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-mint)] px-5 py-5 sm:px-8 sm:py-6">
           <div className="relative flex items-start justify-between gap-4">
             <div className="flex min-w-0 items-center gap-3.5">
               <span
@@ -487,11 +486,9 @@ export default function AddBookmarkForm({
               </Label>
               <div data-slot="control">
                 <Dropdown>
-                  <DropdownButton
+                  <DropdownFieldButton
                     id={folderInputId}
-                    outline
                     disabled={foldersLoading}
-                    className="w-full justify-between text-left"
                   >
                     {foldersLoading
                       ? "Loading collections..."
@@ -499,7 +496,7 @@ export default function AddBookmarkForm({
                         ? folders.find((f) => f.id === selectedFolderId)
                             ?.name || "Select collection"
                         : "No collection"}
-                  </DropdownButton>
+                  </DropdownFieldButton>
                   <DropdownMenu
                     anchor="bottom start"
                     className="min-w-[var(--button-width)]"
@@ -634,7 +631,7 @@ export default function AddBookmarkForm({
           </form>
         </DialogBody>
 
-        <DialogActions className="mt-0! border-t border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_32%,var(--app-card))] px-5 py-5 sm:px-8">
+        <DialogActions className="mt-0! border-t border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[var(--app-mint)] px-5 py-5 sm:px-8">
           <Button
             type="button"
             onClick={handleClose}

@@ -4,10 +4,10 @@ import { WEB_URL } from "../../lib/appUrls";
 
 export function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <main className="relative flex min-h-dvh items-center justify-center overflow-hidden p-4">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.16),transparent_34%),radial-gradient(circle_at_82%_8%,rgba(15,118,110,0.12),transparent_30%),linear-gradient(180deg,#fff8e7_0%,#f7f1df_100%)]" />
-      <div className="w-full max-w-md rounded-[1.5rem] border border-[#1d2230]/10 bg-[#fff8e9]/90 p-7 shadow-[0_28px_70px_-36px_rgba(29,34,48,0.42),0_1px_2px_rgba(29,34,48,0.06)] backdrop-blur-xl sm:p-8">
-        <div className="mb-6 flex items-center justify-between gap-3">
+    <main className="auth-layout flex min-h-dvh items-center justify-center px-4 py-8 sm:py-12">
+
+      <div className="auth-panel w-full max-w-md rounded-[1.75rem] border p-6 sm:p-8">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
           <a
             href={WEB_URL}
             aria-label="FavLock homepage"
@@ -15,7 +15,7 @@ export function AuthLayout({ children }: { children: React.ReactNode }) {
           >
             <AppLogo className="h-8 w-auto" />
           </a>
-          <span className="inline-flex rounded-full border border-amber-700/20 bg-amber-400/15 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-amber-800">
+          <span className="inline-flex rounded-full border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] px-3 py-1.5 text-xs font-semibold text-[var(--app-ink)]">
             Private by design
           </span>
         </div>

@@ -1,11 +1,11 @@
 :root {
   font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
-  color: #202229;
-  background: #f7f1df;
-  --cream: #f7f1df;
-  --card: #fff8e7;
+  color: #1d2230;
+  background: #fffaf0;
+  --cream: #fffaf0;
+  --card: #fffdf7;
   --paper: #fff3ce;
-  --ink: #202229;
+  --ink: #1d2230;
   --muted: #5a5f6d;
   --line: #1d2230;
   --teal: #0f766e;
@@ -51,7 +51,7 @@ body { background: var(--cream); }
   background:
     radial-gradient(circle at 4% 3%, rgba(245, 158, 11, 0.31), transparent 29%),
     radial-gradient(circle at 97% 9%, rgba(15, 118, 110, 0.16), transparent 31%),
-    linear-gradient(135deg, #fbf5e5 0%, #f7f1df 58%, #f1ead8 100%);
+    linear-gradient(135deg, #fbf5e5 0%, #fffaf0 58%, #f1ead8 100%);
 }
 
 .shot::before {
@@ -272,13 +272,13 @@ body { background: var(--cream); }
 .article-meta { margin: 17px 0 27px; color: #716856; font: 700 10px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: 0.07em; }
 .reader-article p { margin: 0 0 19px; }.reader-article .lead { font-size: 19px; }.reader-article blockquote { margin: 24px 0; padding-left: 18px; border-left: 3px solid var(--teal); color: #514a3d; font-style: italic; }
 .saved-highlight { padding: 1px 2px; border-radius: 3px; color: inherit; background: rgba(253, 224, 71, 0.6); box-decoration-break: clone; -webkit-box-decoration-break: clone; }
-.highlight-context-mock { position: absolute; z-index: 3; top: 194px; right: 30px; display: flex; width: 160px; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(29,34,48,0.16); border-radius: 9px; color: #202229; background: rgba(255,255,255,0.97); box-shadow: 0 12px 30px rgba(29,34,48,0.2), 0 3px 0 rgba(29,34,48,0.08); font: 700 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.highlight-context-mock { position: absolute; z-index: 3; top: 194px; right: 30px; display: flex; width: 160px; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid rgba(29,34,48,0.16); border-radius: 9px; color: #1d2230; background: rgba(255,255,255,0.97); box-shadow: 0 12px 30px rgba(29,34,48,0.2), 0 3px 0 rgba(29,34,48,0.08); font: 700 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 .highlight-context-icon { display: grid; width: 23px; height: 23px; flex: none; place-items: center; border-radius: 6px; color: white; background: var(--teal); font-size: 11px; font-weight: 850; }
 
 .settings-copy { max-width: 510px; }
 .import-note { gap: 9px; margin-top: 30px; padding: 9px 14px; }.import-note span { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 99px; color: white; background: var(--teal); font-size: 11px; }
 .settings-window { width: 740px; height: 585px; }
-.settings-page { height: calc(100% - 42px); padding: 27px 30px; background: radial-gradient(circle at 11% 5%, rgba(245,158,11,0.25), transparent 31%), radial-gradient(circle at 90% 5%, rgba(15,118,110,0.14), transparent 30%), #f7f1df; }
+.settings-page { height: calc(100% - 42px); padding: 27px 30px; background: radial-gradient(circle at 11% 5%, rgba(245,158,11,0.25), transparent 31%), radial-gradient(circle at 90% 5%, rgba(15,118,110,0.14), transparent 30%), #fffaf0; }
 .settings-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 23px; }.settings-topbar img { width: 138px; }.settings-topbar > span { padding: 6px 10px; border: 1px solid rgba(15,118,110,0.18); border-radius: 999px; color: var(--teal); background: rgba(255,248,231,0.65); font-size: 10px; font-weight: 800; }
 .settings-grid { display: grid; grid-template-columns: 1.52fr 0.82fr; gap: 14px; }
 .settings-card,
@@ -756,3 +756,52 @@ body { background: var(--cream); }
   border-color: #ded9cb;
   background: #fffdf7;
 }
+
+/* Current FavLock pastel design. */
+.stage { background: #fffaf0; }
+.shot { --feature-color: #0f766e; --feature-panel: #eef8f4; border-color: #a6d6cb; border-radius: 28px; box-shadow: none; }
+.shot-2 { --feature-panel: #f3edf9; }
+.shot-3 { --feature-panel: #edf6fb; }
+.shot-4 { --feature-panel: #fff0e8; }
+.shot-5 { --feature-panel: #f3edf9; }
+.shot::before { display: none; }
+.shot::after { background: var(--feature-panel); }
+.extension-popup { background: #fffaf0; border-color: #a6d6cb; border-radius: 24px; box-shadow: 0 16px 40px #1d223014; }
+.store-mode-switch { background: #eef8f4; border: 1px solid #a6d6cb; border-radius: 16px; }
+.store-mode-switch span { border-radius: 12px; }
+.store-mode-switch .active { background: #fffdf7; color: #0f766e; box-shadow: inset 0 0 0 1px #a6d6cb; }
+.page-preview { background: #f3edf9; border-color: #cdbce2; border-radius: 16px; }
+.select-like, input, .search-input-mock { background: #fffdf7; border-color: #cddbd4; border-radius: 12px; box-shadow: none; }
+.more-options-mock { background: #edf6fb; border-color: #bad4e5; }
+button, .popup-actions button, .reader-controls button { border-radius: 999px; box-shadow: none; }
+.popup-actions button, .secondary { background: #eef8f4; border-color: #a6d6cb; color: #0f766e; }
+.session-panel { border-radius: 16px; background: #eef8f4; border-color: #a6d6cb; }
+.browser-window { box-shadow: 0 16px 40px #1d223014; border-color: #a6d6cb; border-radius: 24px; }
+.reader-toolbar-mock { background: #eef8f4; }
+.reader-article { background: #fffdf7; }
+.settings-page { background: #fffaf0; }
+.settings-card { background: #fffdf7; border-color: #a6d6cb; border-radius: 24px; box-shadow: none; }
+.checkbox-row { background: #eef8f4; border-color: #a6d6cb; border-radius: 16px; }
+.info-card { background: #f3edf9; border-color: #cdbce2; box-shadow: none; }
+.privacy-pill, .feature-chips span, .import-note { background: #eef8f4; border-color: #a6d6cb; box-shadow: none; }
+.stage .extension-popup .page-preview { background: #f3edf9; border-color: #cdbce2; border-radius: 16px; }
+.stage .extension-popup .more-options-mock { background: #edf6fb; border-color: #bad4e5; }
+.stage .extension-popup button { border-radius: 999px; box-shadow: none; }
+.stage .extension-popup .popup-actions button { background: #eef8f4; border-color: #a6d6cb; }
+.stage .settings-actions button { border-radius: 999px; box-shadow: none; }
+.stage .settings-actions .import-button { background: #eef8f4; border-color: #a6d6cb; color: #0f766e; }
+.stage .session-panel { background: #eef8f4; border-color: #a6d6cb; }
+.stage .session-actions .secondary { background: #fffdf7; border-color: #a6d6cb; }
+.stage .session-stat { box-shadow: none; background: #edf6fb; border-color: #bad4e5; }
+.stage .session-stat strong { background: #fff2da; }
+/* Discreet extension palette: neutral surfaces with small mint accents. */
+.stage .extension-popup .page-preview,
+.stage .extension-popup .more-options-mock,
+.stage .session-panel { background: #fffdf7; border-color: #deded6; }
+.stage .extension-popup .popup-actions button,
+.stage .settings-actions .import-button,
+.stage .session-actions .secondary { background: #fffdf7; border-color: #deded6; color: #1d2230; }
+.stage .store-mode-switch { background: #fffdf7; }
+.stage .store-mode-switch .active { background: #eef8f4; }
+.stage .settings-card, .stage .checkbox-row { background: #fffdf7; border-color: #deded6; }
+.stage .info-card { background: #f5f8f3; border-color: #d8e1d8; }

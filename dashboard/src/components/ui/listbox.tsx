@@ -99,15 +99,11 @@ export function Listbox<T>({
             // Anchor positioning
             "[--anchor-offset:-1.625rem] [--anchor-padding:--spacing(4)] sm:[--anchor-offset:-1.375rem]",
             // Base styles
-            "isolate z-[60] w-max min-w-[calc(var(--button-width)+1.75rem)] scroll-py-1 rounded-xl p-1 select-none",
+            "app-popup-surface isolate z-[60] w-max min-w-[calc(var(--button-width)+1.75rem)] scroll-py-1 p-1 select-none",
             // Invisible border that is only visible in `forced-colors` mode for accessibility purposes
             "outline outline-transparent focus:outline-hidden",
             // Handle scrolling when menu won't fit in viewport
             "overflow-y-scroll overscroll-contain",
-            // Popover background
-            "bg-white/75 backdrop-blur-xl ",
-            // Shadows
-            "shadow-lg ring-1 ring-zinc-950/10  ",
             // Transitions
             "transition-opacity duration-100 ease-in data-closed:data-leave:opacity-0 data-transition:pointer-events-none",
           )}
@@ -151,11 +147,11 @@ export function ListboxOption<T>({
           <div
             className={clsx(
               // Basic layout
-              "group/option grid cursor-default grid-cols-[--spacing(5)_1fr] items-baseline gap-x-2 rounded-lg py-2.5 pr-3.5 pl-2 sm:grid-cols-[--spacing(4)_1fr] sm:py-1.5 sm:pr-3 sm:pl-1.5",
+              "app-popup-item group/option grid cursor-default grid-cols-[--spacing(5)_1fr] items-baseline gap-x-2 py-2.5 pr-3.5 pl-2 sm:grid-cols-[--spacing(4)_1fr] sm:py-1.5 sm:pr-3 sm:pl-1.5",
               // Typography
               "text-base/6 text-zinc-950 sm:text-sm/6  forced-colors:text-[CanvasText]",
               // Focus
-              "outline-hidden data-focus:bg-blue-500 data-focus:text-white",
+              "outline-hidden data-focus:bg-[var(--app-primary)] data-focus:text-white",
               // Forced colors mode
               "forced-color-adjust-none forced-colors:data-focus:bg-[Highlight] forced-colors:data-focus:text-[HighlightText]",
               // Disabled

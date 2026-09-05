@@ -152,7 +152,7 @@ export default function Trash() {
               <Button
                 type="button"
                 outline
-                className="whitespace-nowrap"
+                className="trash-action trash-action-danger whitespace-nowrap"
                 onClick={() => {
                   setEmptyError(null);
                   setEmptyDialogOpen(true);
@@ -193,7 +193,7 @@ export default function Trash() {
             <Button
               type="button"
               outline
-              className="mt-3"
+              className="trash-action mt-3"
               onClick={() => void trashQuery.refetch()}
             >
               Try again
@@ -261,7 +261,7 @@ export default function Trash() {
                         <Button
                           type="button"
                           outline
-                          className="gap-2"
+                          className="trash-action gap-2"
                           disabled={restoringId === item.id}
                           onClick={() => void restore(item)}
                         >
@@ -271,7 +271,7 @@ export default function Trash() {
                         <Button
                           type="button"
                           plain
-                          className="text-red-600! hover:bg-red-50!"
+                          className="trash-action trash-action-danger"
                           aria-label={`Permanently delete ${title}`}
                           onClick={() => {
                             setDeleteError(null);

@@ -140,7 +140,7 @@ export default function CollectionBadgeMenu({
                     : (currentIndex - 1 + items.length) % items.length;
             items[nextIndex]?.focus();
           }}
-          className="absolute bottom-full left-0 z-50 mb-1.5 w-52 rounded-xl border border-[#1d2230]/20 bg-[#fff8e9] py-1.5 shadow-[0_8px_18px_-12px_rgba(29,34,48,0.42)]"
+          className="absolute bottom-full left-0 z-50 mb-1.5 w-64 app-popup-surface app-collection-menu p-1"
         >
           <Button
             type="button"
@@ -151,8 +151,8 @@ export default function CollectionBadgeMenu({
             aria-checked={folderId === null}
             className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
               folderId === null
-                ? "bg-[#ffefcb] font-medium text-[#0f766e]"
-                : "text-[#4f5566] hover:bg-[#ffefcb]/70"
+                ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]"
+                : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]"
             }`}
           >
             No collection
@@ -167,10 +167,11 @@ export default function CollectionBadgeMenu({
               plain
               role="menuitemradio"
               aria-checked={folderId === candidate.id}
+              data-child={Boolean(candidate.parent_id)}
               className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                 folderId === candidate.id
-                  ? "bg-[#ffefcb] font-medium text-[#0f766e]"
-                  : "text-[#4f5566] hover:bg-[#ffefcb]/70"
+                  ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]"
+                  : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]"
               }`}
             >
               <span

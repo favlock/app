@@ -8,7 +8,7 @@ import {
 } from "./ui/combobox";
 import {
   Dropdown,
-  DropdownButton,
+  DropdownFieldButton,
   DropdownItem,
   DropdownMenu,
 } from "./ui/dropdown";
@@ -51,10 +51,8 @@ export default function ReadspaceOrganizationFields({
           <Label className="text-[var(--app-ink)]!">Collection</Label>
           <div data-slot="control">
             <Dropdown>
-              <DropdownButton
-                outline
+              <DropdownFieldButton
                 disabled={disabled || foldersLoading}
-                className="w-full justify-between text-left"
               >
                 {foldersLoading
                   ? "Loading collections..."
@@ -62,7 +60,7 @@ export default function ReadspaceOrganizationFields({
                     ? folders.find((folder) => folder.id === selectedFolderId)
                         ?.name || "Select collection"
                     : "No collection"}
-              </DropdownButton>
+              </DropdownFieldButton>
               <DropdownMenu
                 anchor="bottom start"
                 className="min-w-[var(--button-width)]"

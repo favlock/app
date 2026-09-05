@@ -1,8 +1,8 @@
 :root {
   font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
-  --cream: #f7f1df;
-  --paper: #fff8e7;
-  --ink: #202229;
+  --cream: #fffaf0;
+  --paper: #fffdf7;
+  --ink: #1d2230;
   --muted: #5a5f6d;
   --teal: #0f766e;
   --teal-dark: #0a5f59;
@@ -196,3 +196,22 @@ body[data-tile="marquee"] .marquee-tile { display: grid; width: 1400px; height: 
 .feature-card span { color: var(--muted); font-size: 9px; }
 .collection-card { top: 92px; left: 36px; transform: rotate(-4deg); }
 .reader-card { right: 35px; bottom: 42px; transform: rotate(3deg); }
+
+/* Promotional tiles share the app's pastel surfaces. */
+.small-tile, .marquee-tile { background: #fffaf0; }
+.small-tile::after, .marquee-tile::after { background: #f3edf9; }
+.orbit, .large-orbit { opacity: 0.15; }
+.mini-popup, .hero-popup { background: #fffaf0; border-color: #a6d6cb; box-shadow: 0 14px 36px #1d22301a; }
+.mini-modes, .hero-modes { background: #eef8f4; border: 1px solid #a6d6cb; }
+.mini-modes b, .hero-modes b { background: #fffdf7; color: #0f766e; box-shadow: none; }
+.mini-page, .hero-page { background: #f3edf9; border-color: #cdbce2; }
+.hero-popup button, .mini-popup button, .hero-popup footer span { border-radius: 999px; }
+.hero-popup footer span { background: #eef8f4; border-color: #a6d6cb; color: #0f766e; }
+.more-like { background: #edf6fb; }
+.feature-card { background: #eef8f4; color: #1d2230; border-color: #a6d6cb; box-shadow: 0 8px 24px #1d223010; }
+.feature-card small, .feature-card span { color: #545b6d; }
+.marquee-tile .hero-popup footer span { background: #eef8f4; border-color: #a6d6cb; color: #0f766e; }
+.mini-page, .hero-page, .more-like { background: #fffdf7; border-color: #deded6; }
+.mini-modes, .hero-modes { background: #fffdf7; }
+.mini-modes b, .hero-modes b { background: #eef8f4; }
+.marquee-tile .hero-popup footer span { background: #fffdf7; border-color: #deded6; color: #1d2230; }

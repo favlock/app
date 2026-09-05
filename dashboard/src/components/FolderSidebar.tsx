@@ -9,7 +9,6 @@ import {
 import { PRODUCT_VERSION } from "@favlock/shared";
 import { AppLogo } from "./AppLogo";
 import { useAuth } from "../context/useAuth";
-import { useTheme } from "../context/useTheme";
 import {
   useFolders,
   useAddFolder,
@@ -35,10 +34,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useTags, useTagBookmarkCounts } from "../hooks/useTagsQuery";
 import {
-  Check,
   Archive,
   LogOutIcon,
-  Palette,
   PlusIcon,
   Heart,
   House,
@@ -69,14 +66,8 @@ import {
   COLOR_NONE,
   type ColorConstant,
 } from "../constants/colors";
-import { THEME_VARIANT_OPTIONS } from "../constants/themes";
 import { FolderSidebarSkeleton } from "./FolderSidebarSkeleton";
-import {
-  Dropdown,
-  DropdownButton,
-  DropdownItem,
-  DropdownMenu,
-} from "./ui/dropdown";
+
 import { Button } from "./ui/button";
 import { changelog } from "../data/changelog";
 import type { Folder } from "../types/bookmark";
@@ -198,9 +189,9 @@ function SortableCollection({
         }`}
       >
         <span
-          className={`h-2 w-2 flex-none rounded-full ${
+          className={`h-3 w-3 flex-none rounded-full ring-1 ring-inset ring-black/10 ${
             folder.color && folder.color !== COLOR_NONE
-              ? ""
+              ? "saturate-175 brightness-95"
               : "bg-[var(--app-line)]"
           }`}
           style={{
@@ -240,13 +231,7 @@ export default function FolderSidebar({
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
   const { user, signOut, isLocalAccount } = useAuth();
-  const {
-    themeVariant,
-    themeSaveError,
-    setThemeVariant,
-    retryThemeSave,
-    dismissThemeSaveError,
-  } = useTheme();
+
   const { data: userInfo } = useUserInfo();
   const accountDisplayName = getAccountDisplayName(userInfo, user?.email);
   const { data: accountPlan } = useAccountPlan();
@@ -308,9 +293,7 @@ export default function FolderSidebar({
     readspaceArticleCount + (accountPlan?.highlightAccess.count ?? 0);
   const { data: listCount = 0 } = useListCount();
   const { data: trashCount = 0 } = useTrashCount();
-  const currentTheme =
-    THEME_VARIANT_OPTIONS.find((option) => option.value === themeVariant) ??
-    THEME_VARIANT_OPTIONS[0];
+
 
   const handleCreate = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -442,7 +425,7 @@ export default function FolderSidebar({
             Library
           </h3>
         </div>
-        <ul className="mt-2 space-y-1">
+        <ul className="app-library-nav mt-2 space-y-1">
           <li>
             <button
               type="button"
@@ -699,7 +682,7 @@ export default function FolderSidebar({
           <button
             type="button"
             onClick={() => setCreating(!creating)}
-            className="theme-button-icon inline-flex size-10"
+            className="theme-button-icon collection-create-toggle inline-flex size-10"
             aria-label="Create collection"
             aria-expanded={creating}
           >
@@ -708,7 +691,7 @@ export default function FolderSidebar({
         </div>
 
         {creating && (
-          <form onSubmit={handleCreate} className="mt-2 space-y-2">
+          <form onSubmit={handleCreate} className="collection-create-form mt-2 space-y-3">
             <input
               type="text"
               aria-label="Collection name"
@@ -728,7 +711,7 @@ export default function FolderSidebar({
                 }
               }}
             />
-            <details className="rounded-lg border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/45 px-2.5 py-2 text-sm text-[var(--app-muted)]">
+            <details className="rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] px-3 py-3 text-sm text-[var(--app-muted)]">
               <summary className="cursor-pointer select-none font-medium text-[var(--app-ink)]">
                 More options
               </summary>
@@ -762,9 +745,9 @@ export default function FolderSidebar({
                         onClick={() => setNewColor(c)}
                         className={`size-8 cursor-pointer rounded-full border-2 transition-all ${
                           newColor === c
-                            ? "scale-110 border-[var(--app-ink)]"
+                            ? "border-[var(--app-primary)] ring-2 ring-[var(--app-reading)] outline-2 outline-offset-2 outline-[var(--app-primary)]"
                             : "border-[color-mix(in_oklab,var(--app-line)_24%,transparent)] hover:border-[var(--app-primary)]"
-                        } ${c === COLOR_NONE ? "bg-[var(--app-line)]" : ""}`}
+                        } ${c === COLOR_NONE ? "bg-[var(--app-reading)]" : ""}`}
                         style={{
                           backgroundColor:
                             c === COLOR_NONE ? undefined : getDisplayColor(c),
@@ -974,10 +957,10 @@ export default function FolderSidebar({
           <button
             type="button"
             onClick={() => setUpgradeDialogOpen(true)}
-            className="group flex w-full items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_28%,transparent)] bg-gradient-to-r from-[color-mix(in_oklab,var(--app-primary)_13%,var(--app-card))] to-[color-mix(in_oklab,var(--app-card-strong)_55%,var(--app-card))] px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
+            className="group flex min-h-12 w-full items-center gap-3 rounded-full border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] px-3 py-2 text-left transition-colors hover:bg-[color-mix(in_oklab,var(--app-lavender)_75%,white)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
             aria-label="Upgrade to FavLock Pro"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--app-primary)] text-white shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--app-reading)] text-[var(--app-primary)]">
               <Sparkles size={15} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--app-ink)]">
@@ -1032,59 +1015,6 @@ export default function FolderSidebar({
 
         {/* Actions */}
         <div className="p-2">
-          <Dropdown>
-            <DropdownButton
-              plain
-              className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
-            >
-              <Palette size={16} />
-              <span className="text-sm flex-1 text-left">
-                {currentTheme.label}
-              </span>
-            </DropdownButton>
-            <DropdownMenu anchor="bottom start" className="min-w-64">
-              {THEME_VARIANT_OPTIONS.map((option) => (
-                <DropdownItem
-                  key={option.value}
-                  className="gap-2"
-                  onClick={() => setThemeVariant(option.value)}
-                >
-                  <span className="min-w-0 flex-1 text-left text-sm font-medium text-zinc-950">
-                    {option.label}
-                  </span>
-                  {themeVariant === option.value && (
-                    <Check className="size-4 text-[var(--app-primary)]" />
-                  )}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-
-          {themeSaveError ? (
-            <div
-              className="mx-1 mt-1 rounded-lg bg-red-500/10 px-2.5 py-2 text-xs text-red-600"
-              role="alert"
-            >
-              <p>{themeSaveError}</p>
-              <div className="mt-1 flex gap-3 font-semibold">
-                <button
-                  type="button"
-                  className="underline underline-offset-2"
-                  onClick={retryThemeSave}
-                >
-                  Try again
-                </button>
-                <button
-                  type="button"
-                  className="underline underline-offset-2"
-                  onClick={dismissThemeSaveError}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           <Link
             to="/settings"
             aria-current={location.pathname === "/settings" ? "page" : undefined}

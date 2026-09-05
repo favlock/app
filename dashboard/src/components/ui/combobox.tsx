@@ -53,16 +53,7 @@ export function Combobox<T>({
         data-slot="control"
         className={clsx([
           className,
-          // Basic layout
-          "relative block w-full",
-          // Background color + shadow applied to inset pseudo element, so shadow blends with border in light mode
-          "before:absolute before:inset-px before:rounded-[calc(var(--radius-lg)-1px)] before:bg-white before:shadow-sm",
-          // Focus ring
-          "after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-transparent after:ring-inset sm:focus-within:after:ring-2 sm:focus-within:after:ring-blue-500",
-          // Disabled state
-          "has-data-disabled:opacity-50 has-data-disabled:before:bg-zinc-950/5 has-data-disabled:before:shadow-none",
-          // Invalid state
-          "has-data-invalid:before:shadow-red-500/10",
+          "app-combobox relative block w-full self-start has-data-disabled:opacity-50",
         ])}
       >
         <Headless.ComboboxInput
@@ -77,9 +68,8 @@ export function Combobox<T>({
           onKeyDown={onInputKeyDown}
           placeholder={placeholder}
           className={clsx([
-            className,
             // Basic layout
-            "relative block w-full appearance-none rounded-lg py-[calc(--spacing(2.5)-1px)] sm:py-[calc(--spacing(1.5)-1px)]",
+            "app-combobox-input relative block min-h-11 w-full appearance-none rounded-xl py-[calc(--spacing(2.5)-1px)] sm:py-[calc(--spacing(1.5)-1px)]",
             // Horizontal padding
             "pr-[calc(--spacing(10)-1px)] pl-[calc(--spacing(3.5)-1px)] sm:pr-[calc(--spacing(9)-1px)] sm:pl-[calc(--spacing(3)-1px)]",
             // Typography
@@ -87,7 +77,7 @@ export function Combobox<T>({
             // Border
             "border border-zinc-950/10 data-hover:border-zinc-950/20  ",
             // Background color
-            "bg-transparent ",
+            "bg-[var(--app-reading)] ",
             // Hide default focus styles
             "focus:outline-hidden",
             // Invalid state
@@ -98,7 +88,7 @@ export function Combobox<T>({
             "",
           ])}
         />
-        <Headless.ComboboxButton className="group absolute inset-y-0 right-0 flex items-center px-2">
+        <Headless.ComboboxButton aria-label={ariaLabel ? `Show options for ${ariaLabel}` : "Show options"} className="group absolute inset-y-0 right-0 flex items-center px-2">
           <svg
             className="size-5 stroke-zinc-500 group-data-disabled:stroke-zinc-600 group-data-hover:stroke-zinc-700 sm:size-4   forced-colors:stroke-[CanvasText]"
             viewBox="0 0 16 16"
@@ -128,15 +118,11 @@ export function Combobox<T>({
           // Anchor positioning
           "[--anchor-gap:--spacing(2)] [--anchor-padding:--spacing(4)] sm:data-[anchor~=start]:[--anchor-offset:-4px]",
           // Base styles,
-          "isolate z-[60] min-w-[calc(var(--input-width)+8px)] scroll-py-1 rounded-xl p-1 select-none empty:invisible",
+          "app-popup-surface isolate z-[60] min-w-[calc(var(--input-width)+8px)] scroll-py-1 p-1 select-none empty:invisible",
           // Invisible border that is only visible in `forced-colors` mode for accessibility purposes
           "outline outline-transparent focus:outline-hidden",
           // Handle scrolling when menu won't fit in viewport
           "overflow-y-scroll overscroll-contain",
-          // Popover background
-          "bg-white/75 backdrop-blur-xl ",
-          // Shadows
-          "shadow-lg ring-1 ring-zinc-950/10  ",
           // Transitions
           "transition-opacity duration-100 ease-in data-closed:data-leave:opacity-0 data-transition:pointer-events-none",
         )}
@@ -171,11 +157,11 @@ export function ComboboxOption<T>({
       {...props}
       className={clsx(
         // Basic layout
-        "group/option grid w-full cursor-default grid-cols-[1fr_--spacing(5)] items-baseline gap-x-2 rounded-lg py-2.5 pr-2 pl-3.5 sm:grid-cols-[1fr_--spacing(4)] sm:py-1.5 sm:pr-2 sm:pl-3",
+        "app-popup-item group/option grid w-full cursor-default grid-cols-[1fr_--spacing(5)] items-baseline gap-x-2 py-2.5 pr-2 pl-3.5 sm:grid-cols-[1fr_--spacing(4)] sm:py-1.5 sm:pr-2 sm:pl-3",
         // Typography
         "text-base/6 text-zinc-950 sm:text-sm/6  forced-colors:text-[CanvasText]",
         // Focus
-        "outline-hidden data-focus:bg-blue-500 data-focus:text-white",
+        "outline-hidden data-focus:bg-[var(--app-primary)] data-focus:text-white",
         // Forced colors mode
         "forced-color-adjust-none forced-colors:data-focus:bg-[Highlight] forced-colors:data-focus:text-[HighlightText]",
         // Disabled
