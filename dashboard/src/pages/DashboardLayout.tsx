@@ -514,6 +514,7 @@ export default function DashboardLayout() {
           hasFinishedInitialOnboarding &&
           !isOnboardingOpen &&
           !isAddBookmarkOpen &&
+          location.pathname !== "/readspace" &&
           activeDataTransferView === null
         }
         userId={user?.id ?? ""}

@@ -383,8 +383,13 @@ function applySavedPageState(state) {
   if (state) {
     document.getElementById("bookmarkTitle").value = state.title;
     collectionSelect.value = state.folderId || "";
-    setPageStateBadge("Saved", "saved");
-    saveButton.textContent = "Update saved page";
+    setPageStateBadge(
+      state.isHighlightSource ? "Not saved" : "Saved",
+      state.isHighlightSource ? "unsaved" : "saved",
+    );
+    saveButton.textContent = state.isHighlightSource
+      ? "Save page"
+      : "Update saved page";
   } else {
     setPageStateBadge("Not saved", "unsaved");
     saveButton.textContent = "Save page";
@@ -403,7 +408,7 @@ function applySavedPageState(state) {
   updateTagPickerLabel();
   updateListPickerLabel();
   saveButton.disabled = false;
-  void setToolbarSavedState(!!state);
+  void setToolbarSavedState(!!state && !state.isHighlightSource);
 }
 
 function revealCreationField(fieldId, inputId, pickerId) {
@@ -484,6 +489,7 @@ async function submitQuickAdd(event) {
   saveButton.textContent = "Saving…";
   setStatus("");
   try {
+    const promotedHighlightSource = savedPageState?.isHighlightSource === true;
     const result = await saveCurrentPage({
       title: document.getElementById("bookmarkTitle").value,
       url: activeTab.url,
@@ -509,7 +515,7 @@ async function submitQuickAdd(event) {
       return;
     }
     setStatus(
-      result.updatedExisting
+      result.updatedExisting && !promotedHighlightSource
         ? "Saved page updated in FavLock."
         : "Page saved to FavLock.",
       "success",
@@ -517,7 +523,9 @@ async function submitQuickAdd(event) {
     savedPageState = { id: result.bookmarkId };
     setPageStateBadge("Saved", "saved");
     void setToolbarSavedState(true);
-    saveButton.textContent = result.updatedExisting ? "Page updated" : "Page saved";
+    saveButton.textContent = result.updatedExisting && !promotedHighlightSource
+      ? "Page updated"
+      : "Page saved";
     window.setTimeout(() => window.close(), 850);
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "Could not save bookmark.");

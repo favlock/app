@@ -36,7 +36,7 @@ export const useTagBookmarkCounts = () => {
             getCachedEntriesForUser(user!.id),
           ]);
       const relationIds = [
-        ...bookmarks.flatMap((bookmark) =>
+        ...bookmarks.filter((bookmark) => !bookmark.is_highlight_source).flatMap((bookmark) =>
           (bookmark.tags ?? []).map((tag) => tag.id),
         ),
         ...entries.flatMap((entry) =>

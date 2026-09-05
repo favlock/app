@@ -71,6 +71,7 @@ export function startLibraryRevalidation(
   window.addEventListener("online", handleActivityChange);
   window.addEventListener("offline", handleActivityChange);
   window.addEventListener("focus", requestRevalidation);
+  window.addEventListener("pageshow", requestRevalidation);
   document.addEventListener("visibilitychange", handleActivityChange);
   schedulePolling();
 
@@ -81,6 +82,7 @@ export function startLibraryRevalidation(
     window.removeEventListener("online", handleActivityChange);
     window.removeEventListener("offline", handleActivityChange);
     window.removeEventListener("focus", requestRevalidation);
+    window.removeEventListener("pageshow", requestRevalidation);
     document.removeEventListener("visibilitychange", handleActivityChange);
   };
 }

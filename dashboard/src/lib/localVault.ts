@@ -362,6 +362,7 @@ export async function readLocalResourceUsage(vaultId: string) {
     bookmarks,
     entries: entries.filter((entry) => entry.kind !== "read").length,
     readspace: entries.filter((entry) => entry.kind === "read").length,
+    highlights: 0,
     collections,
     tags,
     lists,

@@ -33,16 +33,13 @@ describe("GoogleAuthButton", () => {
     const onError = vi.fn();
 
     await act(async () => {
-      root.render(
-        <GoogleAuthButton onError={onError}>
-          Sign in with Google
-        </GoogleAuthButton>,
-      );
+      root.render(<GoogleAuthButton onError={onError} />);
     });
 
     const button = container.querySelector("button")!;
     expect(button.disabled).toBe(false);
-    expect(button.textContent).not.toContain("Soon");
+    expect(button.getAttribute("aria-label")).toBe("Continue with Google");
+    expect(button.querySelector("img")?.getAttribute("alt")).toBe("");
 
     await act(async () => button.click());
 
@@ -54,7 +51,8 @@ describe("GoogleAuthButton", () => {
       },
     });
     expect(button.disabled).toBe(true);
-    expect(button.textContent).toContain("Redirecting...");
+    expect(button.getAttribute("aria-busy")).toBe("true");
+    expect(button.textContent).toContain("Redirecting to Google...");
   });
 
   it("shows provider errors and re-enables the button", async () => {
@@ -65,11 +63,7 @@ describe("GoogleAuthButton", () => {
     const onError = vi.fn();
 
     await act(async () => {
-      root.render(
-        <GoogleAuthButton onError={onError}>
-          Continue with Google
-        </GoogleAuthButton>,
-      );
+      root.render(<GoogleAuthButton onError={onError} />);
     });
 
     const button = container.querySelector("button")!;
@@ -84,11 +78,7 @@ describe("GoogleAuthButton", () => {
     const onError = vi.fn();
 
     await act(async () => {
-      root.render(
-        <GoogleAuthButton onError={onError} disabled>
-          Continue with Google
-        </GoogleAuthButton>,
-      );
+      root.render(<GoogleAuthButton onError={onError} disabled />);
     });
 
     const button = container.querySelector("button")!;

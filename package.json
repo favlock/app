@@ -1,7 +1,7 @@
 {
   "name": "favlock-app",
   "private": true,
-  "version": "1.8.0",
+  "version": "1.9.0",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -18,7 +18,8 @@
     "build:chrome": "node scripts/pack-chrome-extension.mjs",
     "lint": "npm run lint -w dashboard",
     "test": "npm run test -w dashboard && npm run test:chrome",
-    "test:chrome": "FAVLOCK_USE_TEST_ENV=1 node scripts/configure-chrome-extension.mjs && vitest run extensions/chrome"
+    "test:chrome": "FAVLOCK_USE_TEST_ENV=1 node scripts/configure-chrome-extension.mjs && vitest run extensions/chrome && npm run test:chrome-browser",
+    "test:chrome-browser": "node scripts/test-chrome-highlight-browser.mjs"
   },
   "devDependencies": {
     "jsdom": "^29.1.1",

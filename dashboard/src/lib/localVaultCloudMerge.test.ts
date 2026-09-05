@@ -171,6 +171,7 @@ describe("local vault cloud merge intent", () => {
       notes: true,
       todos: true,
       readspace: true,
+      highlights: false,
     });
     expect(archive.data.bookmarks).toHaveLength(1);
     expect(archive.data.lists).toHaveLength(1);

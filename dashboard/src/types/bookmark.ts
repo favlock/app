@@ -15,6 +15,7 @@ export interface Bookmark {
   created_at: string
   is_favorite?: boolean | null
   favorited_at?: string | null
+  is_highlight_source?: boolean
   folders?: Folder[]
   tags?: Tag[]
 }

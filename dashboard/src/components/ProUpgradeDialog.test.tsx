@@ -35,7 +35,7 @@ describe("ProUpgradeDialog", () => {
       "Save more. Find more. Recover longer.",
     );
     expect(document.body.textContent).toContain(
-      "FavLock Pro gives you unlimited bookmarks, deeper search, and more space for everything you save",
+      "FavLock Pro gives you unlimited bookmarks and highlights, encrypted annotations, deeper search, and more space for everything you save",
     );
     const comparison = document.querySelector("table")!;
     expect(comparison.textContent).toContain("Free");
@@ -45,12 +45,17 @@ describe("ProUpgradeDialog", () => {
     expect(comparison.textContent).toContain("Unlimited");
     expect(comparison.textContent).toContain("1,000");
     expect(comparison.textContent).toContain("250");
+    expect(comparison.textContent).toContain("Web highlights");
+    expect(comparison.textContent).toContain("100");
+    expect(comparison.textContent).toContain("Unlimited · annotations");
+    expect(comparison.textContent).not.toContain("four colors");
+    expect(comparison.textContent).toContain("Readspace articles");
     expect(comparison.textContent).toContain("30 days");
     expect(comparison.textContent).toContain("Support");
     expect(comparison.textContent).toContain("Standard");
     expect(comparison.textContent).toContain("Priority");
     expect(document.body.textContent).toContain(
-      "Both plans search bookmark titles, URLs, tags, and collections",
+      "Both plans search bookmark titles, URLs, tags, collections, and highlighted text in Readspace",
     );
     expect(document.body.textContent).toContain(
       "Everything in Free stays included",
@@ -60,6 +65,9 @@ describe("ProUpgradeDialog", () => {
     );
     expect(document.body.textContent).toContain("Unlimited collections and tags");
     expect(document.body.textContent).toContain("No ads");
+    expect(document.body.textContent).toContain(
+      "Markdown, HTML, and JSON highlight exports",
+    );
 
     const upgradeLink = Array.from(document.querySelectorAll("a")).find(
       (link) => link.textContent?.includes("Upgrade to Pro"),

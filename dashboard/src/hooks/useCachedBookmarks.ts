@@ -10,9 +10,10 @@ export function useCachedBookmarks(enabled = true) {
 
   return useQuery({
     queryKey: ["bookmarks", "local-cache", user?.id],
-    queryFn: () => isLocalAccount
-      ? readLocalBookmarks(user!.id, cryptoKey!)
-      : getCachedBookmarksForUser(user!.id),
+    queryFn: async () => (isLocalAccount
+      ? await readLocalBookmarks(user!.id, cryptoKey!)
+      : await getCachedBookmarksForUser(user!.id)
+    ).filter((bookmark) => !bookmark.is_highlight_source),
     enabled:
       enabled && !!user && !!bookmarkCacheSyncedAt &&
       (!isLocalAccount || !!cryptoKey),

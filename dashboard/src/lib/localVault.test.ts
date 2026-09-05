@@ -302,6 +302,7 @@ describe("local encrypted vault", () => {
       bookmarks: 1,
       entries: 1,
       readspace: 1,
+      highlights: 0,
       collections: 0,
       tags: 0,
       lists: 1,

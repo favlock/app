@@ -6,6 +6,7 @@ import type {
   Note,
   Tag,
   Todo,
+  ReadspaceEntry,
 } from "../types/bookmark";
 import {
   buildBrowserBookmarksHtml,
@@ -61,6 +62,11 @@ const todo: Todo = {
   is_completed: true,
   completed_at: createdAt,
 };
+const readspace: ReadspaceEntry = {
+  ...note,
+  id: "read-1",
+  kind: "read",
+};
 const list: BookmarkList = {
   id: "list-1",
   user_id: "user-1",
@@ -89,7 +95,8 @@ const source: ExportSourceData = {
   tags: [tag],
   notes: [note],
   todos: [todo],
-  readspace: [],
+  readspace: [readspace],
+  highlights: [],
 };
 
 describe("FavLock data export", () => {
@@ -130,5 +137,34 @@ describe("FavLock data export", () => {
       'HREF="https://example.com/?q=&quot;moon&quot;&amp;page=1"',
     );
     expect(html).toContain('TAGS="Research &amp; ideas"');
+  });
+
+  it("keeps Readspace article highlights linked to their exported article", () => {
+    const result = buildFavLockExport(
+      {
+        ...source,
+        highlights: [{
+          id: "highlight-1",
+          bookmarkId: null,
+          entryId: readspace.id,
+          createdAt,
+          updatedAt: createdAt,
+          payload: {
+            version: 1,
+            quote: { exact: "Article quote", prefix: "", suffix: "" },
+            position: null,
+            dom: null,
+            color: "blue",
+            note: "",
+            capturedAt: createdAt,
+          },
+        }],
+      },
+      { ...selection, readspace: true, highlights: true },
+    );
+
+    expect(result.data.highlights).toEqual([
+      expect.objectContaining({ bookmarkId: null, entryId: readspace.id }),
+    ]);
   });
 });

@@ -3,6 +3,7 @@ import type {
   ExportedBookmark,
   ExportedCollection,
   ExportedEntry,
+  ExportedHighlight,
   ExportedList,
   ExportedListItem,
   ExportedTag,
@@ -10,6 +11,7 @@ import type {
   ExportSelection,
   FavLockExport,
 } from "./dataExport";
+import { parseWebHighlightPayload } from "./webHighlight";
 import { normalizeImportedBookmarkUrl } from "./browserBookmarkImport";
 import { sanitizeEntryHtml } from "./entryContent";
 import {
@@ -28,6 +30,7 @@ const MAX_LIST_ITEMS = 10_000;
 const MAX_MIGRATION_ITEMS = 125_000;
 const MAX_ENTRIES = 1_000;
 const MAX_READSPACE = 250;
+const MAX_HIGHLIGHTS = 100_000;
 const MAX_RELATION_IDS = 10;
 const MAX_NAME_LENGTH = 5_000;
 const MAX_BOOKMARK_VALUE_LENGTH = 10_000;
@@ -112,6 +115,30 @@ function parseSelection(value: unknown): ExportSelection {
     notes: requireBoolean(selection.notes),
     todos: requireBoolean(selection.todos),
     readspace: requireBoolean(selection.readspace),
+    ...(selection.highlights === undefined
+      ? {}
+      : { highlights: requireBoolean(selection.highlights) }),
+  };
+}
+
+function parseHighlight(value: unknown): ExportedHighlight {
+  const highlight = requireRecord(value);
+  const payload = parseWebHighlightPayload(JSON.stringify(highlight.payload));
+  if (!payload) throw invalidArchive();
+  const bookmarkId = highlight.bookmarkId === null
+    ? null
+    : requireUuid(highlight.bookmarkId);
+  const entryId = highlight.entryId === undefined || highlight.entryId === null
+    ? null
+    : requireUuid(highlight.entryId);
+  if ((bookmarkId === null) === (entryId === null)) throw invalidArchive();
+  return {
+    id: requireUuid(highlight.id),
+    bookmarkId,
+    entryId,
+    payload,
+    createdAt: requireDate(highlight.createdAt),
+    updatedAt: requireDate(highlight.updatedAt),
   };
 }
 
@@ -245,6 +272,9 @@ function validateRelationships(exported: FavLockExport): void {
   const bookmarkIds = new Set(
     (exported.data.bookmarks ?? []).map((bookmark) => bookmark.id),
   );
+  const readspaceIds = new Set(
+    (exported.data.readspace ?? []).map((entry) => entry.id),
+  );
 
   for (const collection of exported.data.collections) {
     if (collection.parentId === null) continue;
@@ -271,6 +301,13 @@ function validateRelationships(exported: FavLockExport): void {
   exported.data.notes?.forEach(validateItem);
   exported.data.todos?.forEach(validateItem);
   exported.data.readspace?.forEach(validateItem);
+  if (exported.data.highlights?.some((highlight) =>
+    highlight.bookmarkId
+      ? !bookmarkIds.has(highlight.bookmarkId)
+      : !highlight.entryId || !readspaceIds.has(highlight.entryId)
+  )) {
+    throw invalidArchive();
+  }
   for (const list of exported.data.lists ?? []) {
     if (list.items.some((item) => !bookmarkIds.has(item.bookmarkId))) {
       throw invalidArchive();
@@ -339,6 +376,13 @@ export function parseFavLockExport(value: unknown): FavLockExport {
     MAX_READSPACE,
     parseReadspaceEntry,
   );
+  const highlights = parseOptionalItems(
+    data.highlights,
+    selection.highlights ?? false,
+    MAX_HIGHLIGHTS,
+    parseHighlight,
+  );
+  if (highlights && !selection.bookmarks) throw invalidArchive();
 
   requireUniqueIds(collections);
   requireUniqueIds(tags);
@@ -347,6 +391,7 @@ export function parseFavLockExport(value: unknown): FavLockExport {
   if (notes) requireUniqueIds(notes);
   if (todos) requireUniqueIds(todos);
   if (readspace) requireUniqueIds(readspace);
+  if (highlights) requireUniqueIds(highlights);
   const entryIds = [
     ...(notes ?? []).map(({ id }) => id),
     ...(todos ?? []).map(({ id }) => id),
@@ -360,7 +405,8 @@ export function parseFavLockExport(value: unknown): FavLockExport {
     entryIds.length +
     (lists?.length ?? 0) +
     (lists ?? []).reduce((count, list) => count + list.items.length, 0);
-  if (migrationItemCount > MAX_MIGRATION_ITEMS) throw invalidArchive();
+  const totalMigrationItemCount = migrationItemCount + (highlights?.length ?? 0);
+  if (totalMigrationItemCount > MAX_MIGRATION_ITEMS) throw invalidArchive();
 
   const result: FavLockExport = {
     format: "favlock-export",
@@ -376,6 +422,7 @@ export function parseFavLockExport(value: unknown): FavLockExport {
       ...(notes ? { notes } : {}),
       ...(todos ? { todos } : {}),
       ...(readspace ? { readspace } : {}),
+      ...(highlights ? { highlights } : {}),
     },
   };
   validateRelationships(result);
@@ -391,5 +438,6 @@ export function summarizeFavLockExport(archive: FavLockExport) {
     notes: archive.data.notes?.length ?? 0,
     todos: archive.data.todos?.length ?? 0,
     readspace: archive.data.readspace?.length ?? 0,
+    highlights: archive.data.highlights?.length ?? 0,
   };
 }

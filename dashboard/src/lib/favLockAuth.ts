@@ -19,6 +19,7 @@ const MAX_REMEMBERED_ACCESS_TOKENS = 8;
 const LOCAL_ACCOUNT_CHANGED_MESSAGE = "Your account changed in another tab. Reload to continue.";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+type OAuthProvider = "apple" | "google";
 
 captureInitialPasswordRecoveryRedirect();
 
@@ -644,9 +645,11 @@ export class FavLockAuthClient {
         last_name: readString(user.user_metadata.last_name, 256) ?? "",
         password_sign_in_enabled: user.user_metadata.password_sign_in_enabled === true,
       }, app_metadata: {
-        provider: user.app_metadata.provider === "google" ? "google" : "email",
-        providers: Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers.filter((value) => value === "email" || value === "google") : [],
-      }, identities: user.identities?.filter(({ provider }) => provider === "email" || provider === "google") },
+        provider: user.app_metadata.provider === "apple" || user.app_metadata.provider === "google"
+          ? user.app_metadata.provider
+          : "email",
+        providers: Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers.filter((value) => value === "apple" || value === "email" || value === "google") : [],
+      }, identities: user.identities?.filter(({ provider }) => provider === "apple" || provider === "email" || provider === "google") },
       cloudStatus: this.#cloudStatus,
       refreshRejected: this.#refreshRejected,
       sessionRevision: this.#session?.local_revision ?? null,
@@ -1309,19 +1312,18 @@ export class FavLockAuthClient {
     provider,
     options,
   }: {
-    provider: "google";
+    provider: OAuthProvider;
     options: { redirectTo: string };
   }): Promise<AuthResult<{ url: string | null }>> {
     let pkceStored = false;
     try {
-      if (provider !== "google") throw new Error("Unsupported sign-in provider.");
       const redirectTarget = readRedirectTarget(options.redirectTo, this.#dashboardUrl);
       if (!redirectTarget) throw new Error("The sign-in destination is invalid.");
       const { challenge } = await this.#storePkce("sign-in");
       pkceStored = true;
       const url = new URL(`${this.#authUrl}/auth/v1/authorize`);
       url.search = new URLSearchParams({
-        provider: "google",
+        provider,
         redirect_to: new URL(redirectTarget, `${this.#dashboardUrl}/`).toString(),
         code_challenge: challenge,
         code_challenge_method: "s256",
@@ -1332,7 +1334,7 @@ export class FavLockAuthClient {
       if (pkceStored) removeStorageItem(PKCE_STORAGE_KEY);
       return {
         data: { url: null },
-        error: error instanceof Error ? error : new Error("Could not connect to Google."),
+        error: error instanceof Error ? error : new Error(`Could not connect to ${provider === "apple" ? "Apple" : "Google"}.`),
       };
     }
   }

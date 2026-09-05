@@ -39,6 +39,14 @@ describe("AuthCallbackBoundary", () => {
     expect(container.innerHTML).not.toContain("fake-code");
   });
 
+  it.each(["cancelled", "provider_error"])("keeps %s guidance provider-neutral", async (failure) => {
+    getCallbackFailure.mockReturnValue(failure);
+    await render();
+    expect(container.textContent).not.toContain("Google");
+    expect(container.textContent).not.toContain("Apple");
+    expect(container.textContent.toLowerCase()).toContain("sign-in");
+  });
+
   it.each(["temporarily_unavailable", "storage_unavailable"])("keeps %s retry on the original callback document", async (failure) => {
     getCallbackFailure.mockReturnValue(failure);
     await render();

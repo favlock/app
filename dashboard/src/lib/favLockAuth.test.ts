@@ -996,6 +996,33 @@ describe("FavLockAuthClient", () => {
     });
   });
 
+  it("starts Apple OAuth through the same bounded S256 PKCE flow", async () => {
+    const navigate = vi.fn();
+    const client = new FavLockAuthClient({
+      apiUrl: API_URL,
+      authUrl: AUTH_URL,
+      dashboardUrl: DASHBOARD_URL,
+      fetchImplementation: vi.fn() as typeof fetch,
+      navigate,
+    });
+    clients.push(client);
+
+    const result = await client.signInWithOAuth({
+      provider: "apple",
+      options: { redirectTo: `${DASHBOARD_URL}/checkout` },
+    });
+
+    expect(result.error).toBeNull();
+    const destination = new URL(navigate.mock.calls[0][0] as string);
+    expect(destination.origin).toBe(AUTH_URL);
+    expect(destination.pathname).toBe("/auth/v1/authorize");
+    expect(destination.searchParams.get("provider")).toBe("apple");
+    expect(destination.searchParams.get("redirect_to")).toBe(
+      `${DASHBOARD_URL}/checkout`,
+    );
+    expect(destination.searchParams.get("code_challenge_method")).toBe("s256");
+  });
+
   it("rejects an OAuth redirect outside the dashboard origin", async () => {
     const navigate = vi.fn();
     const client = new FavLockAuthClient({

@@ -81,4 +81,24 @@ describe("home library", () => {
       "note:note-updated",
     ]);
   });
+
+  it("keeps internal highlight sources out of recent Library items", () => {
+    const hiddenSource: Bookmark = {
+      id: "highlight-source",
+      user_id: "user-1",
+      title: "Highlighted page",
+      url: "https://highlight.example",
+      created_at: "2026-08-06T09:00:00.000Z",
+      is_highlight_source: true,
+    };
+
+    const items = mergeHomeLibraryItems(
+      [...bookmarks, hiddenSource],
+      notes,
+      todos,
+      [article],
+    );
+
+    expect(items.some((item) => item.id === hiddenSource.id)).toBe(false);
+  });
 });

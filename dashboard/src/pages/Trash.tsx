@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   BookOpen,
   Bookmark,
+  Highlighter,
   ListTodo,
   Menu,
   RotateCcw,
@@ -46,6 +47,11 @@ const resourcePresentation: Record<
     label: "Readspace",
     icon: BookOpen,
     colorClass: "bg-violet-500/10 text-violet-700",
+  },
+  highlight: {
+    label: "Highlight",
+    icon: Highlighter,
+    colorClass: "bg-yellow-500/12 text-yellow-700",
   },
 };
 

@@ -46,7 +46,6 @@ export default function ReadspaceCard({
     : "";
   const sourceDetails = [
     content.siteName,
-    content.byline,
     published ? `Published ${published}` : "",
     updated && updated !== published ? `Updated ${updated}` : "",
   ].filter(Boolean);

@@ -221,7 +221,7 @@ export const useFolderBookmarkCounts = () => {
             getCachedEntriesForUser(user!.id),
           ]);
       const relationIds = [
-        ...bookmarks.flatMap((bookmark) =>
+        ...bookmarks.filter((bookmark) => !bookmark.is_highlight_source).flatMap((bookmark) =>
           (bookmark.folders ?? []).map((folder) => folder.id),
         ),
         ...entries.flatMap((entry) => (entry.folder ? [entry.folder.id] : [])),

@@ -41,11 +41,14 @@ export const useBookmarkCounts = () => {
       const bookmarks = isLocalAccount
         ? await readLocalBookmarks(user!.id, cryptoKey!)
         : await getCachedBookmarksForUser(user!.id);
+      const visibleBookmarks = bookmarks.filter(
+        (bookmark) => !bookmark.is_highlight_source,
+      );
       return {
-        bookmarkCount: bookmarks.length,
-        favoriteCount: bookmarks.filter((bookmark) => bookmark.is_favorite)
+        bookmarkCount: visibleBookmarks.length,
+        favoriteCount: visibleBookmarks.filter((bookmark) => bookmark.is_favorite)
           .length,
-        unsortedCount: bookmarks.filter(
+        unsortedCount: visibleBookmarks.filter(
           (bookmark) => (bookmark.folders ?? []).length === 0,
         ).length,
       };
@@ -57,7 +60,7 @@ export const useBookmarkCounts = () => {
 
 export const useBookmarks = (
   folderId: string | null = null,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; includeHighlightSources?: boolean },
 ) => {
   const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
   const { cryptoKey } = useEncryption();
@@ -68,17 +71,22 @@ export const useBookmarks = (
       folderId,
       user?.id,
       bookmarkCacheSyncedAt,
+      options?.includeHighlightSources ? "with-highlight-sources" : "visible-only",
     ],
     enabled:
       (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt &&
       (!isLocalAccount || !!cryptoKey),
-    queryFn: async () =>
-      bookmarksForView(
-        isLocalAccount
-          ? await readLocalBookmarks(user!.id, cryptoKey!)
-          : await getCachedBookmarksForUser(user!.id),
-        bookmarkView(folderId),
-      ),
+    queryFn: async () => {
+      const bookmarks = isLocalAccount
+        ? await readLocalBookmarks(user!.id, cryptoKey!)
+        : await getCachedBookmarksForUser(user!.id);
+      if (options?.includeHighlightSources) {
+        return [...bookmarks].sort((left, right) =>
+          right.created_at.localeCompare(left.created_at),
+        );
+      }
+      return bookmarksForView(bookmarks, bookmarkView(folderId));
+    },
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 1000 * 60 * 10,
   });

@@ -23,6 +23,9 @@ export async function hydrateLibraryQueryCache(
     getCachedTagsForUser(userId),
     getCachedTrashForUser(userId),
   ]);
+  const visibleBookmarks = bookmarks.filter(
+    (bookmark) => !bookmark.is_highlight_source,
+  );
   const newestFirst = <T extends { created_at: string }>(rows: T[]) =>
     [...rows].sort((left, right) =>
       right.created_at.localeCompare(left.created_at),
@@ -43,13 +46,13 @@ export async function hydrateLibraryQueryCache(
     .filter((item) => new Date(item.expiresAt).getTime() > now)
     .sort((left, right) => right.deletedAt.localeCompare(left.deletedAt));
   const folderRelationIds = [
-    ...bookmarks.flatMap((bookmark) =>
+    ...visibleBookmarks.flatMap((bookmark) =>
       (bookmark.folders ?? []).map((folder) => folder.id),
     ),
     ...entries.flatMap((entry) => (entry.folder ? [entry.folder.id] : [])),
   ];
   const tagRelationIds = [
-    ...bookmarks.flatMap((bookmark) =>
+    ...visibleBookmarks.flatMap((bookmark) =>
       (bookmark.tags ?? []).map((tag) => tag.id),
     ),
     ...entries.flatMap((entry) =>
@@ -58,7 +61,10 @@ export async function hydrateLibraryQueryCache(
   ];
 
   assertCurrent();
-  queryClient.setQueryData(["bookmarks", "local-cache", userId], bookmarks);
+  queryClient.setQueryData(
+    ["bookmarks", "local-cache", userId],
+    visibleBookmarks,
+  );
   queryClient.setQueryData(["folders", userId], sortFolders(folders));
   queryClient.setQueryData(
     ["tags", userId],
@@ -78,9 +84,10 @@ export async function hydrateLibraryQueryCache(
   );
   queryClient.setQueryData(["trash", "count", userId], trash.length);
   queryClient.setQueryData(["bookmarks", "counts", userId], {
-    bookmarkCount: bookmarks.length,
-    favoriteCount: bookmarks.filter((bookmark) => bookmark.is_favorite).length,
-    unsortedCount: bookmarks.filter(
+    bookmarkCount: visibleBookmarks.length,
+    favoriteCount: visibleBookmarks.filter((bookmark) => bookmark.is_favorite)
+      .length,
+    unsortedCount: visibleBookmarks.filter(
       (bookmark) => (bookmark.folders ?? []).length === 0,
     ).length,
   });
