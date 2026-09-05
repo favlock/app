@@ -18,6 +18,7 @@ let searchableBookmarks = [];
 let visibleSearchResults = [];
 let searchBookmarksLoaded = false;
 let connectionReady = false;
+let localVaultMode = false;
 
 function setStatus(message, kind = "error") {
   const status = document.getElementById("status");
@@ -81,13 +82,15 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   const button = document.getElementById("connectButton");
   const connectedAccount = document.getElementById("connectedAccount");
   const modeSwitch = document.getElementById("modeSwitch");
-  connectionReady = connected && unlocked && cloudStatus === "available";
+  localVaultMode = cloudStatus === "local";
+  connectionReady = connected && unlocked && ["available", "local"].includes(cloudStatus);
   modeSwitch.hidden = !connectionReady;
+  document.getElementById("showTabSessionButton").hidden = localVaultMode;
   connectedAccount.hidden = !connected;
-  connectedAccount.textContent = connected ? "Connected" : "";
-  connectedAccount.title = email || "FavLock extension connected";
+  connectedAccount.textContent = connected ? (localVaultMode ? "Local vault" : "Connected") : "";
+  connectedAccount.title = localVaultMode ? "FavLock local vault connected" : email || "FavLock extension connected";
 
-  if (connected && cloudStatus !== "available") {
+  if (connected && !["available", "local"].includes(cloudStatus)) {
     document.getElementById("bookmarkSearchPanel").hidden = true;
     document.getElementById("pagePreview").hidden = false;
     panel.hidden = false;
@@ -420,7 +423,7 @@ async function initializeConnection() {
     return false;
   }
   setConnectionView(response);
-  if (!response.connected || !response.unlocked || (response.cloudStatus && response.cloudStatus !== "available")) {
+  if (!response.connected || !response.unlocked || (response.cloudStatus && !["available", "local"].includes(response.cloudStatus))) {
     setPageStateBadge(response.connected ? "Locked" : "Not connected", "neutral");
     return false;
   }
@@ -499,6 +502,12 @@ async function submitQuickAdd(event) {
       newTagNames: [document.getElementById("newTags").value],
       ...quickAddData,
     });
+    if (result.pendingLocal) {
+      setStatus("Finish saving in the opened local FavLock tab.", "success");
+      saveButton.textContent = "Opened local vault";
+      window.setTimeout(() => window.close(), 650);
+      return;
+    }
     setStatus(
       result.updatedExisting
         ? "Saved page updated in FavLock."

@@ -3,13 +3,14 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataExportSection from "./DataExportSection";
 
-const { loadBookmarks, encryptArchive, buildExport, triggerUnlock } = vi.hoisted(() => ({
+const { authState, loadBookmarks, encryptArchive, buildExport, triggerUnlock } = vi.hoisted(() => ({
+  authState: { isLocalAccount: false },
   loadBookmarks: vi.fn(),
   encryptArchive: vi.fn(),
   buildExport: vi.fn(),
   triggerUnlock: vi.fn(),
 }));
-vi.mock("../context/useAuth", () => ({ useAuth: () => ({ user: { id: "local-user" }, cloudStatus: "available" }) }));
+vi.mock("../context/useAuth", () => ({ useAuth: () => ({ user: { id: "local-user" }, isLocalAccount: authState.isLocalAccount }) }));
 vi.mock("../context/useEncryption", () => ({ useEncryption: () => ({ cryptoKey: {}, keyLoading: false, triggerUnlock }) }));
 vi.mock("../hooks/useFoldersQuery", () => ({ useFolders: () => ({ data: [] }) }));
 vi.mock("../hooks/useTagsQuery", () => ({ useTags: () => ({ data: [] }) }));
@@ -32,6 +33,7 @@ describe("DataExportSection connectivity guard", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    authState.isLocalAccount = false;
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     vi.stubGlobal("URL", class extends URL {
       static createObjectURL = createObjectURL;
@@ -78,7 +80,7 @@ describe("DataExportSection connectivity guard", () => {
   it("leaves online archive export working", async () => {
     await act(async () => root.render(<DataExportSection />));
     await act(async () => exportButton().click());
-    expect(loadBookmarks).toHaveBeenCalledWith("local-user");
+    expect(loadBookmarks).toHaveBeenCalledWith("local-user", undefined);
     expect(encryptArchive).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();
     expect(container.textContent).toContain("Export downloaded");
@@ -97,5 +99,27 @@ describe("DataExportSection connectivity guard", () => {
     expect(createObjectURL).not.toHaveBeenCalled();
     expect(container.textContent).toContain("Reconnect to export your data.");
     expect(container.textContent).not.toContain("Export downloaded");
+  });
+
+  it("exports the local vault while offline using its in-memory key", async () => {
+    authState.isLocalAccount = true;
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    await act(async () => root.render(<DataExportSection />));
+
+    await act(async () => exportButton().click());
+
+    expect(loadBookmarks).toHaveBeenCalledWith("local-user", {});
+    expect(buildExport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        lists: [],
+        notes: [],
+        todos: [],
+        readspace: [],
+      }),
+      { bookmarks: true, notes: true, todos: true, readspace: true },
+    );
+    expect(encryptArchive).toHaveBeenCalledOnce();
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("Export downloaded");
   });
 });

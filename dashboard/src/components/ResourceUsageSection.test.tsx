@@ -138,6 +138,36 @@ describe("ResourceUsageSection", () => {
     expect(container.textContent).toContain("Trash recovery: 30 days");
   });
 
+  it("labels local-vault usage without promising Trash recovery", async () => {
+    useAccountPlan.mockReturnValue({
+      data: {
+        id: "local",
+        name: "Local",
+        trashRecoveryDays: 0,
+        limits: {
+          bookmarks: 250,
+          entries: 25,
+          readspace: 10,
+          collections: 0,
+          tags: 0,
+          lists: 3,
+        },
+      },
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+
+    await act(async () => {
+      root.render(<ResourceUsageSection localOnly />);
+    });
+
+    expect(container.textContent).toContain("stored in this local vault");
+    expect(container.textContent).toContain("Storage: Local");
+    expect(container.textContent).toContain("Deleted items are removed immediately");
+    expect(container.textContent).not.toContain("Trash recovery");
+  });
+
   it("shows reached and exceeded finite limits in red", async () => {
     useResourceUsage.mockReturnValue({
       data: {

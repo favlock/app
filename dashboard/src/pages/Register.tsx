@@ -7,7 +7,7 @@ import {
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Description } from "@headlessui/react";
-import { ArrowLeft, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
+import { ArrowLeft, HardDrive, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
 import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "../components/ui/button";
 import { ErrorMessage, Field, FieldGroup, Label } from "../components/ui/fieldset";
@@ -32,6 +32,7 @@ import {
 import { WEB_TERMS_URL } from "../lib/appUrls";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
 import { isPasswordRecoveryRedirectUrl } from "../lib/authRecovery";
+import { clearLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 
 const SUPPORT_EMAIL = "support@favlock.app";
 const DISPOSABLE_EMAIL_TERMS_URL = `${WEB_TERMS_URL}#disposable-email-addresses`;
@@ -252,6 +253,7 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reconnecting = searchParams.get("reconnect") === "1";
+  const mergingLocalVault = searchParams.get("merge") === "1";
   const requestingConfirmation = searchParams.get("confirmation") === "1";
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
@@ -297,15 +299,19 @@ export default function AuthPage() {
   };
 
   const switchEmailMode = (mode: AuthMode) => {
-    if (mode === emailMode || (reconnecting && mode === "sign-up")) return;
-    navigate(buildAuthPath("/login", nextPath, { mode, reconnect: reconnecting }));
+    if (mode === emailMode || (reconnecting && !mergingLocalVault && mode === "sign-up")) return;
+    navigate(buildAuthPath("/login", nextPath, {
+      mode,
+      reconnect: reconnecting,
+      merge: mergingLocalVault,
+    }));
   };
 
   const selectEmailModeFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
     currentMode: AuthMode,
   ) => {
-    if (reconnecting) return;
+    if (reconnecting && !mergingLocalVault) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
@@ -431,6 +437,18 @@ export default function AuthPage() {
     setConfirmationEmail(normalizedEmail);
   };
 
+  const createLocalVault = async () => {
+    setError(null);
+    setLoading(true);
+    const { error: localError } = await favLockAuth.createLocalAccount();
+    setLoading(false);
+    if (localError) {
+      setError(localError.message);
+      return;
+    }
+    navigate(nextPath);
+  };
+
   if (confirmationEmail || requestingConfirmation) {
     return (
       <AuthLayout>
@@ -443,11 +461,11 @@ export default function AuthPage() {
             setEmail("");
             setError(null);
             resetCaptcha();
-            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting ? "sign-in" : "sign-up", reconnect: reconnecting }));
+            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting && !mergingLocalVault ? "sign-in" : "sign-up", reconnect: reconnecting, merge: mergingLocalVault }));
           }}
           onBackToSignIn={() => {
             setConfirmationEmail(null);
-            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting }));
+            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting, merge: mergingLocalVault }));
             setShowEmailForm(true);
             setError(null);
             resetCaptcha();
@@ -458,12 +476,16 @@ export default function AuthPage() {
   }
 
   const heading = !showEmailForm
-    ? emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
+    ? mergingLocalVault
+      ? "Sync your local vault"
+      : emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
     : emailMode === "sign-up"
       ? "Create account"
       : "Sign in with email";
   const description = !showEmailForm
-    ? emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
+    ? mergingLocalVault
+      ? "Create a free account or sign in to an existing one"
+      : emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
     : emailMode === "sign-up"
       ? "Create your account using a permanent email address"
       : "Enter your FavLock account details";
@@ -473,7 +495,23 @@ export default function AuthPage() {
       <div className="w-full">
         <Heading>{heading}</Heading>
         <Text className="mt-1">{description}</Text>
-        {reconnecting && <Text className="mt-3">Reconnect to the original account to use cloud services. Your local library stays on this device. <Link className="underline" to="/">Back to local library</Link></Text>}
+        {reconnecting && (
+          <Text className="mt-3">
+            {mergingLocalVault
+              ? "Sign in or create a free account to sync this encrypted local vault. Existing cloud items will be kept."
+              : "Reconnect to the original account to use cloud services. Your local library stays on this device."}{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (mergingLocalVault) clearLocalVaultCloudMerge();
+                navigate("/");
+              }}
+            >
+              Back to local library
+            </button>
+          </Text>
+        )}
 
         {error && !invalidField && <AuthErrorNotice message={error} />}
 
@@ -499,6 +537,28 @@ export default function AuthPage() {
               <Mail data-slot="icon" aria-hidden="true" />
               Continue with email
             </Button>
+            {!reconnecting && (
+              <div className="pt-2">
+                <div className="mb-4 flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-[#777b85]">
+                  <span className="h-px flex-1 bg-[#1d2230]/10" />
+                  No account
+                  <span className="h-px flex-1 bg-[#1d2230]/10" />
+                </div>
+                <Button
+                  type="button"
+                  outline
+                  className="w-full"
+                  disabled={loading}
+                  onClick={() => void createLocalVault()}
+                >
+                  <HardDrive data-slot="icon" aria-hidden="true" />
+                  {loading ? "Creating local vault..." : "Try FavLock locally"}
+                </Button>
+                <Text className="mt-2 text-center text-xs">
+                  Encrypted and stored only in this browser. No account or cloud connection.
+                </Text>
+              </div>
+            )}
           </div>
         ) : (
           <div className="mt-4">
@@ -544,7 +604,7 @@ export default function AuthPage() {
               </button>
               <button
                 id="email-sign-up-tab"
-                disabled={reconnecting}
+                disabled={reconnecting && !mergingLocalVault}
                 type="button"
                 role="tab"
                 aria-selected={emailMode === "sign-up"}
@@ -660,11 +720,11 @@ export default function AuthPage() {
           </div>
         )}
 
-        {!reconnecting && (
+        {(!reconnecting || mergingLocalVault) && (
           <Text className="mt-5 text-center">
             {emailMode === "sign-up" ? "Already have an account? " : "New to FavLock? "}
             <Link
-              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up" })}
+              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up", reconnect: reconnecting, merge: mergingLocalVault })}
               className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
             >
               {emailMode === "sign-up" ? "Sign in" : "Create account"}

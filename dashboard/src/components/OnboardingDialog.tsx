@@ -42,6 +42,7 @@ import {
 interface OnboardingDialogProps {
   open: boolean;
   userId: string;
+  localOnly: boolean;
   bookmarkWritesAllowed: boolean;
   onClose: () => void;
   onProtectLibrary: () => void;
@@ -105,26 +106,38 @@ function ChecklistItem({
   );
 }
 
-function extensionStatusCopy(status: ChromeExtensionOnboardingStatus) {
+function extensionStatusCopy(
+  status: ChromeExtensionOnboardingStatus,
+  localOnly: boolean,
+) {
   switch (status) {
     case "checking":
       return "Checking whether the FavLock extension is available…";
     case "not-installed":
       return "The extension is not detected. Installing it is optional; dashboard saves remain fully supported.";
     case "installed-unpaired":
-      return "The extension is installed but not paired. Open it and choose Connect FavLock to grant account access.";
+      return localOnly
+        ? "The extension is installed but not connected. Open it and choose Connect FavLock to connect this local library."
+        : "The extension is installed but not paired. Open it and choose Connect FavLock to grant account access.";
     case "installed-wrong-account":
-      return "The extension is paired to a different account. Disconnect it explicitly before pairing this account.";
+      return localOnly
+        ? "The extension is connected to a different FavLock library. Disconnect it explicitly before connecting this one."
+        : "The extension is paired to a different account. Disconnect it explicitly before pairing this account.";
     case "installed-locked":
-      return "The extension is paired to this account, but its local library is locked. Unlock it separately in the extension.";
+      return localOnly
+        ? "The extension is connected to this local library, but it is locked. Unlock it separately in the extension."
+        : "The extension is paired to this account, but its local library is locked. Unlock it separately in the extension.";
     case "paired":
-      return "The extension is installed, paired to this account, and its local library is unlocked.";
+      return localOnly
+        ? "The extension is connected to this local library and unlocked."
+        : "The extension is installed, paired to this account, and its local library is unlocked.";
   }
 }
 
 export default function OnboardingDialog({
   open,
   userId,
+  localOnly,
   bookmarkWritesAllowed,
   onClose,
   onProtectLibrary,
@@ -251,6 +264,11 @@ export default function OnboardingDialog({
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.15em] text-[var(--app-primary)]">
             Getting started · {completedCount} of 3 complete
           </p>
+          {localOnly ? (
+            <p className="mb-2 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-800">
+              Stored on this device
+            </p>
+          ) : null}
           <DialogTitle className="text-xl/7! sm:text-xl/7!">
             {firstValueComplete
               ? "Your library is ready"
@@ -353,9 +371,11 @@ export default function OnboardingDialog({
                         Save from Chrome (optional)
                       </summary>
                       <div className="mt-2 space-y-2 leading-5">
-                        <p>{extensionStatusCopy(extensionStatus)}</p>
+                        <p>{extensionStatusCopy(extensionStatus, localOnly)}</p>
                         <p>
-                          Install the extension, pair this account, then unlock its library. These are separate steps.
+                          {localOnly
+                            ? "Install the extension, connect this local library, then unlock it. These are separate steps."
+                            : "Install the extension, pair this account, then unlock its library. These are separate steps."}
                         </p>
                         <div className="flex flex-wrap gap-2 pt-1">
                           {extensionStatus === "not-installed" ? (
@@ -375,7 +395,9 @@ export default function OnboardingDialog({
                           </Button>
                         </div>
                         <p className="text-xs">
-                          Opening the store does not prove installation or account access.
+                          {localOnly
+                            ? "Opening the store does not prove installation or library access."
+                            : "Opening the store does not prove installation or account access."}
                         </p>
                       </div>
                     </details>

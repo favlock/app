@@ -31,9 +31,11 @@ async function loadConnection() {
   }
 
   const identity = response.email ? `Connected as ${response.email}. ` : "";
-  const availability = response.cloudStatus === "available"
-    ? "Cloud access is available."
-    : "The local connection is saved, but cloud access needs to be reconnected from the popup.";
+  const availability = response.cloudStatus === "local"
+    ? "Connected to a local-only vault. Search and organization use an encrypted on-device index; Quick Save opens the dashboard to commit encrypted data on this device."
+    : response.cloudStatus === "available"
+      ? "Cloud access is available."
+      : "The local connection is saved, but cloud access needs to be reconnected from the popup.";
   description.textContent = `${identity}${availability}`;
   disconnectButton.hidden = false;
 }

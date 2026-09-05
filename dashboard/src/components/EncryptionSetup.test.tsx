@@ -9,6 +9,7 @@ import {
   readOnboardingState,
 } from "../lib/onboarding";
 import { requestEncryptionSetup } from "../lib/encryptionSetupFlow";
+import { startLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 
 const TEST_KEY = "1234 5678 9012 3456 7890 1234 5678 9012";
 
@@ -212,6 +213,19 @@ describe("EncryptionSetup", () => {
     expect(readOnboardingState("google-user").protection.status).toBe(
       "unknown",
     );
+  });
+
+  it("does not generate a cloud key while local-vault conversion is pending", async () => {
+    startLocalVaultCloudMerge("11111111-1111-4111-8111-111111111111");
+
+    await act(async () => {
+      root.render(<EncryptionSetup />);
+    });
+
+    expect(setRawKey).not.toHaveBeenCalled();
+    expect(fetchAccountSettings).not.toHaveBeenCalled();
+    expect(fetchEncryptionVerifier).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain(TEST_KEY);
   });
 
   it("does not replay the setup dialog after setup is completed", async () => {

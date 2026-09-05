@@ -17,6 +17,7 @@ import { Input } from "../components/ui/input";
 import { Text } from "../components/ui/text";
 import {
   Check,
+  Cloud,
   Gauge,
   Menu,
   ShieldCheck,
@@ -50,7 +51,7 @@ const SETTINGS_TABS: SettingsTab[] = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -149,7 +150,7 @@ export default function Settings() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
-            Manage your profile, preferences, security, and account usage
+            Manage your library preferences, security, and usage
           </p>
         </div>
       </header>
@@ -248,7 +249,12 @@ export default function Settings() {
                 role="tabpanel"
                 aria-labelledby="profile-tab"
               >
-                {loading ? (
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Profile"
+                    description="Profile details belong to a synced FavLock account. Connect a free account to add your name and email."
+                  />
+                ) : loading ? (
                   <div className="space-y-4">
                     <div className="h-10 liquid-skeleton rounded-[1.05rem]" />
                     <div className="h-10 liquid-skeleton rounded-[1.05rem]" />
@@ -366,13 +372,25 @@ export default function Settings() {
               >
                 <KeyTransferSection />
                 <PasskeySettingsSection />
-                {user ? (
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Password sign-in"
+                    description="Password sign-in is available for synced FavLock accounts. Your local vault continues to unlock with its passkey or recovery key."
+                  />
+                ) : user ? (
                   <PasswordSignInSection
                     email={user.email ?? ""}
                     hasPassword={hasPasswordSignIn(user)}
                   />
                 ) : null}
-                <SearchHistoryPrivacySection />
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Cloud search history"
+                    description="Encrypted search-history sync is available with a FavLock account. Local vault searches are not sent to FavLock."
+                  />
+                ) : (
+                  <SearchHistoryPrivacySection />
+                )}
                 <LocalPrivacySection />
               </div>
             ) : (
@@ -382,9 +400,16 @@ export default function Settings() {
                 aria-labelledby="usage-tab"
                 className="space-y-6"
               >
-                <BillingSection />
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Plan and billing"
+                    description="Subscriptions and billing belong to a synced FavLock account. Your local vault limits are shown below."
+                  />
+                ) : (
+                  <BillingSection />
+                )}
                 <div className="h-px bg-[color-mix(in_oklab,var(--app-line)_14%,transparent)]" />
-                <ResourceUsageSection />
+                <ResourceUsageSection localOnly={isLocalAccount} />
                 <BookmarkDuplicateCleanupSection />
               </div>
             )}
@@ -392,5 +417,31 @@ export default function Settings() {
         </div>
       </section>
     </div>
+  );
+}
+
+function CloudOnlySettingsSection({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <section
+      aria-disabled="true"
+      className="rounded-2xl border border-gray-200/80 bg-gray-50/80 p-4 opacity-75 shadow-sm sm:p-5"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Cloud className="size-4 text-gray-500" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
+        <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700">
+          Cloud only
+        </span>
+      </div>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600">
+        {description}
+      </p>
+    </section>
   );
 }

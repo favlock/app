@@ -11,6 +11,8 @@ import {
   createPasskeyEncryptionRecord,
   savePasskeyEncryptionRecord,
 } from "../lib/passkeyEncryption";
+import { saveLocalPasskeyRecord } from "../lib/localVault";
+import { readLocalKeyVerifier } from "../lib/localKeyVerifier";
 import EncryptionKeyDialog from "./EncryptionKeyDialog";
 import { queryClient } from "../lib/queryClient";
 import {
@@ -33,6 +35,8 @@ import {
   type ProtectionMethod,
 } from "../lib/onboarding";
 import { ENCRYPTION_SETUP_REQUESTED_EVENT } from "../lib/encryptionSetupFlow";
+import { readLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
+import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 
 type EncryptionSetupResult = {
   key: string | null;
@@ -42,12 +46,19 @@ type EncryptionSetupResult = {
 };
 
 export default function EncryptionSetup() {
-  const { session, user, loading: authLoading, signOut } = useAuth();
+  const {
+    session,
+    user,
+    loading: authLoading,
+    signOut,
+    isLocalAccount,
+  } = useAuth();
   const {
     cryptoKey,
     keyLoading,
     setKeyRemembered,
     setRawKey,
+    initializeLocalKey,
     triggerUnlock,
   } = useEncryption();
   const [encryptionKey, setEncryptionKey] = useState<string | null>(null);
@@ -56,6 +67,8 @@ export default function EncryptionSetup() {
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupRequested, setSetupRequested] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [retryToken, setRetryToken] = useState(0);
   const setupRef = useRef<{
     userId: string;
@@ -69,6 +82,10 @@ export default function EncryptionSetup() {
 
     const handleSetupRequest = (event: Event) => {
       if (event instanceof CustomEvent && event.detail?.userId === user.id) {
+        if (event.detail.refresh === true) {
+          setupRef.current = null;
+          setRetryToken((token) => token + 1);
+        }
         setSetupRequested(true);
       }
     };
@@ -87,7 +104,7 @@ export default function EncryptionSetup() {
   useEffect(() => {
     if (authLoading || keyLoading) return;
 
-    if (!user || !session?.access_token) {
+    if (!user || (!isLocalAccount && !session?.access_token)) {
       setupRef.current = null;
       setEncryptionKey(null);
       setPreparedMethod(null);
@@ -103,6 +120,69 @@ export default function EncryptionSetup() {
       (setup.waitingForUnlock && !!cryptoKey)
     ) {
       const setUpEncryption = async (): Promise<EncryptionSetupResult> => {
+        if (isLocalAccount) {
+          if (readLocalKeyVerifier(user.id)) {
+            const onboardingState = readOnboardingState(user.id);
+            if (!cryptoKey) {
+              triggerUnlock();
+              return {
+                key: null,
+                error: null,
+                preparedMethod: null,
+                waitingForUnlock: true,
+              };
+            }
+            if (onboardingState.protection.status === "pending") {
+              return {
+                key: formatEncryptionKey(await exportRawKey(cryptoKey)),
+                error: null,
+                preparedMethod: onboardingState.protection.method,
+              };
+            }
+            return {
+              key: null,
+              error: null,
+              preparedMethod: null,
+            };
+          }
+          const key = generateEncryptionKey();
+          markProtectionPending(user.id);
+          try {
+            await initializeLocalKey(key);
+            return {
+              key,
+              error: null,
+              preparedMethod: null,
+            };
+          } catch (error) {
+            return {
+              key: null,
+              error: error instanceof Error
+                ? error.message
+                : "Could not protect the local vault. Try again.",
+              preparedMethod: null,
+            };
+          }
+        }
+
+        if (!session?.access_token) {
+          return {
+            key: null,
+            error: "Reconnect before preparing cloud encryption.",
+            preparedMethod: null,
+          };
+        }
+
+        // A pending local-vault conversion owns initial key selection. Let its
+        // dialog inspect the destination before ordinary setup can generate a
+        // different key for an otherwise empty account.
+        if (readLocalVaultCloudMerge()) {
+          return {
+            key: null,
+            error: null,
+            preparedMethod: null,
+          };
+        }
         let userInfo;
         try {
           userInfo = await queryClient.fetchQuery({
@@ -223,7 +303,10 @@ export default function EncryptionSetup() {
       setSetupError(result.error);
       if (result.error) setSetupRequested(true);
       setPreparedMethod(result.preparedMethod);
-      if (result.key) setEncryptionKey(result.key);
+      if (result.key) {
+        setEncryptionKey(result.key);
+        if (isLocalAccount) setSetupRequested(true);
+      }
     });
 
     return () => {
@@ -232,6 +315,8 @@ export default function EncryptionSetup() {
   }, [
     authLoading,
     cryptoKey,
+    initializeLocalKey,
+    isLocalAccount,
     keyLoading,
     retryToken,
     session?.access_token,
@@ -241,12 +326,13 @@ export default function EncryptionSetup() {
   ]);
 
   const handleSignOut = async () => {
+    setSignOutError(null);
     setSigningOut(true);
     try {
       await signOut();
       setSetupError(null);
     } catch (error) {
-      setSetupError(
+      setSignOutError(
         error instanceof Error ? error.message : "Could not sign out. Try again.",
       );
       setSigningOut(false);
@@ -256,10 +342,11 @@ export default function EncryptionSetup() {
   return (
     <>
       <EncryptionKeyDialog
+        localOnly={isLocalAccount}
         encryptionKey={setupRequested ? encryptionKey : null}
         preparedMethod={preparedMethod}
         onSaveWithPasskey={async () => {
-          if (!user || !session?.access_token || !encryptionKey) {
+          if (!user || !encryptionKey) {
             throw new Error("Encryption setup is no longer available.");
           }
 
@@ -267,6 +354,7 @@ export default function EncryptionSetup() {
           const displayName =
             [firstName, lastName].filter(Boolean).join(" ") ||
             user.email ||
+            (isLocalAccount ? "Local vault" : "") ||
             "FavLock user";
           const record = await createPasskeyEncryptionRecord({
             rawKey: encryptionKey,
@@ -274,7 +362,13 @@ export default function EncryptionSetup() {
             userName: user.email || user.id,
             displayName,
           });
-          await savePasskeyEncryptionRecord(session.access_token, record);
+          if (isLocalAccount) {
+            await saveLocalPasskeyRecord(user.id, record);
+          } else if (session?.access_token) {
+            await savePasskeyEncryptionRecord(session.access_token, record);
+          } else {
+            throw new Error("Reconnect before saving the cloud passkey.");
+          }
           setPreparedMethod("passkey");
           markProtectionPending(user.id, "passkey");
         }}
@@ -304,7 +398,7 @@ export default function EncryptionSetup() {
           // Refresh the profile only after this dialog closes. The dashboard
           // uses the saved verifier as the signal that it can start the
           // welcome flow, keeping the two dialogs in a predictable order.
-          if (user) {
+          if (user && !isLocalAccount) {
             await queryClient.invalidateQueries({
               queryKey: userInfoQueryKey(user.id),
             });
@@ -312,7 +406,7 @@ export default function EncryptionSetup() {
         }}
       />
       <Dialog
-        open={setupRequested && !encryptionKey && !setupError && !!session}
+        open={setupRequested && !encryptionKey && !setupError && !!user}
         onClose={() => {}}
         size="sm"
       >
@@ -322,7 +416,7 @@ export default function EncryptionSetup() {
         </DialogDescription>
       </Dialog>
       <Dialog
-        open={setupRequested && !!setupError && !!session}
+        open={setupRequested && !!setupError && !!user && !confirmingSignOut}
         onClose={() => {}}
         size="sm"
       >
@@ -333,7 +427,14 @@ export default function EncryptionSetup() {
             type="button"
             outline
             disabled={signingOut}
-            onClick={() => void handleSignOut()}
+            onClick={() => {
+              if (isLocalAccount) {
+                setSignOutError(null);
+                setConfirmingSignOut(true);
+                return;
+              }
+              void handleSignOut();
+            }}
           >
             {signingOut ? "Signing out..." : "Sign out"}
           </Button>
@@ -351,6 +452,16 @@ export default function EncryptionSetup() {
           </Button>
         </DialogActions>
       </Dialog>
+      <LocalVaultSignOutDialog
+        open={confirmingSignOut}
+        busy={signingOut}
+        error={signOutError}
+        onClose={() => {
+          setConfirmingSignOut(false);
+          setSignOutError(null);
+        }}
+        onConfirm={() => void handleSignOut()}
+      />
     </>
   );
 }

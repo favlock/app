@@ -8,11 +8,15 @@ import UnlockDialog from "./UnlockDialog";
 
 const {
   loadPasskeyEncryptionRecord,
+  readLocalPasskeyRecord,
+  localAccount,
   signOut,
   setRawKey,
   unwrapEncryptionKeyWithPasskey,
 } = vi.hoisted(() => ({
   loadPasskeyEncryptionRecord: vi.fn(),
+  readLocalPasskeyRecord: vi.fn(),
+  localAccount: { current: false },
   signOut: vi.fn(),
   setRawKey: vi.fn(),
   unwrapEncryptionKeyWithPasskey: vi.fn(),
@@ -27,7 +31,12 @@ vi.mock("../context/useAuth", () => ({
     session: { access_token: "current.jwt.token" },
     user: { id: "test-user", email: "test@example.com" },
     signOut,
+    isLocalAccount: localAccount.current,
   }),
+}));
+
+vi.mock("../lib/localVault", () => ({
+  readLocalPasskeyRecord,
 }));
 
 vi.mock("../lib/passkeyEncryption", () => ({
@@ -44,9 +53,11 @@ describe("UnlockDialog", () => {
   let root: Root;
 
   beforeEach(async () => {
+    localAccount.current = false;
     setRawKey.mockReset().mockResolvedValue(undefined);
     signOut.mockReset().mockResolvedValue(undefined);
     loadPasskeyEncryptionRecord.mockReset().mockResolvedValue(null);
+    readLocalPasskeyRecord.mockReset().mockResolvedValue(null);
     unwrapEncryptionKeyWithPasskey.mockReset();
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -173,5 +184,33 @@ describe("UnlockDialog", () => {
         .querySelector('[id^="headlessui-dialog-panel-"]')
         ?.hasAttribute("data-closed"),
     ).toBe(true);
+  });
+
+  it("requires destructive confirmation before erasing a local vault", async () => {
+    localAccount.current = true;
+    await act(async () => {
+      root.unmount();
+      root = createRoot(container);
+      root.render(<UnlockDialog />);
+    });
+
+    const signOutButton = Array.from(
+      document.querySelectorAll("button"),
+    ).find((button) => button.textContent?.includes("Sign out & erase vault"));
+
+    await act(async () => signOutButton!.click());
+
+    expect(signOut).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Erase this local vault?");
+    expect(document.body.textContent).toContain(
+      "permanently erase everything stored in this local vault",
+    );
+
+    const confirmButton = Array.from(
+      document.querySelectorAll("button"),
+    ).find((button) => button.textContent?.includes("Erase vault & sign out"));
+    await act(async () => confirmButton!.click());
+
+    expect(signOut).toHaveBeenCalledOnce();
   });
 });

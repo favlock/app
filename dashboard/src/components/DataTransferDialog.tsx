@@ -6,6 +6,7 @@ import {
   LoaderCircle,
 } from "lucide-react";
 import { lazy, Suspense } from "react";
+import { useAuth } from "../context/useAuth";
 import { useBrowserOnline } from "../hooks/useBrowserOnline";
 import { isBrowserOnline, OFFLINE_EXPORT_MESSAGE } from "../lib/network";
 import { Button } from "./ui/button";
@@ -19,10 +20,16 @@ import {
 const BrowserBookmarkImportSection = lazy(
   () => import("./BrowserBookmarkImportSection"),
 );
+const LocalBrowserBookmarkImportSection = lazy(
+  () => import("./LocalBrowserBookmarkImportSection"),
+);
 const FavLockMigrationImportSection = lazy(
   () => import("./FavLockMigrationImportSection"),
 );
 const DataExportSection = lazy(() => import("./DataExportSection"));
+const LocalVaultRestoreSection = lazy(
+  () => import("./LocalVaultRestoreSection"),
+);
 
 export type DataTransferView = "chooser" | "import" | "export" | "migrate";
 
@@ -38,17 +45,20 @@ export default function DataTransferDialog({
   onClose,
 }: DataTransferDialogProps) {
   const online = useBrowserOnline();
+  const { isLocalAccount } = useAuth();
+  const exportAvailable = isLocalAccount || online;
   return (
     <Dialog open={view !== null} onClose={onClose} size="3xl">
       {view === "chooser" ? (
         <>
           <DialogTitle>Data transfer</DialogTitle>
           <DialogDescription>
-            Choose what you want to move into, out of, or between FavLock
-            accounts.
+            {isLocalAccount
+              ? "Create or restore an encrypted backup of the data saved in this browser."
+              : "Choose what you want to move into, out of, or between FavLock accounts."}
           </DialogDescription>
 
-          <div className={`mt-6 grid gap-3 ${online ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+          <div className={`mt-6 grid gap-3 ${online || isLocalAccount ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
             <button
               type="button"
               onClick={() => onViewChange("import")}
@@ -58,17 +68,19 @@ export default function DataTransferDialog({
                 <ArrowDownToLine size={19} aria-hidden="true" />
               </span>
               <span className="mt-4 block text-sm font-semibold text-gray-900">
-                Import bookmarks
+                {isLocalAccount ? "Import bookmarks locally" : "Import bookmarks"}
               </span>
               <span className="mt-1 block text-sm leading-5 text-gray-600">
-                Add bookmarks from a browser or an HTML file.
+                {isLocalAccount
+                  ? "Import an HTML or Safari ZIP export without using the cloud."
+                  : "Add bookmarks from a browser or an HTML file."}
               </span>
             </button>
 
-            {online && <button
+            {exportAvailable && <button
               type="button"
               onClick={() => {
-                if (isBrowserOnline()) onViewChange("export");
+                if (isLocalAccount || isBrowserOnline()) onViewChange("export");
               }}
               className="group rounded-2xl border border-gray-200 bg-white p-4 text-left transition hover:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] hover:bg-[color-mix(in_oklab,var(--app-primary)_4%,white)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
             >
@@ -76,10 +88,12 @@ export default function DataTransferDialog({
                 <ArrowUpFromLine size={19} aria-hidden="true" />
               </span>
               <span className="mt-4 block text-sm font-semibold text-gray-900">
-                Export data
+                {isLocalAccount ? "Back up local vault" : "Export data"}
               </span>
               <span className="mt-1 block text-sm leading-5 text-gray-600">
-                Download a FavLock archive or browser-compatible bookmark file.
+                {isLocalAccount
+                  ? "Download an encrypted .favlock backup or browser bookmark file."
+                  : "Download a FavLock archive or browser-compatible bookmark file."}
               </span>
             </button>}
 
@@ -92,15 +106,17 @@ export default function DataTransferDialog({
                 <FileKey2 size={19} aria-hidden="true" />
               </span>
               <span className="mt-4 block text-sm font-semibold text-gray-900">
-                Migrate account
+                {isLocalAccount ? "Restore local backup" : "Migrate account"}
               </span>
               <span className="mt-1 block text-sm leading-5 text-gray-600">
-                Move an encrypted library into a new, empty account.
+                {isLocalAccount
+                  ? "Restore an encrypted backup into this empty local vault."
+                  : "Move an encrypted library into a new, empty account."}
               </span>
             </button>
           </div>
 
-          {!online && <p role="status" className="mt-4 text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>}
+          {!isLocalAccount && !online && <p role="status" className="mt-4 text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>}
           <DialogActions>
             <Button type="button" outline onClick={onClose}>
               Close
@@ -121,7 +137,7 @@ export default function DataTransferDialog({
             </Button>
           </div>
 
-          {view === "export" && !online ? (
+          {view === "export" && !exportAvailable ? (
             <>
               <DialogTitle>Export unavailable offline</DialogTitle>
               <DialogDescription>{OFFLINE_EXPORT_MESSAGE}</DialogDescription>
@@ -139,13 +155,25 @@ export default function DataTransferDialog({
           >
             {view === "import" ? (
               <>
-                <DialogTitle className="sr-only">Import bookmarks</DialogTitle>
-                <BrowserBookmarkImportSection />
+                <DialogTitle className="sr-only">
+                  {isLocalAccount ? "Import bookmarks locally" : "Import bookmarks"}
+                </DialogTitle>
+                {isLocalAccount ? (
+                  <LocalBrowserBookmarkImportSection />
+                ) : (
+                  <BrowserBookmarkImportSection />
+                )}
               </>
             ) : view === "migrate" ? (
               <>
-                <DialogTitle className="sr-only">Migrate account</DialogTitle>
-                <FavLockMigrationImportSection />
+                <DialogTitle className="sr-only">
+                  {isLocalAccount ? "Restore local backup" : "Migrate account"}
+                </DialogTitle>
+                {isLocalAccount ? (
+                  <LocalVaultRestoreSection />
+                ) : (
+                  <FavLockMigrationImportSection />
+                )}
               </>
             ) : (
               <>

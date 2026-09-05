@@ -97,7 +97,7 @@ function getCaptureParams(search: string) {
 
 export default function Readspace() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
     useEncryption();
   const { data: entries = [], isLoading, error, refetch } = useReadspace();
@@ -616,10 +616,11 @@ export default function Readspace() {
         onClose={() => setDeleteTarget(null)}
         size="sm"
       >
-        <DialogTitle>Move saved article to Trash?</DialogTitle>
+        <DialogTitle>{isLocalAccount ? "Delete saved article permanently?" : "Move saved article to Trash?"}</DialogTitle>
         <DialogDescription>
-          “{deleteTarget?.title}” can be restored from Trash before its recovery
-          period expires.
+          {isLocalAccount
+            ? `“${deleteTarget?.title ?? "This article"}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${deleteTarget?.title ?? "This article"}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -636,7 +637,7 @@ export default function Readspace() {
             disabled={deleteEntry.isPending}
             onClick={() => void confirmDelete()}
           >
-            {deleteEntry.isPending ? "Moving…" : "Move to Trash"}
+            {deleteEntry.isPending ? "Deleting…" : isLocalAccount ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

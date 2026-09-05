@@ -15,6 +15,7 @@ import { supportsPasskeyEncryption } from "../lib/passkeyEncryption";
 import type { ProtectionMethod } from "../lib/onboarding";
 
 interface EncryptionKeyDialogProps {
+  localOnly?: boolean;
   encryptionKey: string | null;
   preparedMethod: ProtectionMethod | null;
   onSaveWithPasskey: () => Promise<void>;
@@ -22,6 +23,7 @@ interface EncryptionKeyDialogProps {
 }
 
 export default function EncryptionKeyDialog({
+  localOnly = false,
   encryptionKey,
   preparedMethod,
   onSaveWithPasskey,
@@ -136,8 +138,9 @@ export default function EncryptionKeyDialog({
     <Dialog open={!!encryptionKey} onClose={() => {}}>
       <DialogTitle>Protect your library</DialogTitle>
       <DialogDescription>
-        Signing in opens your FavLock account. Unlocking your encrypted library
-        requires a separate protection method.
+        {localOnly
+          ? "Your local vault stays on this device. Protect its encryption key before saving anything."
+          : "Signing in opens your FavLock account. Unlocking your encrypted library requires a separate protection method."}
       </DialogDescription>
       <DialogBody>
         <div className="space-y-4">
@@ -170,12 +173,14 @@ export default function EncryptionKeyDialog({
                   <p className="mt-1 text-sm text-emerald-800">
                     A passkey protects an encrypted copy of this key and lets
                     you unlock it with your fingerprint, face, or device PIN.
-                    If your passkey manager syncs it, you can also unlock on
-                    compatible devices after signing in.
+                    {localOnly
+                      ? " The encrypted passkey record stays in this browser until you migrate the vault."
+                      : " If your passkey manager syncs it, you can also unlock on compatible devices after signing in."}
                   </p>
                   <p className="mt-2 text-xs text-emerald-800">
-                    This passkey unlocks your library after account sign-in. It
-                    does not sign you in to FavLock.
+                    {localOnly
+                      ? "This passkey unlocks this local library. It does not create or sign in to a FavLock account."
+                      : "This passkey unlocks your library after account sign-in. It does not sign you in to FavLock."}
                   </p>
                 </div>
               </div>

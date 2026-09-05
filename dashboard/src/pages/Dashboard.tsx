@@ -72,6 +72,7 @@ export default function Dashboard() {
     bookmarkCacheSyncedAt,
     bookmarkCacheError,
     retryBookmarkCacheSync,
+    isLocalAccount,
   } = useAuth();
   const { collectionSlug, tagSlug } = useParams();
   const location = useLocation();
@@ -657,10 +658,11 @@ export default function Dashboard() {
         onClose={() => setDeleteTarget(null)}
         size="sm"
       >
-        <DialogTitle>Move saved article to Trash?</DialogTitle>
+        <DialogTitle>{isLocalAccount ? "Delete saved article permanently?" : "Move saved article to Trash?"}</DialogTitle>
         <DialogDescription>
-          “{deleteTarget?.entry.title}” can be restored from Trash before its
-          recovery period expires.
+          {isLocalAccount
+            ? `“${deleteTarget?.entry.title ?? "This article"}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${deleteTarget?.entry.title ?? "This article"}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteArticleError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -682,7 +684,7 @@ export default function Dashboard() {
             disabled={deleteReadspaceEntry.isPending}
             onClick={() => void confirmDeleteArticle()}
           >
-            {deleteReadspaceEntry.isPending ? "Moving…" : "Move to Trash"}
+            {deleteReadspaceEntry.isPending ? "Deleting…" : isLocalAccount ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

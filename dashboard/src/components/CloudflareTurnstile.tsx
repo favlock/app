@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from "react";
-
 const TURNSTILE_SCRIPT_ID = "cloudflare-turnstile-script";
 const TURNSTILE_SCRIPT_URL =
   "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -101,7 +100,6 @@ const CloudflareTurnstile = forwardRef<
   const siteKey = (
     import.meta.env.VITE_TURNSTILE_SITE_KEY as string | undefined
   )?.trim();
-
   useEffect(() => {
     onVerifyRef.current = onVerify;
   }, [onVerify]);
@@ -113,7 +111,7 @@ const CloudflareTurnstile = forwardRef<
       }
       onVerifyRef.current(null);
     },
-  }));
+  }), []);
 
   useEffect(() => {
     if (!siteKey || !containerRef.current) {

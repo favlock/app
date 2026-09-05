@@ -8,6 +8,7 @@ import {
 } from "react";
 import {
   favLockAuth,
+  isLocalOnlyUser,
   type AuthSession,
   type AuthUser,
 } from "../lib/favLockAuth";
@@ -38,6 +39,7 @@ import { startLibraryRevalidation } from "../lib/libraryRevalidation";
 import { cloudStatusMessage, type CloudStatus } from "../lib/cloudAccess";
 import { clearLocalKeyVerifier, readLocalKeyVerifier } from "../lib/localKeyVerifier";
 import { cancelLocalVaultWork } from "../lib/localVaultWork";
+import { clearLocalVault } from "../lib/localVault";
 
 interface AuthContextType {
   session: AuthSession | null;
@@ -52,6 +54,7 @@ interface AuthContextType {
   cloudStatus: CloudStatus;
   retryCloudConnection: () => Promise<void>;
   connectionError: string | null;
+  isLocalAccount: boolean;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -105,6 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await drained;
         const results = await Promise.allSettled([
           clearKey(),
+          clearLocalVault(userId),
           clearBookmarkCacheForUser(userId),
           clearLibraryContentCacheForUser(userId),
           clearEntryDraftsForUser(userId),
@@ -184,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (
         _event === "SIGNED_IN" || _event === "SIGNED_OUT" ||
+        _event === "LOCAL_ACCOUNT_CREATED" ||
         _event === "TOKEN_REFRESHED" || _event === "PASSWORD_RECOVERY" ||
         _event === "USER_UPDATED"
       ) {
@@ -193,6 +198,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setConnectionError(favLockAuth.getConnectionError()?.message ?? null);
       }
       const lastUserId = lastUserIdRef.current;
+      if (
+        lastUserId &&
+        _event === "SIGNED_IN" &&
+        session?.user.id !== lastUserId
+      ) {
+        void clearKey().catch(() => {
+          setConnectionError(
+            "The previous vault key could not be removed from this browser. Clear this site's data before continuing.",
+          );
+        });
+        queryClient.clear();
+        try {
+          useBookmarkStore.getState().reset();
+        } catch {
+          // The account switch still clears the in-memory encryption key.
+        }
+        setBookmarkCacheSyncedAt(null);
+      }
       if (
         lastUserId &&
         _event === "SIGNED_OUT" && !favLockAuth.isLocalAccountInvalidated()
@@ -211,12 +234,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
       stopCrossTabSynchronization();
     };
-  }, [clearLocalDataForUser, lockKey]);
+  }, [clearKey, clearLocalDataForUser, lockKey]);
 
   useEffect(() => {
     if (!user?.id) {
       setBookmarkCacheSyncedAt(null);
       if (!loading) setLibraryCacheHydrating(false);
+      return;
+    }
+
+    if (isLocalOnlyUser(user)) {
+      setBookmarkCacheSyncedAt(new Date().toISOString());
+      setLibraryCacheHydrating(false);
+      setBookmarkCacheSyncing(false);
+      setBookmarkCacheError(null);
       return;
     }
 
@@ -254,7 +285,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [user?.id, loading]);
+  }, [user, loading]);
 
   useEffect(() => {
     if (!user?.id || !session?.access_token) return;
@@ -445,13 +476,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         bookmarkCacheError,
         cloudStatus,
         connectionError,
+        isLocalAccount: isLocalOnlyUser(user),
         retryCloudConnection: async () => {
           await favLockAuth.retryCloudConnection();
           setBookmarkCacheRetryToken((token) => token + 1);
         },
-        retryBookmarkCacheSync: () =>
-          cloudStatus === "available" ? setBookmarkCacheRetryToken((token) => token + 1) :
-            setBookmarkCacheError(cloudStatusMessage(cloudStatus)),
+        retryBookmarkCacheSync: () => {
+          if (isLocalOnlyUser(user)) {
+            setBookmarkCacheRetryToken((token) => token + 1);
+          } else if (cloudStatus === "available") {
+            setBookmarkCacheRetryToken((token) => token + 1);
+          } else {
+            setBookmarkCacheError(cloudStatusMessage(cloudStatus));
+          }
+        },
         signOut,
       }}
     >

@@ -4,6 +4,7 @@ vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import type { FavLockExport } from "./dataExport";
 import {
   batchEncryptedMigrationItems,
+  mergeFavLockArchive,
   migrateFavLockArchive,
   prepareEncryptedMigrationItems,
 } from "./libraryMigrationApi";
@@ -19,6 +20,43 @@ const archive: FavLockExport = {
     bookmarks: [{ id: "30000000-0000-4000-8000-000000000001", title: "Example", url: "https://example.com/", collectionIds: ["10000000-0000-4000-8000-000000000001"], tagIds: ["20000000-0000-4000-8000-000000000001"], isFavorite: true, favoritedAt: timestamp, createdAt: timestamp }],
     lists: [{ id: "40000000-0000-4000-8000-000000000001", name: "Watch later", createdAt: timestamp, updatedAt: timestamp, items: [{ bookmarkId: "30000000-0000-4000-8000-000000000001", position: 0, completedAt: timestamp, createdAt: timestamp }] }],
     notes: [], todos: [], readspace: [],
+  },
+};
+
+const completeArchive: FavLockExport = {
+  ...archive,
+  data: {
+    ...archive.data,
+    notes: [{
+      id: "50000000-0000-4000-8000-000000000001",
+      title: "Private note",
+      content: "Note body",
+      collectionId: "10000000-0000-4000-8000-000000000001",
+      tagIds: ["20000000-0000-4000-8000-000000000001"],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+    todos: [{
+      id: "60000000-0000-4000-8000-000000000001",
+      title: "Private task",
+      content: "Task body",
+      collectionId: null,
+      tagIds: [],
+      isCompleted: true,
+      completedAt: timestamp,
+      dueDate: "2026-09-03",
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
+    readspace: [{
+      id: "70000000-0000-4000-8000-000000000001",
+      title: "Private article",
+      content: "Article body",
+      collectionId: null,
+      tagIds: [],
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    }],
   },
 };
 
@@ -93,5 +131,134 @@ describe("encrypted library migration client", () => {
     await expect(
       decryptFieldStrict(completionBody.verifier, recoveryKey),
     ).resolves.toBe(VERIFY_CONSTANT);
+  });
+
+  it("merges the complete local library without replacing the destination verifier", async () => {
+    const migrationId = "90000000-0000-4000-8000-000000000002";
+    const generatedIds = [
+      "91000000-0000-4000-8000-000000000002",
+      "92000000-0000-4000-8000-000000000002",
+      "93000000-0000-4000-8000-000000000002",
+      "94000000-0000-4000-8000-000000000002",
+      "95000000-0000-4000-8000-000000000002",
+      "96000000-0000-4000-8000-000000000002",
+      "97000000-0000-4000-8000-000000000002",
+      "98000000-0000-4000-8000-000000000002",
+    ];
+    vi.spyOn(crypto, "randomUUID").mockImplementation(
+      () => generatedIds.shift() as `${string}-${string}-${string}-${string}-${string}`,
+    );
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { migrationId, status: "staging" } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { migrationId, status: "completed" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const destinationKey = await importRawKey("ABCD1234EFGH5678IJKL9012MNOP3456");
+    await mergeFavLockArchive(
+      completeArchive,
+      "token",
+      destinationKey,
+      undefined,
+      migrationId,
+    );
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toMatchObject({
+      migrationId,
+      mode: "merge_existing",
+    });
+    expect(fetchMock.mock.calls[2][0]).toContain(
+      `/v1/account/migrations/${migrationId}/merge`,
+    );
+    expect(fetchMock.mock.calls[2][1]?.body).toBe("{}");
+    const stagedItems = JSON.parse(
+      fetchMock.mock.calls[1][1]?.body as string,
+    ).items as Array<Record<string, unknown>>;
+    expect(stagedItems.map((item) => item.type)).toEqual([
+      "collection",
+      "tag",
+      "list",
+      "bookmark",
+      "entry",
+      "entry",
+      "entry",
+      "listItem",
+    ]);
+    expect(stagedItems).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "entry", kind: "note" }),
+      expect.objectContaining({ type: "entry", kind: "todo", isCompleted: true }),
+      expect.objectContaining({ type: "entry", kind: "read" }),
+      expect.objectContaining({ type: "listItem" }),
+    ]));
+    expect(JSON.stringify(stagedItems)).not.toContain("Private note");
+    expect(JSON.stringify(stagedItems)).not.toContain("Task body");
+    expect(JSON.stringify(stagedItems)).not.toContain("Article body");
+  });
+
+  it("confirms a previously completed merge without uploading duplicates", async () => {
+    const localArchive: FavLockExport = {
+      ...archive,
+      data: { ...archive.data, lists: [] },
+    };
+    const migrationId = "90000000-0000-4000-8000-000000000003";
+    const generatedIds = [
+      "91000000-0000-4000-8000-000000000003",
+      "92000000-0000-4000-8000-000000000003",
+      "93000000-0000-4000-8000-000000000003",
+    ];
+    vi.spyOn(crypto, "randomUUID").mockImplementation(
+      () => generatedIds.shift() as `${string}-${string}-${string}-${string}-${string}`,
+    );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { migrationId, status: "completed" } }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const destinationKey = await importRawKey("ABCD1234EFGH5678IJKL9012MNOP3456");
+    await mergeFavLockArchive(
+      localArchive,
+      "token",
+      destinationKey,
+      undefined,
+      migrationId,
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("reuses a local-vault migration id when adopting its key", async () => {
+    const migrationId = "90000000-0000-4000-8000-000000000004";
+    const generatedIds = [
+      "91000000-0000-4000-8000-000000000004",
+      "92000000-0000-4000-8000-000000000004",
+      "93000000-0000-4000-8000-000000000004",
+      "94000000-0000-4000-8000-000000000004",
+      "95000000-0000-4000-8000-000000000004",
+    ];
+    vi.spyOn(crypto, "randomUUID").mockImplementation(
+      () => generatedIds.shift() as `${string}-${string}-${string}-${string}-${string}`,
+    );
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ data: { migrationId, status: "completed" } }),
+        { status: 200 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const localKey = await importRawKey("ABCD1234EFGH5678IJKL9012MNOP3456");
+    await migrateFavLockArchive(
+      archive,
+      "token",
+      localKey,
+      undefined,
+      migrationId,
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toMatchObject({
+      migrationId,
+      expectedBatchCount: 1,
+    });
   });
 });

@@ -2,6 +2,7 @@ import { useDeleteNote } from "../hooks/useNotesQuery";
 import { useUpdateEntryFolder } from "../hooks/useEntriesQuery";
 import type { Note } from "../types/bookmark";
 import EntryCard from "./EntryCard";
+import { useAuth } from "../context/useAuth";
 
 interface NoteCardProps {
   note: Note;
@@ -11,6 +12,7 @@ interface NoteCardProps {
 export default function NoteCard({ note, onEdit }: NoteCardProps) {
   const deleteNote = useDeleteNote();
   const updateFolder = useUpdateEntryFolder();
+  const { isLocalAccount } = useAuth();
 
   return (
     <EntryCard
@@ -23,6 +25,7 @@ export default function NoteCard({ note, onEdit }: NoteCardProps) {
         updateFolder.mutateAsync({ entryId: note.id, kind: "note", folderId })
       }
       movePending={updateFolder.isPending}
+      deletePermanently={isLocalAccount}
     />
   );
 }

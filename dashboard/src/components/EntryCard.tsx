@@ -30,6 +30,7 @@ interface EntryCardProps<TEntry extends Entry> {
   movePending: boolean;
   onToggle?: (completed: boolean) => Promise<unknown>;
   togglePending?: boolean;
+  deletePermanently?: boolean;
 }
 
 const entryDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -49,6 +50,7 @@ export default function EntryCard<TEntry extends Entry>({
   movePending,
   onToggle,
   togglePending = false,
+  deletePermanently = false,
 }: EntryCardProps<TEntry>) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -185,7 +187,7 @@ export default function EntryCard<TEntry extends Entry>({
               onClick={() => setShowDeleteDialog(true)}
               plain
               className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-              aria-label={`Move ${entry.title} to Trash`}
+              aria-label={deletePermanently ? `Delete ${entry.title} permanently` : `Move ${entry.title} to Trash`}
             >
               <span className="flex size-10 items-center justify-center rounded-full">
                 <Trash2 size={14} aria-hidden="true" />
@@ -219,10 +221,11 @@ export default function EntryCard<TEntry extends Entry>({
         onClose={deletePending ? () => {} : () => setShowDeleteDialog(false)}
         size="sm"
       >
-        <DialogTitle>Move {singular} to Trash?</DialogTitle>
+        <DialogTitle>{deletePermanently ? `Delete ${singular} permanently?` : `Move ${singular} to Trash?`}</DialogTitle>
         <DialogDescription>
-          “{entry.title}” can be restored from Trash before its recovery period
-          expires.
+          {deletePermanently
+            ? `“${entry.title}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${entry.title}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -244,7 +247,7 @@ export default function EntryCard<TEntry extends Entry>({
             onClick={() => void confirmDelete()}
             disabled={deletePending}
           >
-            {deletePending ? "Moving..." : "Move to Trash"}
+            {deletePending ? "Deleting..." : deletePermanently ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

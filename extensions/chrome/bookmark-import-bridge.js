@@ -8,7 +8,54 @@ const PING_TYPE = "FAVLOCK_CHROME_EXTENSION_PING";
 const READER_REQUEST_TYPE = "FAVLOCK_READER_CAPTURE_REQUEST";
 const READER_RESULT_TYPE = "FAVLOCK_READER_CAPTURE_RESULT";
 const READER_DELETE_TYPE = "FAVLOCK_READER_CAPTURE_DELETE";
+const LOCAL_BOOKMARK_REQUEST_TYPE = "FAVLOCK_LOCAL_BOOKMARK_CAPTURE_REQUEST";
+const LOCAL_BOOKMARK_RESULT_TYPE = "FAVLOCK_LOCAL_BOOKMARK_CAPTURE_RESULT";
+const LOCAL_BOOKMARK_DELETE_TYPE = "FAVLOCK_LOCAL_BOOKMARK_CAPTURE_DELETE";
 const CAPTURE_ID_PATTERN = /^[0-9a-f-]{20,64}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+function validEncryptedValue(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= 262144;
+}
+
+function normalizeLocalBookmarkCapture(capture) {
+  if (
+    capture?.version !== 1 ||
+    !UUID_PATTERN.test(capture.userId || "") ||
+    !validEncryptedValue(capture.encryptedTitle) ||
+    !validEncryptedValue(capture.encryptedUrl) ||
+    (capture.existingBookmarkId != null &&
+      !UUID_PATTERN.test(capture.existingBookmarkId || "")) ||
+    (capture.folderId !== null && !UUID_PATTERN.test(capture.folderId || "")) ||
+    !Array.isArray(capture.selectedListIds) ||
+    !Array.isArray(capture.existingTagIds) ||
+    !Array.isArray(capture.newEncryptedTagNames) ||
+    capture.selectedListIds.length > 3 ||
+    capture.existingTagIds.length > 10 ||
+    capture.newEncryptedTagNames.length > 10 ||
+    !capture.selectedListIds.every((id) => UUID_PATTERN.test(id)) ||
+    !capture.existingTagIds.every((id) => UUID_PATTERN.test(id)) ||
+    !capture.newEncryptedTagNames.every(validEncryptedValue) ||
+    (capture.encryptedNewCollectionName !== null && !validEncryptedValue(capture.encryptedNewCollectionName)) ||
+    (capture.encryptedNewListName !== null && !validEncryptedValue(capture.encryptedNewListName)) ||
+    typeof capture.createdAt !== "string" ||
+    Number.isNaN(Date.parse(capture.createdAt))
+  ) return null;
+  return {
+    version: 1,
+    userId: capture.userId,
+    existingBookmarkId: capture.existingBookmarkId ?? null,
+    encryptedTitle: capture.encryptedTitle,
+    encryptedUrl: capture.encryptedUrl,
+    folderId: capture.folderId,
+    selectedListIds: [...new Set(capture.selectedListIds)],
+    existingTagIds: [...new Set(capture.existingTagIds)],
+    encryptedNewCollectionName: capture.encryptedNewCollectionName,
+    encryptedNewListName: capture.encryptedNewListName,
+    newEncryptedTagNames: capture.newEncryptedTagNames,
+    createdAt: capture.createdAt,
+  };
+}
 
 function getDashboardOrigin() {
   return new URL(FAVLOCK_CONFIG.dashboardUrl).origin;
@@ -24,7 +71,14 @@ async function announceReady() {
 window.addEventListener("message", async (event) => {
   if (
     event.source !== window.parent ||
-    ![PING_TYPE, REQUEST_TYPE, READER_REQUEST_TYPE, READER_DELETE_TYPE].includes(
+    ![
+      PING_TYPE,
+      REQUEST_TYPE,
+      READER_REQUEST_TYPE,
+      READER_DELETE_TYPE,
+      LOCAL_BOOKMARK_REQUEST_TYPE,
+      LOCAL_BOOKMARK_DELETE_TYPE,
+    ].includes(
       event.data?.type,
     )
   ) {
@@ -36,6 +90,26 @@ window.addEventListener("message", async (event) => {
 
   if (event.data.type === PING_TYPE) {
     window.parent.postMessage({ type: READY_TYPE }, dashboardOrigin);
+    return;
+  }
+
+  if ([LOCAL_BOOKMARK_REQUEST_TYPE, LOCAL_BOOKMARK_DELETE_TYPE].includes(event.data.type)) {
+    const captureId = typeof event.data.captureId === "string" ? event.data.captureId : "";
+    if (!CAPTURE_ID_PATTERN.test(captureId)) return;
+    const storageKey = `localBookmarkCapture:${captureId}`;
+    if (event.data.type === LOCAL_BOOKMARK_DELETE_TYPE) {
+      await chrome.storage.session.remove(storageKey);
+      return;
+    }
+    const stored = await chrome.storage.session.get(storageKey);
+    window.parent.postMessage(
+      {
+        type: LOCAL_BOOKMARK_RESULT_TYPE,
+        requestId: typeof event.data.requestId === "string" ? event.data.requestId : "",
+        capture: normalizeLocalBookmarkCapture(stored[storageKey]),
+      },
+      dashboardOrigin,
+    );
     return;
   }
 

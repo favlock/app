@@ -12,6 +12,10 @@ import {
 import { buildAuthPath } from "../lib/authNavigation";
 import { createExtensionSessionToken } from "../lib/extensionSession";
 import {
+  readLocalExtensionProjection,
+  readLocalPasskeyRecord,
+} from "../lib/localVault";
+import {
   loadPasskeyEncryptionRecord,
   type PasskeyEncryptionRecord,
   unwrapEncryptionKeyWithPasskey,
@@ -25,7 +29,7 @@ import { AuthLayout } from "../components/ui/auth-layout";
 export default function ExtensionPair() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { session, user } = useAuth();
+  const { session, user, isLocalAccount } = useAuth();
   const { cryptoKey, setRawKey } = useEncryption();
   const [rawKeyInput, setRawKeyInput] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -52,14 +56,18 @@ export default function ExtensionPair() {
   );
 
   useEffect(() => {
-    if (!user?.id || !session?.access_token || cryptoKey || connected) {
+    if (!user?.id || cryptoKey || connected) {
       setPasskeyRecord(null);
       return;
     }
 
     let active = true;
     setCheckingPasskey(true);
-    void loadPasskeyEncryptionRecord(session.access_token)
+    void (isLocalAccount
+      ? readLocalPasskeyRecord(user.id)
+      : session?.access_token
+        ? loadPasskeyEncryptionRecord(session.access_token)
+        : Promise.resolve(null))
       .then((record) => {
         if (active) setPasskeyRecord(record);
       })
@@ -74,7 +82,7 @@ export default function ExtensionPair() {
     return () => {
       active = false;
     };
-  }, [connected, cryptoKey, session?.access_token, user?.id]);
+  }, [connected, cryptoKey, isLocalAccount, session?.access_token, user?.id]);
 
   const connect = useCallback(async (providedRawKey?: string) => {
     if (!user || !validExtensionId || connecting) return;
@@ -91,19 +99,28 @@ export default function ExtensionPair() {
         rawKey = normalizeRawKey(rawKeyInput);
         await setRawKey(rawKey, { rememberDevice });
       }
-      if (!session?.access_token) {
+      const sessionTokenHash = isLocalAccount
+        ? undefined
+        : session?.access_token
+          ? await createExtensionSessionToken({
+              extensionId: validExtensionId,
+              accessToken: session.access_token,
+            })
+          : undefined;
+      if (!isLocalAccount && !sessionTokenHash) {
         throw new Error("Sign in to FavLock again before connecting the extension.");
       }
-      const sessionTokenHash = await createExtensionSessionToken({
-        extensionId: validExtensionId,
-        accessToken: session.access_token,
-      });
+      const localProjection = isLocalAccount
+        ? await readLocalExtensionProjection(user.id)
+        : undefined;
       await sendEncryptionKeyToExtension({
         extensionId: validExtensionId,
         pairingAttempt,
         userId: user.id,
         rawKey,
         sessionTokenHash,
+        localMode: isLocalAccount,
+        localProjection,
       });
       setConnected(true);
     } catch (pairingError) {
@@ -115,7 +132,7 @@ export default function ExtensionPair() {
     } finally {
       setConnecting(false);
     }
-  }, [connecting, cryptoKey, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
+  }, [connecting, cryptoKey, isLocalAccount, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
 
   useEffect(() => {
     if (
@@ -164,7 +181,7 @@ export default function ExtensionPair() {
     await connect(fileContent);
   };
 
-  if (user && !session?.access_token) {
+  if (user && !isLocalAccount && !session?.access_token) {
     const nextPath = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
@@ -184,7 +201,9 @@ export default function ExtensionPair() {
         <Text className="mt-2">
           {connected
             ? "You can close this page and return to the site you were viewing."
-            : "Your key lets the extension decrypt collection and tag names and encrypt new bookmarks locally."}
+            : isLocalAccount
+              ? "Your local vault key lets the extension prepare encrypted bookmarks and Reading captures without a FavLock account or cloud connection."
+              : "Your key lets the extension decrypt collection and tag names and encrypt new bookmarks locally."}
         </Text>
 
         {!validExtensionId && (

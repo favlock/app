@@ -34,12 +34,14 @@ describe("OnboardingDialog", () => {
   const render = async (
     userId = "account-a",
     bookmarkWritesAllowed = true,
+    localOnly = false,
   ) => {
     await act(async () => {
       root.render(
         <OnboardingDialog
           open
           userId={userId}
+          localOnly={localOnly}
           bookmarkWritesAllowed={bookmarkWritesAllowed}
           {...callbacks}
         />,
@@ -214,6 +216,20 @@ describe("OnboardingDialog", () => {
     await render();
     expect(document.body.textContent).not.toContain("Explore FavLock");
     expect(document.body.textContent).toContain("Continue to FavLock");
+  });
+
+  it("identifies a local library without using account-specific extension copy", async () => {
+    vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
+    );
+    vi.spyOn(window.navigator, "vendor", "get").mockReturnValue("Google Inc.");
+    await render("account-a", true, true);
+
+    expect(document.body.textContent).toContain("Stored on this device");
+    expect(document.body.textContent).toContain(
+      "connect this local library, then unlock it",
+    );
+    expect(document.body.textContent).not.toContain("pair this account");
   });
 
   it("does not carry progress or dismissal across an account change", async () => {

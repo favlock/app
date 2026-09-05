@@ -3,6 +3,7 @@ import {
   disconnectExtension,
   getExternalOnboardingStatus,
   getConnectionState,
+  receiveLocalProjection,
   receivePairedKey,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
@@ -174,6 +175,8 @@ chrome.runtime.onMessageExternal.addListener(
     const request =
       message?.type === "favlock.extension.onboarding-status"
         ? getExternalOnboardingStatus(message, sender)
+        : message?.type === "favlock.extension.local-projection"
+          ? receiveLocalProjection(message, sender)
         : receivePairedKey(message, sender);
     void request
       .then((response) => sendResponse(response || { ok: false }))

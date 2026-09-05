@@ -3,7 +3,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DataTransferDialog, { type DataTransferView } from "./DataTransferDialog";
 
-const { loadExport } = vi.hoisted(() => ({ loadExport: vi.fn() }));
+const { authState, loadExport } = vi.hoisted(() => ({
+  authState: { isLocalAccount: false },
+  loadExport: vi.fn(),
+}));
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -12,8 +15,20 @@ vi.mock("./BrowserBookmarkImportSection", () => ({
   default: () => <div>Existing bookmark import flow</div>,
 }));
 
+vi.mock("./LocalBrowserBookmarkImportSection", () => ({
+  default: () => <div>Local encrypted bookmark import flow</div>,
+}));
+
 vi.mock("./FavLockMigrationImportSection", () => ({
   default: () => <div>Encrypted FavLock migration flow</div>,
+}));
+
+vi.mock("./LocalVaultRestoreSection", () => ({
+  default: () => <div>Local encrypted backup restore flow</div>,
+}));
+
+vi.mock("../context/useAuth", () => ({
+  useAuth: () => ({ isLocalAccount: authState.isLocalAccount }),
 }));
 
 vi.mock("./DataExportSection", () => {
@@ -47,6 +62,7 @@ describe("DataTransferDialog", () => {
   let root: Root;
 
   beforeEach(() => {
+    authState.isLocalAccount = false;
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -93,6 +109,28 @@ describe("DataTransferDialog", () => {
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(true);
     await act(async () => window.dispatchEvent(new Event("online")));
     expect(findButton("Export data")).toBeDefined();
+  });
+
+  it("keeps local backup and restore available offline", async () => {
+    authState.isLocalAccount = true;
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    await act(async () => root.render(<Harness onClose={() => undefined} />));
+
+    expect(findButton("Back up local vault")).toBeDefined();
+    expect(findButton("Restore local backup")).toBeDefined();
+    expect(findButton("Import bookmarks locally")).toBeDefined();
+    expect(document.body.textContent).not.toContain("Reconnect to export");
+
+    await act(async () => findButton("Restore local backup")?.click());
+    expect(document.body.textContent).toContain(
+      "Local encrypted backup restore flow",
+    );
+
+    await act(async () => findButton("Back")?.click());
+    await act(async () => findButton("Import bookmarks locally")?.click());
+    expect(document.body.textContent).toContain(
+      "Local encrypted bookmark import flow",
+    );
   });
 
   it("keeps import, export, and migration in separate focused views", async () => {

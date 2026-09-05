@@ -100,7 +100,7 @@ function UsageMeter({
   );
 }
 
-export default function ResourceUsageSection() {
+export default function ResourceUsageSection({ localOnly = false }: { localOnly?: boolean }) {
   const { data, isLoading, isError, isFetching, refetch } = useResourceUsage();
   const {
     data: accountPlan = DEFAULT_PLAN,
@@ -114,7 +114,9 @@ export default function ResourceUsageSection() {
       <div>
         <h3 className="text-sm font-semibold liquid-ink">Resource usage</h3>
         <p className="mt-1 text-sm liquid-muted">
-          See how much of each account resource you are using.
+          {localOnly
+            ? "See how much of each resource is stored in this local vault."
+            : "See how much of each account resource you are using."}
         </p>
       </div>
 
@@ -149,10 +151,12 @@ export default function ResourceUsageSection() {
       ) : (
         <div className="mt-5 space-y-5">
           <p className="text-sm liquid-muted">
-            Plan: <span className="font-semibold liquid-ink">{accountPlan.name}</span>
+            {localOnly ? "Storage" : "Plan"}: <span className="font-semibold liquid-ink">{accountPlan.name}</span>
           </p>
           <p className="text-sm liquid-muted">
-            Trash recovery: {accountPlan.trashRecoveryDays} days
+            {localOnly
+              ? "Deleted items are removed immediately"
+              : `Trash recovery: ${accountPlan.trashRecoveryDays} days`}
           </p>
           <UsageMeter
             label="Bookmarks"
