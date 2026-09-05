@@ -5,11 +5,9 @@ import {
   encryptField,
   loadLibraryKey,
 } from "./extension-crypto.js";
-import { readLocalProjection } from "./local-projection.js";
 
 const keyAccounts = new WeakMap();
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-export const LOCAL_BOOKMARK_CAPTURE_PREFIX = "localBookmarkCapture:";
 const READSPACE_CONTENT_VERSION = 5;
 const READSPACE_TITLE_MAX_LENGTH = 120;
 const READSPACE_SERIALIZED_MAX_BYTES = 180_000;
@@ -152,27 +150,6 @@ export function normalizeOpenTabs(
 
 export async function loadQuickAddData() {
   const key = await getKey();
-  if (keyAccounts.get(key)?.cloudStatus === "local") {
-    const projection = await requireLocalProjection(key);
-    const [folders, tags, lists] = await Promise.all([
-      Promise.all(projection.folders.map(async (folder) => ({
-        id: folder.id,
-        name: await decryptField(folder.encryptedName, key),
-        color: folder.color,
-        parent_id: folder.parentId,
-        sort_order: folder.sortOrder,
-      }))),
-      Promise.all(projection.tags.map(async (tag) => ({
-        id: tag.id,
-        name: await decryptField(tag.encryptedName, key),
-      }))),
-      Promise.all(projection.lists.map(async (list) => ({
-        id: list.id,
-        name: await decryptField(list.encryptedName, key),
-      }))),
-    ]);
-    return { folders, tags, lists };
-  }
   const [folderRows, tagRows, listRows] = await Promise.all([
     loadAllPages("/v1/library/folders", 200, key),
     loadAllPages("/v1/library/tags", 200, key),
@@ -204,16 +181,6 @@ export async function loadQuickAddData() {
   ]);
 
   return { folders, tags, lists };
-}
-
-async function requireLocalProjection(key) {
-  const account = keyAccounts.get(key);
-  const projection = await readLocalProjection(account?.userId);
-  if (!projection) {
-    throw new Error("Reconnect the extension to refresh your encrypted local library.");
-  }
-  await assertLocalAccount(account);
-  return projection;
 }
 
 export function normalizeTagNames(names) {
@@ -325,11 +292,7 @@ export function getBookmarkSearchResults(bookmarks, query) {
 
 export async function loadSearchableBookmarks({ folders = [], tags = [] } = {}) {
   const key = await getKey();
-  const localProjection = keyAccounts.get(key)?.cloudStatus === "local"
-    ? await requireLocalProjection(key)
-    : null;
-  const rows = localProjection?.bookmarks ??
-    await loadAllPages("/v1/library/bookmarks", 200, key);
+  const rows = await loadAllPages("/v1/library/bookmarks", 200, key);
   const folderNamesById = new Map(
     folders.map((folder) => [folder.id, folder.name]),
   );
@@ -344,13 +307,7 @@ export async function loadSearchableBookmarks({ folders = [], tags = [] } = {}) 
         const decryptedTitle = String(
           await decryptField(bookmark.encryptedTitle, key),
         ).trim();
-        const organization = localProjection
-          ? {
-              folderId: bookmark.folderId,
-              tagIds: bookmark.tagIds,
-              listIds: bookmark.listIds,
-            }
-          : getBookmarkOrganization(bookmark);
+        const organization = getBookmarkOrganization(bookmark);
         return {
           id: bookmark.id,
           title: decryptedTitle || new URL(url).hostname.replace(/^www\./, ""),
@@ -376,30 +333,7 @@ export async function loadSavedPageState(url) {
   if (!normalizedUrl) return null;
 
   const key = await getKey();
-  let existing;
-  if (keyAccounts.get(key)?.cloudStatus === "local") {
-    const projection = await requireLocalProjection(key);
-    const decryptedRows = await Promise.all(projection.bookmarks.map(async (bookmark) => {
-      try {
-        return {
-          bookmark,
-          url: normalizeBookmarkUrl(await decryptField(bookmark.encryptedUrl, key)),
-        };
-      } catch {
-        return null;
-      }
-    }));
-    const match = decryptedRows.find((row) => row?.url === normalizedUrl)?.bookmark;
-    existing = match ? {
-      id: match.id,
-      encryptedTitle: match.encryptedTitle,
-      folderId: match.folderId,
-      tagIds: new Set(match.tagIds),
-      listIds: new Set(match.listIds),
-    } : null;
-  } else {
-    existing = (await loadBookmarkUrlIndex(key)).get(normalizedUrl);
-  }
+  const existing = (await loadBookmarkUrlIndex(key)).get(normalizedUrl);
   if (!existing) return null;
 
   return {
@@ -490,9 +424,6 @@ async function setBookmarkListMemberships(bookmarkId, listIds, key) {
 
 export async function saveOpenTabsSession({ tabs, sessionTagName, tags }) {
   const key = await getKey();
-  if (keyAccounts.get(key)?.cloudStatus === "local") {
-    throw new Error("Tab sessions need cloud sync. Save individual tabs to your local vault instead.");
-  }
   const session = await getValidSession();
   if (!session) throw new Error("Connect the extension to FavLock first.");
 
@@ -586,53 +517,7 @@ export async function saveCurrentPage({
   tags,
 }) {
   const key = await getKey();
-  const account = keyAccounts.get(key);
-  const session = account?.cloudStatus === "local"
-    ? null
-    : await getValidSession();
-  if (account?.cloudStatus === "local") {
-    const normalizedUrl = normalizeBookmarkUrl(url);
-    if (!normalizedUrl) throw new Error("This page cannot be saved as a bookmark.");
-    const fallbackTitle = new URL(normalizedUrl).hostname.replace(/^www\./, "");
-    const cleanNewTagNames = normalizeTagNames(newTagNames || []);
-    const selectedIds = [...new Set(selectedTagIds || [])]
-      .filter((id) => UUID.test(id))
-      .slice(0, 10);
-    if (selectedIds.length + cleanNewTagNames.length > 10) {
-      throw new Error("A bookmark can have at most 10 tags.");
-    }
-    const captureId = crypto.randomUUID();
-    await chrome.storage.session.set({
-      [`${LOCAL_BOOKMARK_CAPTURE_PREFIX}${captureId}`]: {
-        version: 1,
-        userId: account.userId,
-        existingBookmarkId: UUID.test(existingBookmarkId || "")
-          ? existingBookmarkId
-          : null,
-        encryptedTitle: await encryptField(title.trim() || fallbackTitle, key),
-        encryptedUrl: await encryptField(normalizedUrl, key),
-        folderId: UUID.test(folderId || "") ? folderId : null,
-        selectedListIds: [...new Set(selectedListIds || [])].filter((id) => UUID.test(id)),
-        existingTagIds: selectedIds,
-        encryptedNewCollectionName: String(newCollectionName || "").trim()
-          ? await encryptField(String(newCollectionName).trim().slice(0, 80), key)
-          : null,
-        encryptedNewListName: String(newListName || "").trim()
-          ? await encryptField(String(newListName).trim().slice(0, 80), key)
-          : null,
-        newEncryptedTagNames: await Promise.all(
-          cleanNewTagNames.map((name) => encryptField(name, key)),
-        ),
-        createdAt: new Date().toISOString(),
-      },
-    });
-    const destination = new URL(FAVLOCK_CONFIG.dashboardUrl);
-    destination.pathname = `${destination.pathname.replace(/\/+$/, "")}/extension/local-save`;
-    destination.searchParams.set("capture", captureId);
-    destination.searchParams.set("chromeExtensionId", chrome.runtime.id);
-    await chrome.tabs.create({ url: destination.toString() });
-    return { captureId, pendingLocal: true, updatedExisting: false };
-  }
+  const session = await getValidSession();
   if (!session) throw new Error("Connect the extension to FavLock first.");
   const normalizedUrl = normalizeBookmarkUrl(url);
   if (!normalizedUrl) throw new Error("This page cannot be saved as a bookmark.");

@@ -163,9 +163,9 @@ export async function buildLocalVaultMergeArchive(
       lists,
       notes: entries.filter((entry) => entry.kind === "note"),
       todos: entries.filter((entry) => entry.kind === "todo"),
-      readspace: entries.filter((entry) => entry.kind === "read"),
+      readspace: [],
       highlights: [],
     },
-    { bookmarks: true, notes: true, todos: true, readspace: true, highlights: false },
+    { bookmarks: true, notes: true, todos: true, readspace: false, highlights: false },
   );
 }

@@ -18,7 +18,6 @@ let searchableBookmarks = [];
 let visibleSearchResults = [];
 let searchBookmarksLoaded = false;
 let connectionReady = false;
-let localVaultMode = false;
 
 function setStatus(message, kind = "error") {
   const status = document.getElementById("status");
@@ -82,22 +81,21 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   const button = document.getElementById("connectButton");
   const connectedAccount = document.getElementById("connectedAccount");
   const modeSwitch = document.getElementById("modeSwitch");
-  localVaultMode = cloudStatus === "local";
-  connectionReady = connected && unlocked && ["available", "local"].includes(cloudStatus);
+  connectionReady = connected && unlocked && cloudStatus === "available";
   modeSwitch.hidden = !connectionReady;
-  document.getElementById("showTabSessionButton").hidden = localVaultMode;
+  document.getElementById("showTabSessionButton").hidden = false;
   connectedAccount.hidden = !connected;
-  connectedAccount.textContent = connected ? (localVaultMode ? "Local vault" : "Connected") : "";
-  connectedAccount.title = localVaultMode ? "FavLock local vault connected" : email || "FavLock extension connected";
+  connectedAccount.textContent = connected ? "Connected" : "";
+  connectedAccount.title = email || "FavLock extension connected";
 
-  if (connected && !["available", "local"].includes(cloudStatus)) {
+  if (connected && cloudStatus !== "available") {
     document.getElementById("bookmarkSearchPanel").hidden = true;
     document.getElementById("pagePreview").hidden = false;
     panel.hidden = false;
     form.hidden = true;
-    document.getElementById("connectionTitle").textContent = "Local connection saved";
+    document.getElementById("connectionTitle").textContent = "Reconnect cloud access";
     document.getElementById("connectionDescription").textContent =
-      `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to use your saved local library.`;
+      `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to continue.`;
     button.textContent = "Reconnect FavLock";
     return;
   }
@@ -428,7 +426,7 @@ async function initializeConnection() {
     return false;
   }
   setConnectionView(response);
-  if (!response.connected || !response.unlocked || (response.cloudStatus && !["available", "local"].includes(response.cloudStatus))) {
+  if (!response.connected || !response.unlocked || (response.cloudStatus && response.cloudStatus !== "available")) {
     setPageStateBadge(response.connected ? "Locked" : "Not connected", "neutral");
     return false;
   }
@@ -508,12 +506,6 @@ async function submitQuickAdd(event) {
       newTagNames: [document.getElementById("newTags").value],
       ...quickAddData,
     });
-    if (result.pendingLocal) {
-      setStatus("Finish saving in the opened local FavLock tab.", "success");
-      saveButton.textContent = "Opened local vault";
-      window.setTimeout(() => window.close(), 650);
-      return;
-    }
     setStatus(
       result.updatedExisting && !promotedHighlightSource
         ? "Saved page updated in FavLock."

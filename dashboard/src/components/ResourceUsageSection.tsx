@@ -173,13 +173,15 @@ export default function ResourceUsageSection({ localOnly = false }: { localOnly?
             icon={NotebookTabs}
             barClassName="bg-emerald-500"
           />
-          <UsageMeter
-            label="Saved articles"
-            used={data.readspace}
-            limit={accountPlan.limits.readspace}
-            icon={BookOpen}
-            barClassName="bg-amber-500"
-          />
+          {!localOnly ? (
+            <UsageMeter
+              label="Saved articles"
+              used={data.readspace}
+              limit={accountPlan.limits.readspace}
+              icon={BookOpen}
+              barClassName="bg-amber-500"
+            />
+          ) : null}
           {!localOnly ? (
             <UsageMeter
               label="Highlights"

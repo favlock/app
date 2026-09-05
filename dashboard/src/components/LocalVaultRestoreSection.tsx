@@ -18,7 +18,6 @@ import {
   LOCAL_BOOKMARK_LIMIT,
   LOCAL_ENTRY_LIMIT,
   LOCAL_LIST_LIMIT,
-  LOCAL_READSPACE_LIMIT,
   restoreLocalVaultFromExport,
 } from "../lib/localVault";
 import { setLibraryPopulated } from "../lib/onboarding";
@@ -117,11 +116,6 @@ export default function LocalVaultRestoreSection() {
           `This backup has ${(parsedSummary.notes + parsedSummary.todos).toLocaleString()} Documents and Tasks, but a local vault allows ${LOCAL_ENTRY_LIMIT.toLocaleString()} combined.`,
         );
       }
-      if (parsedSummary.readspace > LOCAL_READSPACE_LIMIT) {
-        throw new Error(
-          `This backup has ${parsedSummary.readspace.toLocaleString()} Readspace items, but a local vault allows ${LOCAL_READSPACE_LIMIT.toLocaleString()}.`,
-        );
-      }
       if (LOCAL_LIST_LIMIT > 0 && parsedSummary.lists > LOCAL_LIST_LIMIT) {
         throw new Error(
           `This backup has ${parsedSummary.lists.toLocaleString()} Lists, but a local vault allows ${LOCAL_LIST_LIMIT.toLocaleString()}.`,
@@ -167,8 +161,7 @@ export default function LocalVaultRestoreSection() {
         user.id,
         (archive.data.bookmarks?.length ?? 0) +
           (archive.data.notes?.length ?? 0) +
-          (archive.data.todos?.length ?? 0) +
-          (archive.data.readspace?.length ?? 0) > 0,
+          (archive.data.todos?.length ?? 0) > 0,
       );
       retryBookmarkCacheSync();
       for (const queryKey of [
@@ -177,7 +170,6 @@ export default function LocalVaultRestoreSection() {
         ["tags"],
         ["notes"],
         ["todos"],
-        ["readspace"],
         ["lists"],
         ["entries"],
         ["resource-usage"],
@@ -200,7 +192,7 @@ export default function LocalVaultRestoreSection() {
       <DataTransferSectionHeader
         id="local-vault-restore-heading"
         title="Restore local backup"
-        description="Restore bookmarks, Lists, Documents, Tasks, Readspace items, Collections, and Tags from an encrypted .favlock backup."
+        description="Restore bookmarks, Lists, Documents, Tasks, Collections, and Tags from an encrypted .favlock backup. Readspace and highlights are not restored to local vaults."
       />
 
       <div className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-950" role="note">

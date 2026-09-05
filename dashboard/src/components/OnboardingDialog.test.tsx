@@ -218,7 +218,7 @@ describe("OnboardingDialog", () => {
     expect(document.body.textContent).toContain("Continue to FavLock");
   });
 
-  it("identifies a local library without using account-specific extension copy", async () => {
+  it("does not offer the cloud-only extension to a local library", async () => {
     vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
       "Mozilla/5.0 AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36",
     );
@@ -226,10 +226,8 @@ describe("OnboardingDialog", () => {
     await render("account-a", true, true);
 
     expect(document.body.textContent).toContain("Stored on this device");
-    expect(document.body.textContent).toContain(
-      "connect this local library, then unlock it",
-    );
-    expect(document.body.textContent).not.toContain("pair this account");
+    expect(document.body.textContent).not.toContain("Save from Chrome (optional)");
+    expect(document.body.textContent).not.toContain("Install extension");
   });
 
   it("does not carry progress or dismissal across an account change", async () => {

@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -256,6 +257,13 @@ export default function AuthPage() {
   const reconnecting = searchParams.get("reconnect") === "1";
   const mergingLocalVault = searchParams.get("merge") === "1";
   const requestingConfirmation = searchParams.get("confirmation") === "1";
+  const localFlags = searchParams.getAll("local");
+  const showLocalOption = localFlags.length === 1 && localFlags[0] === "1";
+  const autoStartLocal =
+    localFlags.length === 1 &&
+    localFlags[0] === "auto" &&
+    !reconnecting &&
+    !requestingConfirmation;
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
   const [email, setEmail] = useState("");
@@ -271,6 +279,7 @@ export default function AuthPage() {
   );
   const [confirmationSent, setConfirmationSent] = useState(false);
   const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const localAutoStartRef = useRef(false);
 
   useEffect(() => {
     setError(null);
@@ -438,17 +447,62 @@ export default function AuthPage() {
     setConfirmationEmail(normalizedEmail);
   };
 
-  const createLocalVault = async () => {
+  const createLocalVault = useCallback(async (replace = false) => {
     setError(null);
     setLoading(true);
-    const { error: localError } = await favLockAuth.createLocalAccount();
-    setLoading(false);
-    if (localError) {
-      setError(localError.message);
-      return;
+    try {
+      const { error: localError } = await favLockAuth.createLocalAccount();
+      if (localError) {
+        setError(localError.message);
+        setLoading(false);
+        return;
+      }
+      navigate(nextPath, { replace });
+    } catch {
+      setError("Could not create the local vault. Try again.");
+      setLoading(false);
     }
-    navigate(nextPath);
-  };
+  }, [navigate, nextPath]);
+
+  useEffect(() => {
+    if (!autoStartLocal || localAutoStartRef.current) return;
+    localAutoStartRef.current = true;
+    void createLocalVault(true);
+  }, [autoStartLocal, createLocalVault]);
+
+  if (autoStartLocal) {
+    return (
+      <AuthLayout>
+        <div className="w-full text-center" role="status" aria-live="polite">
+          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700">
+            <HardDrive className={loading ? "animate-pulse" : ""} aria-hidden="true" />
+          </span>
+          <Heading className="mt-4">
+            {error ? "Could not start FavLock locally" : "Starting FavLock locally"}
+          </Heading>
+          <Text className="mt-2">
+            {error
+              ? "Your local vault was not created. You can safely try again."
+              : "Creating an encrypted vault in this browser…"}
+          </Text>
+          {error ? (
+            <>
+              <AuthErrorNotice message={error} />
+              <Button
+                type="button"
+                color="emerald"
+                className="mt-5 w-full"
+                disabled={loading}
+                onClick={() => void createLocalVault(true)}
+              >
+                Try again
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </AuthLayout>
+    );
+  }
 
   if (confirmationEmail || requestingConfirmation) {
     return (
@@ -546,7 +600,7 @@ export default function AuthPage() {
                 redirectTo={emailRedirectTo}
               />
             </div>
-            {!reconnecting && (
+            {!reconnecting && showLocalOption && (
               <div className="pt-2">
                 <div className="mb-4 flex items-center gap-3 text-xs font-medium uppercase tracking-[0.14em] text-[#777b85]">
                   <span className="h-px flex-1 bg-[#1d2230]/10" />

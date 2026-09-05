@@ -523,27 +523,45 @@ export default function FolderSidebar({
             </Link>
           </li>
           <li>
-            <Link
-              to="/readspace"
-              aria-current={location.pathname === "/readspace" ? "page" : undefined}
-              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/readspace" ? "theme-nav-button-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen size={16} aria-hidden="true" />
-                Readspace
-              </span>
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/readspace"
-                    ? "theme-nav-count-active"
-                    : "text-[var(--app-muted)]"
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Readspace is available with a cloud account."
+                aria-label="Readspace, cloud only"
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Cloud
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/readspace"
+                aria-current={location.pathname === "/readspace" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/readspace" ? "theme-nav-button-active" : ""
                 }`}
               >
-                {readspaceItemCount}
-              </span>
-            </Link>
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname === "/readspace"
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                >
+                  {readspaceItemCount}
+                </span>
+              </Link>
+            )}
           </li>
           <li>
             <Link

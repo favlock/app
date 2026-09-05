@@ -3,7 +3,7 @@ import {
   disconnectExtension,
   getExternalOnboardingStatus,
   getConnectionState,
-  receiveLocalProjection,
+  removeLegacyLocalVaultConnection,
   receivePairedKey,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
@@ -60,6 +60,7 @@ async function restoreBuildBadge(tabId) {
 }
 
 async function initializeSettings() {
+  await removeLegacyLocalVaultConnection();
   const stored = await chrome.storage.sync.get([
     "showHighlightsOnWebpages",
     "useFavLockNewTab",
@@ -501,8 +502,6 @@ chrome.runtime.onMessageExternal.addListener(
     const request =
       message?.type === "favlock.extension.onboarding-status"
         ? getExternalOnboardingStatus(message, sender)
-        : message?.type === "favlock.extension.local-projection"
-          ? receiveLocalProjection(message, sender)
         : receivePairedKey(message, sender);
     void request
       .then((response) => sendResponse(response || { ok: false }))

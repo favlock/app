@@ -95,7 +95,6 @@ vi.mock("../lib/localVault", () => ({
   LOCAL_BOOKMARK_LIMIT: 250,
   LOCAL_ENTRY_LIMIT: 25,
   LOCAL_LIST_LIMIT: 3,
-  LOCAL_READSPACE_LIMIT: 10,
   restoreLocalVaultFromExport,
 }));
 

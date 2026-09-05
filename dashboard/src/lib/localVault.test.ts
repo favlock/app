@@ -5,7 +5,6 @@ import type { FavLockExport } from "./dataExport";
 import {
   createLocalBookmark,
   createLocalEntry,
-  createLocalExtensionBookmark,
   createLocalFolder,
   createLocalList,
   addLocalListItem,
@@ -15,7 +14,6 @@ import {
   importLocalBookmarks,
   readLocalBookmarks,
   readLocalEncryptedPreview,
-  readLocalExtensionProjection,
   readLocalEntries,
   readLocalFolders,
   readLocalLists,
@@ -74,6 +72,66 @@ describe("local encrypted vault", () => {
     Object.defineProperty(globalThis, "indexedDB", {
       configurable: true,
       value: new IDBFactory(),
+    });
+  });
+
+  it("removes Readspace rows when upgrading an older local vault", async () => {
+    const key = await importRawKey("12345678901234567890123456789012");
+    const vaultId = "upgrade-vault";
+    const oldDatabase = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open("favlock-local-vault", 2);
+      request.onupgradeneeded = () => {
+        const store = request.result.createObjectStore("entries", {
+          keyPath: "id",
+        });
+        store.createIndex("vault_id", "vault_id", { unique: false });
+      };
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    const encryptedArticleTitle = await encryptField("Article", key);
+    const encryptedArticleContent = await encryptField("Private article", key);
+    const encryptedDocumentTitle = await encryptField("Document", key);
+    const encryptedDocumentContent = await encryptField("Private document", key);
+    const transaction = oldDatabase.transaction("entries", "readwrite");
+    const store = transaction.objectStore("entries");
+    const baseRecord = {
+      vault_id: vaultId,
+      folder_id: null,
+      tag_ids: [],
+      is_completed: false,
+      completed_at: null,
+      due_date: null,
+      created_at: "2026-09-01T10:00:00.000Z",
+      updated_at: "2026-09-01T10:00:00.000Z",
+    };
+    store.add({
+      ...baseRecord,
+      id: "legacy-readspace",
+      kind: "read",
+      encrypted_title: encryptedArticleTitle,
+      encrypted_content: encryptedArticleContent,
+    });
+    store.add({
+      ...baseRecord,
+      id: "existing-document",
+      kind: "note",
+      encrypted_title: encryptedDocumentTitle,
+      encrypted_content: encryptedDocumentContent,
+    });
+    await new Promise<void>((resolve, reject) => {
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error);
+    });
+    oldDatabase.close();
+
+    await expect(readLocalEntries(vaultId, key)).resolves.toMatchObject([
+      { id: "existing-document", kind: "note", title: "Document" },
+    ]);
+    await expect(readLocalResourceUsage(vaultId)).resolves.toMatchObject({
+      entries: 1,
+      readspace: 0,
     });
   });
 
@@ -189,7 +247,7 @@ describe("local encrypted vault", () => {
     await expect(readLocalBookmarks("restored-vault", key)).resolves.toHaveLength(1);
   });
 
-  it("restores Lists and encrypted entry categories", async () => {
+  it("restores local categories and ignores cloud-only Readspace records", async () => {
     const key = await importRawKey("12345678901234567890123456789012");
     const archiveWithLibrary: FavLockExport = {
       ...backup,
@@ -250,14 +308,15 @@ describe("local encrypted vault", () => {
     await expect(readLocalEntries("restored-vault", key)).resolves.toEqual(expect.arrayContaining([
       { kind: "note", title: "Private document", content: "Secret body" },
       { kind: "todo", title: "Private task", is_completed: true, due_date: "2026-09-03" },
-      { kind: "read", title: "Private article", content: "Captured content" },
     ].map((entry) => expect.objectContaining(entry))));
+    await expect(readLocalEntries("restored-vault", key)).resolves.toHaveLength(2);
     const preview = await readLocalEncryptedPreview("restored-vault");
     expect(JSON.stringify(preview)).not.toContain("Private document");
     expect(JSON.stringify(preview)).not.toContain("Secret body");
+    expect(JSON.stringify(preview)).not.toContain('"kind":"Readspace"');
   });
 
-  it("round-trips encrypted local entries and Lists and deletes entries immediately", async () => {
+  it("round-trips encrypted local entries and Lists, and rejects new Readspace items", async () => {
     const vaultId = "local-library";
     const key = await importRawKey("12345678901234567890123456789012");
     const bookmarkId = await createLocalBookmark(vaultId, {
@@ -274,26 +333,23 @@ describe("local encrypted vault", () => {
       existingTagIds: [],
       newEncryptedTagNames: [],
     });
-    await createLocalEntry(vaultId, "read", {
+    await expect(createLocalEntry(vaultId, "read", {
       title: await encryptField("Article", key),
       content: await encryptField("Captured content", key),
       folderId: null,
       existingTagIds: [],
       newEncryptedTagNames: [],
-    });
+    })).rejects.toThrow("Readspace is available with a cloud account");
     const listId = await createLocalList(vaultId, await encryptField("Read later", key));
     await addLocalListItem(vaultId, listId, bookmarkId);
 
     await expect(readLocalEntries(vaultId, key)).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          id: noteId,
-          kind: "note",
-          title: "Document",
-          content: "Private content",
-        }),
-        expect.objectContaining({ kind: "read", title: "Article" }),
-      ]),
+      [expect.objectContaining({
+        id: noteId,
+        kind: "note",
+        title: "Document",
+        content: "Private content",
+      })],
     );
     await expect(readLocalLists(vaultId, key)).resolves.toMatchObject([
       { id: listId, name: "Read later", items: [{ bookmark: { id: bookmarkId } }] },
@@ -301,121 +357,14 @@ describe("local encrypted vault", () => {
     await expect(readLocalResourceUsage(vaultId)).resolves.toEqual({
       bookmarks: 1,
       entries: 1,
-      readspace: 1,
+      readspace: 0,
       highlights: 0,
       collections: 0,
       tags: 0,
       lists: 1,
     });
     await deleteLocalEntry(vaultId, noteId);
-    await expect(readLocalEntries(vaultId, key)).resolves.toMatchObject([
-      { kind: "read", title: "Article" },
-    ]);
-  });
-
-  it("commits an encrypted extension bookmark and its new organization atomically", async () => {
-    const vaultId = "extension-local-vault";
-    const key = await importRawKey("12345678901234567890123456789012");
-
-    await createLocalExtensionBookmark(vaultId, {
-      existingBookmarkId: null,
-      encryptedTitle: await encryptField("Extension bookmark", key),
-      encryptedUrl: await encryptField("https://extension.test", key),
-      folderId: null,
-      selectedListIds: [],
-      existingTagIds: [],
-      encryptedNewCollectionName: await encryptField("Extension Collection", key),
-      encryptedNewListName: await encryptField("Extension List", key),
-      newEncryptedTagNames: [await encryptField("extension-tag", key)],
-    });
-
-    await expect(readLocalBookmarks(vaultId, key)).resolves.toMatchObject([
-      {
-        title: "Extension bookmark",
-        folders: [{ name: "Extension Collection" }],
-        tags: [{ name: "extension-tag" }],
-      },
-    ]);
-    await expect(readLocalLists(vaultId, key)).resolves.toMatchObject([
-      {
-        name: "Extension List",
-        items: [{ bookmark: { title: "Extension bookmark" } }],
-      },
-    ]);
-    const preview = await readLocalEncryptedPreview(vaultId);
-    expect(JSON.stringify(preview)).not.toContain("Extension bookmark");
-    const projection = await readLocalExtensionProjection(vaultId);
-    expect(projection).toMatchObject({
-      version: 1,
-      userId: vaultId,
-      folders: [{ encryptedName: expect.stringMatching(/^enc:/) }],
-      tags: [{ encryptedName: expect.stringMatching(/^enc:/) }],
-      lists: [{ encryptedName: expect.stringMatching(/^enc:/) }],
-      bookmarks: [{
-        encryptedTitle: expect.stringMatching(/^enc:/),
-        encryptedUrl: expect.stringMatching(/^enc:/),
-        folderId: projection.folders[0]?.id,
-        tagIds: [projection.tags[0]?.id],
-        listIds: [projection.lists[0]?.id],
-      }],
-    });
-    expect(JSON.stringify(projection)).not.toContain("Extension bookmark");
-    expect(JSON.stringify(projection)).not.toContain("https://extension.test");
-  });
-
-  it("rolls back the extension handoff when an organization reference is invalid", async () => {
-    const vaultId = "extension-invalid-vault";
-    const key = await importRawKey("12345678901234567890123456789012");
-
-    await expect(createLocalExtensionBookmark(vaultId, {
-      existingBookmarkId: null,
-      encryptedTitle: await encryptField("Do not save", key),
-      encryptedUrl: await encryptField("https://invalid.test", key),
-      folderId: null,
-      selectedListIds: ["11111111-1111-4111-8111-111111111111"],
-      existingTagIds: [],
-      encryptedNewCollectionName: await encryptField("Must roll back", key),
-      encryptedNewListName: null,
-      newEncryptedTagNames: [await encryptField("must-roll-back", key)],
-    })).rejects.toThrow("selected local List");
-
-    await expect(readLocalBookmarks(vaultId, key)).resolves.toEqual([]);
-    await expect(readLocalFolders(vaultId, key)).resolves.toEqual([]);
-    await expect(readLocalTags(vaultId, key)).resolves.toEqual([]);
-  });
-
-  it("updates an existing local extension bookmark without creating a duplicate", async () => {
-    const vaultId = "extension-update-vault";
-    const key = await importRawKey("12345678901234567890123456789012");
-    const bookmarkId = await createLocalExtensionBookmark(vaultId, {
-      existingBookmarkId: null,
-      encryptedTitle: await encryptField("Original title", key),
-      encryptedUrl: await encryptField("https://existing.test", key),
-      folderId: null,
-      selectedListIds: [],
-      existingTagIds: [],
-      encryptedNewCollectionName: null,
-      encryptedNewListName: null,
-      newEncryptedTagNames: [],
-    });
-
-    await expect(createLocalExtensionBookmark(vaultId, {
-      existingBookmarkId: bookmarkId,
-      encryptedTitle: await encryptField("Updated title", key),
-      encryptedUrl: await encryptField("https://ignored.test", key),
-      folderId: null,
-      selectedListIds: [],
-      existingTagIds: [],
-      encryptedNewCollectionName: null,
-      encryptedNewListName: null,
-      newEncryptedTagNames: [],
-    })).resolves.toBe(bookmarkId);
-
-    await expect(readLocalBookmarks(vaultId, key)).resolves.toMatchObject([{
-      id: bookmarkId,
-      title: "Updated title",
-      url: "https://existing.test",
-    }]);
+    await expect(readLocalEntries(vaultId, key)).resolves.toEqual([]);
   });
 
   it("imports bookmarks and Collections atomically with protected fields encrypted", async () => {

@@ -14,7 +14,7 @@ import { decryptFieldStrict, encryptField } from "./encryption";
 import type { PasskeyEncryptionRecord } from "./passkeyEncryption";
 
 const DB_NAME = "favlock-local-vault";
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 const BOOKMARKS = "bookmarks";
 const FOLDERS = "folders";
 const TAGS = "tags";
@@ -26,7 +26,6 @@ const VAULT_ID_INDEX = "vault_id";
 
 export const LOCAL_BOOKMARK_LIMIT = LOCAL_PLAN.limits.bookmarks;
 export const LOCAL_ENTRY_LIMIT = LOCAL_PLAN.limits.entries;
-export const LOCAL_READSPACE_LIMIT = LOCAL_PLAN.limits.readspace;
 export const LOCAL_LIST_LIMIT = LOCAL_PLAN.limits.lists;
 export const LOCAL_VAULT_CHANGED_EVENT = "favlock:local-vault-changed";
 
@@ -104,13 +103,6 @@ export interface CreateLocalBookmarkInput {
   newEncryptedTagNames: string[];
 }
 
-export interface CreateLocalExtensionBookmarkInput extends CreateLocalBookmarkInput {
-  existingBookmarkId: string | null;
-  selectedListIds: string[];
-  encryptedNewCollectionName: string | null;
-  encryptedNewListName: string | null;
-}
-
 export interface LocalBookmarkImportItem {
   title: string;
   url: string;
@@ -125,33 +117,9 @@ export interface LocalBookmarkImportResult {
 }
 
 export interface LocalEncryptedPreviewItem {
-  kind: "Bookmark" | "Collection" | "Tag" | "Document" | "Task" | "Readspace" | "List";
+  kind: "Bookmark" | "Collection" | "Tag" | "Document" | "Task" | "List";
   protectedFields: Array<{ label: string; ciphertext: string }>;
   metadata: Array<{ label: string; value: string }>;
-}
-
-export interface LocalExtensionProjection {
-  version: 1;
-  userId: string;
-  revision: string;
-  generatedAt: string;
-  folders: Array<{
-    id: string;
-    encryptedName: string;
-    color: ColorConstant | null;
-    parentId: string | null;
-    sortOrder: number;
-  }>;
-  tags: Array<{ id: string; encryptedName: string }>;
-  lists: Array<{ id: string; encryptedName: string }>;
-  bookmarks: Array<{
-    id: string;
-    encryptedTitle: string;
-    encryptedUrl: string;
-    folderId: string | null;
-    tagIds: string[];
-    listIds: string[];
-  }>;
 }
 
 function requestResult<T>(request: IDBRequest<T>): Promise<T> {
@@ -172,7 +140,7 @@ function transactionDone(transaction: IDBTransaction): Promise<void> {
 function openLocalVault(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
       for (const storeName of [
         BOOKMARKS,
@@ -188,6 +156,18 @@ function openLocalVault(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains(META)) {
         db.createObjectStore(META, { keyPath: "key" });
+      }
+      if ((event as IDBVersionChangeEvent).oldVersion < 3) {
+        const entryStore = request.transaction!.objectStore(ENTRIES);
+        const cursorRequest = entryStore.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          if ((cursor.value as LocalEntryRecord).kind === "read") {
+            cursor.delete();
+          }
+          cursor.continue();
+        };
       }
     };
     request.onsuccess = () => resolve(request.result);
@@ -247,86 +227,6 @@ export async function getLocalVaultRevision(vaultId: string): Promise<string> {
   return record && typeof record.value === "string" ? record.value : "empty";
 }
 
-export async function readLocalExtensionProjection(
-  vaultId: string,
-): Promise<LocalExtensionProjection> {
-  const db = await openLocalVault();
-  const transaction = db.transaction(
-    [BOOKMARKS, FOLDERS, TAGS, LISTS, LIST_ITEMS, META],
-    "readonly",
-  );
-  const [bookmarks, folders, tags, lists, listItems, revisionRecord] =
-    await Promise.all([
-      requestResult(
-        transaction.objectStore(BOOKMARKS).index(VAULT_ID_INDEX).getAll(vaultId),
-      ) as Promise<LocalBookmarkRecord[]>,
-      requestResult(
-        transaction.objectStore(FOLDERS).index(VAULT_ID_INDEX).getAll(vaultId),
-      ) as Promise<LocalFolderRecord[]>,
-      requestResult(
-        transaction.objectStore(TAGS).index(VAULT_ID_INDEX).getAll(vaultId),
-      ) as Promise<LocalTagRecord[]>,
-      requestResult(
-        transaction.objectStore(LISTS).index(VAULT_ID_INDEX).getAll(vaultId),
-      ) as Promise<LocalListRecord[]>,
-      requestResult(
-        transaction.objectStore(LIST_ITEMS).index(VAULT_ID_INDEX).getAll(vaultId),
-      ) as Promise<LocalListItemRecord[]>,
-      requestResult(transaction.objectStore(META).get(`revision:${vaultId}`)) as
-        Promise<LocalMetaRecord | undefined>,
-    ]);
-  await transactionDone(transaction);
-
-  const folderIds = new Set(folders.map((folder) => folder.id));
-  const tagIds = new Set(tags.map((tag) => tag.id));
-  const listIds = new Set(lists.map((list) => list.id));
-  const bookmarkIds = new Set(bookmarks.map((bookmark) => bookmark.id));
-  const listIdsByBookmark = new Map<string, string[]>();
-  for (const item of listItems) {
-    if (!bookmarkIds.has(item.bookmark_id) || !listIds.has(item.list_id)) continue;
-    const bookmarkListIds = listIdsByBookmark.get(item.bookmark_id) ?? [];
-    if (!bookmarkListIds.includes(item.list_id)) bookmarkListIds.push(item.list_id);
-    listIdsByBookmark.set(item.bookmark_id, bookmarkListIds);
-  }
-
-  return {
-    version: 1,
-    userId: vaultId,
-    revision:
-      revisionRecord && typeof revisionRecord.value === "string"
-        ? revisionRecord.value
-        : "empty",
-    generatedAt: new Date().toISOString(),
-    folders: folders.map((folder) => ({
-      id: folder.id,
-      encryptedName: folder.encrypted_name,
-      color: folder.color,
-      parentId: folder.parent_id && folderIds.has(folder.parent_id)
-        ? folder.parent_id
-        : null,
-      sortOrder: folder.sort_order,
-    })),
-    tags: tags.map((tag) => ({
-      id: tag.id,
-      encryptedName: tag.encrypted_name,
-    })),
-    lists: lists.map((list) => ({
-      id: list.id,
-      encryptedName: list.encrypted_name,
-    })),
-    bookmarks: bookmarks.map((bookmark) => ({
-      id: bookmark.id,
-      encryptedTitle: bookmark.encrypted_title,
-      encryptedUrl: bookmark.encrypted_url,
-      folderId: bookmark.folder_id && folderIds.has(bookmark.folder_id)
-        ? bookmark.folder_id
-        : null,
-      tagIds: [...new Set(bookmark.tag_ids)].filter((tagId) => tagIds.has(tagId)),
-      listIds: listIdsByBookmark.get(bookmark.id) ?? [],
-    })),
-  };
-}
-
 export async function hasLocalVaultContent(vaultId: string): Promise<boolean> {
   const db = await openLocalVault();
   const contentStores = [BOOKMARKS, FOLDERS, TAGS, ENTRIES, LISTS, LIST_ITEMS];
@@ -361,7 +261,7 @@ export async function readLocalResourceUsage(vaultId: string) {
   return {
     bookmarks,
     entries: entries.filter((entry) => entry.kind !== "read").length,
-    readspace: entries.filter((entry) => entry.kind === "read").length,
+    readspace: 0,
     highlights: 0,
     collections,
     tags,
@@ -444,7 +344,9 @@ export async function readLocalEntries(
   ]);
   const folderById = new Map(folders.map((folder) => [folder.id, folder]));
   const tagById = new Map(tags.map((tag) => [tag.id, tag]));
-  return Promise.all(entries.map(async (row): Promise<Entry> => {
+  return Promise.all(entries
+    .filter((row) => row.kind !== "read")
+    .map(async (row): Promise<Entry> => {
     const base = {
       id: row.id,
       user_id: vaultId,
@@ -467,9 +369,7 @@ export async function readLocalEntries(
           completed_at: row.completed_at,
           due_date: row.due_date,
         }
-      : row.kind === "read"
-        ? { ...base, kind: "read" }
-        : { ...base, kind: "note" };
+      : { ...base, kind: "note" };
   }));
 }
 
@@ -527,22 +427,21 @@ export async function createLocalEntry(
   kind: EntryKind,
   values: EntryWriteValues,
 ): Promise<string> {
+  if (kind === "read") {
+    throw new Error("Readspace is available with a cloud account.");
+  }
   const db = await openLocalVault();
   const transaction = db.transaction([ENTRIES, TAGS, META], "readwrite");
   const store = transaction.objectStore(ENTRIES);
   const existing = (await requestResult(
     store.index(VAULT_ID_INDEX).getAll(vaultId),
   )) as LocalEntryRecord[];
-  const limit = kind === "read" ? LOCAL_READSPACE_LIMIT : LOCAL_ENTRY_LIMIT;
-  const count = existing.filter((entry) =>
-    kind === "read" ? entry.kind === "read" : entry.kind !== "read"
-  ).length;
+  const limit = LOCAL_ENTRY_LIMIT;
+  const count = existing.filter((entry) => entry.kind !== "read").length;
   if (limit > 0 && count >= limit) {
     transaction.abort();
     throw new Error(
-      kind === "read"
-        ? `Local Readspace limit reached. Create a free account to save more than ${limit} articles.`
-        : `Local entry limit reached. Create a free account to save more than ${limit} documents and tasks.`,
+      `Local entry limit reached. Create a free account to save more than ${limit} documents and tasks.`,
     );
   }
   const now = new Date().toISOString();
@@ -647,38 +546,6 @@ export function moveLocalEntry(
   folderId: string | null,
 ): Promise<void> {
   return mutateLocalEntry(vaultId, entryId, (record) => ({ ...record, folder_id: folderId }));
-}
-
-export async function updateLocalReadspaceOrganization(
-  vaultId: string,
-  values: {
-    entryId: string;
-    folderId: string | null;
-    existingTagIds: string[];
-    newEncryptedTagNames: string[];
-  },
-): Promise<void> {
-  const db = await openLocalVault();
-  const transaction = db.transaction([ENTRIES, TAGS, META], "readwrite");
-  const store = transaction.objectStore(ENTRIES);
-  const current = (await requestResult(store.get(values.entryId))) as LocalEntryRecord | undefined;
-  if (!current || current.vault_id !== vaultId || current.kind !== "read") {
-    transaction.abort();
-    throw new Error("The local Readspace article could not be found.");
-  }
-  store.put({
-    ...current,
-    folder_id: values.folderId,
-    tag_ids: await addLocalEncryptedTags(
-      transaction,
-      vaultId,
-      values.existingTagIds,
-      values.newEncryptedTagNames,
-    ),
-    updated_at: new Date().toISOString(),
-  } satisfies LocalEntryRecord);
-  putRevision(transaction, vaultId);
-  await transactionDone(transaction);
 }
 
 export async function createLocalList(
@@ -945,11 +812,12 @@ export async function readLocalEncryptedPreview(
       metadata: [{ label: "created", value: tag.created_at }],
     }));
 
-  const recentEntries = [...entries]
+  const recentEntries = entries
+    .filter((entry) => entry.kind !== "read")
     .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
     .slice(0, 2)
     .map((entry): LocalEncryptedPreviewItem => ({
-      kind: entry.kind === "todo" ? "Task" : entry.kind === "read" ? "Readspace" : "Document",
+      kind: entry.kind === "todo" ? "Task" : "Document",
       protectedFields: [
         { label: "title", ciphertext: entry.encrypted_title },
         { label: "content", ciphertext: entry.encrypted_content },
@@ -1023,151 +891,6 @@ export async function createLocalBookmark(
   putRevision(transaction, vaultId);
   await transactionDone(transaction);
   return id;
-}
-
-export async function createLocalExtensionBookmark(
-  vaultId: string,
-  input: CreateLocalExtensionBookmarkInput,
-): Promise<string> {
-  const db = await openLocalVault();
-  const transaction = db.transaction(
-    [BOOKMARKS, FOLDERS, TAGS, LISTS, LIST_ITEMS, META],
-    "readwrite",
-  );
-  const bookmarkStore = transaction.objectStore(BOOKMARKS);
-  const bookmarkCount = await requestResult(
-    bookmarkStore.index(VAULT_ID_INDEX).count(vaultId),
-  );
-  if (!input.existingBookmarkId && bookmarkCount >= LOCAL_BOOKMARK_LIMIT) {
-    transaction.abort();
-    throw new Error(
-      `Local bookmark limit reached. Create a free account to save more than ${LOCAL_BOOKMARK_LIMIT} bookmarks.`,
-    );
-  }
-  const existingBookmark = input.existingBookmarkId
-    ? (await requestResult(
-        bookmarkStore.get(input.existingBookmarkId),
-      )) as LocalBookmarkRecord | undefined
-    : undefined;
-  if (
-    input.existingBookmarkId &&
-    (!existingBookmark || existingBookmark.vault_id !== vaultId)
-  ) {
-    transaction.abort();
-    throw new Error("The local bookmark could not be found.");
-  }
-
-  const folderStore = transaction.objectStore(FOLDERS);
-  let folderId = input.folderId;
-  if (folderId) {
-    const folder = (await requestResult(folderStore.get(folderId))) as LocalFolderRecord | undefined;
-    if (!folder || folder.vault_id !== vaultId) {
-      transaction.abort();
-      throw new Error("The selected local Collection could not be found.");
-    }
-  }
-  const createdAt = new Date().toISOString();
-  if (input.encryptedNewCollectionName) {
-    const folders = (await requestResult(
-      folderStore.index(VAULT_ID_INDEX).getAll(vaultId),
-    )) as LocalFolderRecord[];
-    folderId = crypto.randomUUID();
-    folderStore.add({
-      id: folderId,
-      vault_id: vaultId,
-      encrypted_name: input.encryptedNewCollectionName,
-      color: null,
-      parent_id: null,
-      sort_order: folders.filter((folder) => folder.parent_id === null).length,
-      created_at: createdAt,
-    } satisfies LocalFolderRecord);
-  }
-
-  const tagStore = transaction.objectStore(TAGS);
-  const tagIds = [...new Set(input.existingTagIds)];
-  for (const tagId of tagIds) {
-    const tag = (await requestResult(tagStore.get(tagId))) as LocalTagRecord | undefined;
-    if (!tag || tag.vault_id !== vaultId) {
-      transaction.abort();
-      throw new Error("A selected local Tag could not be found.");
-    }
-  }
-  for (const encryptedName of input.newEncryptedTagNames) {
-    const id = crypto.randomUUID();
-    tagStore.add({
-      id,
-      vault_id: vaultId,
-      encrypted_name: encryptedName,
-      created_at: createdAt,
-    } satisfies LocalTagRecord);
-    tagIds.push(id);
-  }
-
-  const listStore = transaction.objectStore(LISTS);
-  const listIds = [...new Set(input.selectedListIds)];
-  for (const listId of listIds) {
-    const list = (await requestResult(listStore.get(listId))) as LocalListRecord | undefined;
-    if (!list || list.vault_id !== vaultId) {
-      transaction.abort();
-      throw new Error("A selected local List could not be found.");
-    }
-  }
-  const listCount = await requestResult(
-    listStore.index(VAULT_ID_INDEX).count(vaultId),
-  );
-  if (input.encryptedNewListName) {
-    if (LOCAL_LIST_LIMIT > 0 && listCount >= LOCAL_LIST_LIMIT) {
-      transaction.abort();
-      throw new Error(
-        `Local List limit reached. Create a free account to use more than ${LOCAL_LIST_LIMIT} Lists.`,
-      );
-    }
-    const id = crypto.randomUUID();
-    listStore.add({
-      id,
-      vault_id: vaultId,
-      encrypted_name: input.encryptedNewListName,
-      created_at: createdAt,
-      updated_at: createdAt,
-    } satisfies LocalListRecord);
-    listIds.push(id);
-  }
-
-  const bookmarkId = existingBookmark?.id ?? crypto.randomUUID();
-  bookmarkStore.put({
-    id: bookmarkId,
-    vault_id: vaultId,
-    encrypted_title: input.encryptedTitle,
-    encrypted_url: existingBookmark?.encrypted_url ?? input.encryptedUrl,
-    folder_id: folderId,
-    tag_ids: tagIds,
-    is_favorite: existingBookmark?.is_favorite ?? false,
-    favorited_at: existingBookmark?.favorited_at ?? null,
-    created_at: existingBookmark?.created_at ?? createdAt,
-  } satisfies LocalBookmarkRecord);
-  const itemStore = transaction.objectStore(LIST_ITEMS);
-  const existingItems = (await requestResult(
-    itemStore.index(VAULT_ID_INDEX).getAll(vaultId),
-  )) as LocalListItemRecord[];
-  for (const item of existingItems) {
-    if (item.bookmark_id === bookmarkId) itemStore.delete(item.id);
-  }
-  for (const listId of listIds) {
-    itemStore.add({
-      id: localListItemId(listId, bookmarkId),
-      vault_id: vaultId,
-      list_id: listId,
-      bookmark_id: bookmarkId,
-      position: existingItems.filter(
-        (item) => item.list_id === listId && item.bookmark_id !== bookmarkId,
-      ).length,
-      completed_at: null,
-      created_at: createdAt,
-    } satisfies LocalListItemRecord);
-  }
-  putRevision(transaction, vaultId);
-  await transactionDone(transaction);
-  return bookmarkId;
 }
 
 export async function updateLocalBookmark(
@@ -1502,7 +1225,6 @@ export async function restoreLocalVaultFromExport(
   const lists = archive.data.lists ?? [];
   const notes = archive.data.notes ?? [];
   const todos = archive.data.todos ?? [];
-  const readspace = archive.data.readspace ?? [];
   if (bookmarks.length > LOCAL_BOOKMARK_LIMIT) {
     throw new Error(
       `This backup has ${bookmarks.length.toLocaleString()} bookmarks, but a local vault allows ${LOCAL_BOOKMARK_LIMIT.toLocaleString()}.`,
@@ -1516,11 +1238,6 @@ export async function restoreLocalVaultFromExport(
   if (notes.length + todos.length > LOCAL_ENTRY_LIMIT) {
     throw new Error(
       `This backup has ${(notes.length + todos.length).toLocaleString()} Documents and Tasks, but a local vault allows ${LOCAL_ENTRY_LIMIT.toLocaleString()} combined.`,
-    );
-  }
-  if (readspace.length > LOCAL_READSPACE_LIMIT) {
-    throw new Error(
-      `This backup has ${readspace.length.toLocaleString()} Readspace items, but a local vault allows ${LOCAL_READSPACE_LIMIT.toLocaleString()}.`,
     );
   }
   if (LOCAL_LIST_LIMIT > 0 && lists.length > LOCAL_LIST_LIMIT) {
@@ -1581,7 +1298,6 @@ export async function restoreLocalVaultFromExport(
   const entryRecords: LocalEntryRecord[] = await Promise.all([
     ...notes.map((entry) => ({ kind: "note" as const, entry })),
     ...todos.map((entry) => ({ kind: "todo" as const, entry })),
-    ...readspace.map((entry) => ({ kind: "read" as const, entry })),
   ].map(async ({ kind, entry }) => ({
     id: crypto.randomUUID(),
     vault_id: vaultId,

@@ -108,7 +108,6 @@ function ChecklistItem({
 
 function extensionStatusCopy(
   status: ChromeExtensionOnboardingStatus,
-  localOnly: boolean,
 ) {
   switch (status) {
     case "checking":
@@ -116,21 +115,13 @@ function extensionStatusCopy(
     case "not-installed":
       return "The extension is not detected. Installing it is optional; dashboard saves remain fully supported.";
     case "installed-unpaired":
-      return localOnly
-        ? "The extension is installed but not connected. Open it and choose Connect FavLock to connect this local library."
-        : "The extension is installed but not paired. Open it and choose Connect FavLock to grant account access.";
+      return "The extension is installed but not paired. Open it and choose Connect FavLock to grant account access.";
     case "installed-wrong-account":
-      return localOnly
-        ? "The extension is connected to a different FavLock library. Disconnect it explicitly before connecting this one."
-        : "The extension is paired to a different account. Disconnect it explicitly before pairing this account.";
+      return "The extension is paired to a different account. Disconnect it explicitly before pairing this account.";
     case "installed-locked":
-      return localOnly
-        ? "The extension is connected to this local library, but it is locked. Unlock it separately in the extension."
-        : "The extension is paired to this account, but its local library is locked. Unlock it separately in the extension.";
+      return "The extension is paired to this account, but it is locked. Unlock it separately in the extension.";
     case "paired":
-      return localOnly
-        ? "The extension is connected to this local library and unlocked."
-        : "The extension is installed, paired to this account, and its local library is unlocked.";
+      return "The extension is installed, paired to this account, and unlocked.";
   }
 }
 
@@ -153,9 +144,10 @@ export default function OnboardingDialog({
   const extensionStatusRequestRef = useRef(0);
   const extensionSupported = useMemo(
     () =>
+      !localOnly &&
       typeof navigator !== "undefined" &&
       supportsFavLockChromeExtension(navigator.userAgent, navigator.vendor),
-    [],
+    [localOnly],
   );
   const exportGuide = useMemo(
     () =>
@@ -371,11 +363,9 @@ export default function OnboardingDialog({
                         Save from Chrome (optional)
                       </summary>
                       <div className="mt-2 space-y-2 leading-5">
-                        <p>{extensionStatusCopy(extensionStatus, localOnly)}</p>
+                        <p>{extensionStatusCopy(extensionStatus)}</p>
                         <p>
-                          {localOnly
-                            ? "Install the extension, connect this local library, then unlock it. These are separate steps."
-                            : "Install the extension, pair this account, then unlock its library. These are separate steps."}
+                          Install the extension, pair this account, then unlock its library. These are separate steps.
                         </p>
                         <div className="flex flex-wrap gap-2 pt-1">
                           {extensionStatus === "not-installed" ? (
@@ -395,9 +385,7 @@ export default function OnboardingDialog({
                           </Button>
                         </div>
                         <p className="text-xs">
-                          {localOnly
-                            ? "Opening the store does not prove installation or library access."
-                            : "Opening the store does not prove installation or account access."}
+                          Opening the store does not prove installation or account access.
                         </p>
                       </div>
                     </details>
