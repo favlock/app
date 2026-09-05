@@ -129,7 +129,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       }
 
       if (savedVerifier) {
-        let verifierMatches = false;
+        let verifierMatches: boolean;
 
         try {
           verifierMatches =
