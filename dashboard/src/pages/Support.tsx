@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent, type SubmitEvent } from "react";
 import { ExternalLink, Mail, Menu, ScrollText } from "lucide-react";
-import { useOutletContext } from "react-router-dom";
+import { useLocation, useNavigate, useOutletContext } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { useAuth } from "../context/useAuth";
 import { changelog } from "../data/changelog";
@@ -36,7 +36,21 @@ const successMessages: Record<SupportRequestKind, string> = {
 export default function Support() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { session, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>("contact");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const activeTab: TabId =
+    location.hash === "#changelog" ? "changelog" : "contact";
+
+  const selectTab = (tab: TabId) => {
+    navigate(
+      {
+        pathname: location.pathname,
+        search: location.search,
+        hash: tab === "changelog" ? "#changelog" : "",
+      },
+      { replace: true },
+    );
+  };
 
   const selectTabFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
@@ -55,7 +69,7 @@ export default function Support() {
 
     event.preventDefault();
     const nextTab = tabs[nextIndex].id;
-    setActiveTab(nextTab);
+    selectTab(nextTab);
     document.getElementById(`${nextTab}-tab`)?.focus();
   };
 
@@ -97,7 +111,7 @@ export default function Support() {
               aria-selected={activeTab === id}
               aria-controls={`${id}-panel`}
               tabIndex={activeTab === id ? 0 : -1}
-              onClick={() => setActiveTab(id)}
+              onClick={() => selectTab(id)}
               onKeyDown={(event) => selectTabFromKeyboard(event, id)}
               className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === id

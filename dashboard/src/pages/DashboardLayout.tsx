@@ -38,6 +38,7 @@ import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
 import LocalVaultBanner from "../components/LocalVaultBanner";
 import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
+import ReleaseAnnouncementDialog from "../components/ReleaseAnnouncementDialog";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -460,6 +461,17 @@ export default function DashboardLayout() {
         view={activeDataTransferView}
         onViewChange={changeDataTransferView}
         onClose={closeDataTransfer}
+      />
+      <ReleaseAnnouncementDialog
+        enabled={
+          (hasFinishedInitialOnboarding || isLocalAccount) &&
+          !isOnboardingOpen &&
+          !isAddBookmarkOpen &&
+          !needsUnlock &&
+          Boolean(cryptoKey) &&
+          (Boolean(userInfo?.default_search_engine) || isLocalAccount) &&
+          activeDataTransferView === null
+        }
       />
       <ChromeExtensionPrompt
         enabled={
