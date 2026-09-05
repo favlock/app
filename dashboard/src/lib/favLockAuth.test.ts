@@ -591,7 +591,7 @@ describe("FavLockAuthClient", () => {
     const profile = apiSession().user;
     const client = trackedClient(vi.fn().mockResolvedValue(response({ data: { session: apiSession({ user: { ...profile, id: "22222222-2222-4222-8222-222222222222" } }) } })));
     await client.getSession();
-    const result = await client.signInWithPassword({ email: profile.email, password: "password", options: { captchaToken: "captcha" } });
+    const result = await client.signInWithPassword({ email: profile.email, password: "password" });
     expect(result.error?.message).toContain("different account");
     expect(client.getLocalUser()?.id).toBe(USER_ID);
     expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!).user.id).toBe(USER_ID);
@@ -603,7 +603,7 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient(vi.fn().mockResolvedValue(response({ data: { session: apiSession() } })));
     await client.getSession();
     client.markCloudFailure("access-token", "reconnect_required");
-    const result = await client.signInWithPassword({ email: "ada@example.com", password: "password", options: { captchaToken: "captcha" } });
+    const result = await client.signInWithPassword({ email: "ada@example.com", password: "password" });
     expect(result.error).toBeNull();
     expect(client.getCloudStatus()).toBe("available");
     expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
@@ -624,7 +624,7 @@ describe("FavLockAuthClient", () => {
     const retry = client.retryCloudConnection().then(() => null, (error: unknown) => error);
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     const signIn = client.signInWithPassword({
-      email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+      email: "ada@example.com", password: "password",
     });
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
 
@@ -664,7 +664,7 @@ describe("FavLockAuthClient", () => {
         await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
         if (signOutFirst) await client.signOut();
         const signIn = await client.signInWithPassword({
-          email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+          email: "ada@example.com", password: "password",
         });
         expect(signIn.error).toBeNull();
         expect(client.getCloudStatus()).toBe("available");
@@ -712,7 +712,7 @@ describe("FavLockAuthClient", () => {
   it("does not resurrect a late password sign-in after explicit sign-out", async () => {
     let finish!: (value: Response) => void;
     const client = trackedClient(vi.fn().mockImplementation(() => new Promise<Response>((resolve) => { finish = resolve; })));
-    const signIn = client.signInWithPassword({ email: "ada@example.com", password: "password", options: { captchaToken: "captcha" } });
+    const signIn = client.signInWithPassword({ email: "ada@example.com", password: "password" });
     await client.signOut();
     finish(response({ data: { session: apiSession() } }));
     expect((await signIn).error?.message).toContain("cancelled");
@@ -791,7 +791,7 @@ describe("FavLockAuthClient", () => {
       const original = await client.getRequestSession(originalToken);
       if (signOutFirst) await client.signOut();
       const login = await client.signInWithPassword({
-        email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+        email: "ada@example.com", password: "password",
       });
       expect(login.error).toBeNull();
 
@@ -905,7 +905,7 @@ describe("FavLockAuthClient", () => {
       expect(fetchMock).not.toHaveBeenCalled();
 
       const login = await client.signInWithPassword({
-        email: "ada@example.com", password: "password", options: { captchaToken: "captcha" },
+        email: "ada@example.com", password: "password",
       });
 
       expect(login.error).toBeNull();
@@ -1012,7 +1012,6 @@ describe("FavLockAuthClient", () => {
     const result = await client.signInWithPassword({
       email: "ada@example.com",
       password: "correct horse battery staple",
-      options: { captchaToken: "captcha-token" },
     });
 
     expect(result.error).toBeNull();
@@ -1026,7 +1025,6 @@ describe("FavLockAuthClient", () => {
     expect(JSON.parse(options.body as string)).toEqual({
       email: "ada@example.com",
       password: "correct horse battery staple",
-      captchaToken: "captcha-token",
     });
   });
 
@@ -1040,7 +1038,6 @@ describe("FavLockAuthClient", () => {
       email: "ada@example.com",
       password: "correct horse battery staple",
       options: {
-        captchaToken: "captcha-token",
         emailRedirectTo: `${DASHBOARD_URL}/library?welcome=1`,
         data: { first_name: " Ada ", last_name: " Lovelace " },
       },
@@ -1057,7 +1054,6 @@ describe("FavLockAuthClient", () => {
       password: "correct horse battery staple",
       firstName: "Ada",
       lastName: "Lovelace",
-      captchaToken: "captcha-token",
       pkceCodeChallenge: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       pkceCodeChallengeMethod: "s256",
       redirectTarget: "/library?welcome=1",
@@ -1070,7 +1066,7 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient(fetchMock);
     const result = await client.signUp({
       email: "ada@example.com", password: "fake-test-password",
-      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout`, data },
+      options: { emailRedirectTo: `${DASHBOARD_URL}/checkout`, data },
     });
     expect(result.error).toBeNull();
     const [url, options] = fetchMock.mock.calls[0];
@@ -1078,7 +1074,7 @@ describe("FavLockAuthClient", () => {
     const body = JSON.parse(options.body);
     expect(body).not.toHaveProperty("firstName");
     expect(body).not.toHaveProperty("lastName");
-    expect(body).toMatchObject({ captchaToken: "fake-captcha", redirectTarget: "/checkout", pkceCodeChallengeMethod: "s256" });
+    expect(body).toMatchObject({ redirectTarget: "/checkout", pkceCodeChallengeMethod: "s256" });
     expect(localStorage.getItem(PKCE_STORAGE_KEY)).not.toBeNull();
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
   });
@@ -1088,7 +1084,7 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient(fetchMock);
     const result = await client.signUp({
       email: "ada@example.com", password: "fake-test-password",
-      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` },
+      options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` },
     });
     expect(result.error).not.toBeNull();
     expect(result.data).toEqual({ user: null, session: null });
@@ -1104,7 +1100,7 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient(fetchMock);
     const result = await client.signUp({
       email: "new@example.com", password: "fake-test-password",
-      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/` },
+      options: { emailRedirectTo: `${DASHBOARD_URL}/` },
     });
     expect(result.error?.message).toContain("Reconnect to your existing account");
     expect(fetchMock).not.toHaveBeenCalled();
@@ -1120,7 +1116,7 @@ describe("FavLockAuthClient", () => {
     const client = trackedClient(fetchMock);
     const result = await client.signUp({
       email: "ada@example.com", password: "fake-test-password",
-      options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/` },
+      options: { emailRedirectTo: `${DASHBOARD_URL}/` },
     });
     expect(result.error?.message).toBe("Safe signup failure.");
     expect(result.data).toEqual({ user: null, session: null });
@@ -1134,7 +1130,7 @@ describe("FavLockAuthClient", () => {
     const result = method === "google"
       ? await start.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } })
       : await start.signUp({ email: "ada@example.com", password: "fake-test-password", options: {
-        captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout`,
+        emailRedirectTo: `${DASHBOARD_URL}/checkout`,
       } });
     expect(result.error).toBeNull();
     const pkce = JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!);
@@ -1285,7 +1281,7 @@ describe("FavLockAuthClient", () => {
     const previous = { verifier: "v".repeat(64), redirectType: "sign-in", localAccountEpoch: null };
     localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify(previous));
     const client = trackedClient(vi.fn().mockResolvedValue(response({ error: { code: "rate_limited", message: "Try later." } }, status)));
-    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
     expect(result.error).not.toBeNull();
     expect(JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!)).toEqual(previous);
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
@@ -1295,7 +1291,7 @@ describe("FavLockAuthClient", () => {
     const previous = { verifier: "v".repeat(64), redirectType: "sign-in", localAccountEpoch: null };
     localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify(previous));
     const start = trackedClient(vi.fn().mockResolvedValue(response({ data: { accepted: true } }, 202)));
-    expect((await start.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } })).error).toBeNull();
+    expect((await start.resend({ type: "signup", email: "ada@example.com", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } })).error).toBeNull();
     const next = JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!);
     expect(next.verifier).not.toBe(previous.verifier);
     start.dispose();
@@ -1311,7 +1307,7 @@ describe("FavLockAuthClient", () => {
   it("keeps the resend verifier when delivery may have succeeded despite a network interruption", async () => {
     localStorage.setItem(PKCE_STORAGE_KEY, JSON.stringify({ verifier: "v".repeat(64), redirectType: "sign-in" }));
     const client = trackedClient(vi.fn().mockRejectedValue(new TypeError("offline")));
-    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    const result = await client.resend({ type: "signup", email: "ada@example.com", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
     expect(result.error).not.toBeNull();
     expect(JSON.parse(localStorage.getItem(PKCE_STORAGE_KEY)!).verifier).not.toBe("v".repeat(64));
     expect(localStorage.getItem(SESSION_STORAGE_KEY)).toBeNull();
@@ -1321,7 +1317,7 @@ describe("FavLockAuthClient", () => {
     const pending = deferredResponse();
     const fetchMock = vi.fn().mockReturnValue(pending.promise);
     const client = trackedClient(fetchMock);
-    const resend = client.resend({ type: "signup", email: "ada@example.com", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    const resend = client.resend({ type: "signup", email: "ada@example.com", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     await client.signInWithOAuth({ provider: "google", options: { redirectTo: `${DASHBOARD_URL}/checkout` } });
     const newer = localStorage.getItem(PKCE_STORAGE_KEY);
@@ -1348,7 +1344,7 @@ describe("FavLockAuthClient", () => {
 
   it("does not treat an inconsistent signup response as a usable account", async () => {
     const client = trackedClient(vi.fn().mockResolvedValue(response({ data: { confirmationRequired: true, session: apiSession() } })));
-    const result = await client.signUp({ email: "ada@example.com", password: "fake-password", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    const result = await client.signUp({ email: "ada@example.com", password: "fake-password", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
     expect(result.error).not.toBeNull();
     expect(result.data.session).toBeNull();
     expect(client.getLocalUser()).toBeNull();
@@ -1358,7 +1354,7 @@ describe("FavLockAuthClient", () => {
     const pending = deferredResponse();
     const fetchMock = vi.fn().mockReturnValue(pending.promise);
     const client = trackedClient(fetchMock);
-    const signup = client.signUp({ email: "ada@example.com", password: "fake-password", options: { captchaToken: "fake-captcha", emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
+    const signup = client.signUp({ email: "ada@example.com", password: "fake-password", options: { emailRedirectTo: `${DASHBOARD_URL}/checkout` } });
     await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
     localStorage.setItem("favlock.local-account-epoch.v1", JSON.stringify({ id: crypto.randomUUID(), signedOut: true }));
     pending.resolve(response({ data: { confirmationRequired: false, session: apiSession() } }));

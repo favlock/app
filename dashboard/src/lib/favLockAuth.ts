@@ -1280,18 +1280,15 @@ export class FavLockAuthClient {
   async signInWithPassword({
     email,
     password,
-    options,
   }: {
     email: string;
     password: string;
-    options: { captchaToken: string };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
     const generation = this.#generation;
     try {
       const value = await this.#request("/v1/auth/sign-in/password", "POST", {
         email,
         password,
-        captchaToken: options.captchaToken,
       });
       const session =
         isRecord(value) && isRecord(value.data)
@@ -1317,7 +1314,6 @@ export class FavLockAuthClient {
     email: string;
     password: string;
     options: {
-      captchaToken: string;
       emailRedirectTo: string;
       data?: { first_name?: string; last_name?: string };
     };
@@ -1340,7 +1336,6 @@ export class FavLockAuthClient {
         password,
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
         redirectTarget,
@@ -1379,7 +1374,7 @@ export class FavLockAuthClient {
   }: {
     type: "signup";
     email: string;
-    options: { captchaToken: string; emailRedirectTo: string };
+    options: { emailRedirectTo: string };
   }): Promise<AuthResult<Record<string, never>>> {
     let attemptVerifier: string | null = null;
     let previousPkce: StoredPkce | null = null;
@@ -1395,7 +1390,6 @@ export class FavLockAuthClient {
       attemptVerifier = verifier;
       await this.#request("/v1/auth/sign-up/resend", "POST", {
         email,
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
         redirectTarget,
@@ -1421,7 +1415,7 @@ export class FavLockAuthClient {
 
   async resetPasswordForEmail(
     email: string,
-    options: { redirectTo: string; captchaToken: string },
+    options: { redirectTo: string },
   ): Promise<AuthResult<Record<string, never>>> {
     let pkceStored = false;
     try {
@@ -1435,7 +1429,6 @@ export class FavLockAuthClient {
       pkceStored = true;
       await this.#request("/v1/auth/password/reset", "POST", {
         email,
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
       });

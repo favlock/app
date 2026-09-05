@@ -20,9 +20,6 @@ import GoogleAuthButton from "../components/GoogleAuthButton";
 import { AuthLegalNotice } from "../components/AuthDataNotice";
 import PasswordInput from "../components/PasswordInput";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
-import CloudflareTurnstile, {
-  type CloudflareTurnstileHandle,
-} from "../components/CloudflareTurnstile";
 import {
   buildAuthPath,
   getAuthMode,
@@ -91,7 +88,6 @@ function EmailConfirmation({
   onUseDifferentEmail: () => void;
   onBackToSignIn: () => void;
 }) {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
@@ -101,7 +97,6 @@ function EmailConfirmation({
   const remainingSeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
   const resendingRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
   useEffect(() => { panelRef.current?.focus(); }, []);
   useEffect(() => {
@@ -117,13 +112,6 @@ function EmailConfirmation({
       setResendError("Enter the email address you used to sign up.");
       return;
     }
-    if (!captchaToken) {
-      setResendError(
-        "Complete the security verification before requesting another email.",
-      );
-      return;
-    }
-
     resendingRef.current = true;
     setResending(true);
     setResendError(null);
@@ -135,7 +123,7 @@ function EmailConfirmation({
       const { error } = await favLockAuth.resend({
         type: "signup",
         email: normalizedEmail,
-        options: { captchaToken, emailRedirectTo },
+        options: { emailRedirectTo },
       });
       if (error) {
         setResendError("code" in error && error.code === "rate_limited"
@@ -147,8 +135,6 @@ function EmailConfirmation({
     } catch {
       setResendError("We could not confirm the request. Check your inbox before trying again.");
     } finally {
-      captchaRef.current?.reset();
-      setCaptchaToken(null);
       resendingRef.current = false;
       setResending(false);
     }
@@ -207,16 +193,11 @@ function EmailConfirmation({
           </div>
         )}
 
-        <CloudflareTurnstile
-          ref={captchaRef}
-          action="resend-signup-confirmation"
-          onVerify={setCaptchaToken}
-        />
         <Button
           type="button"
           outline
           className="mt-3 w-full"
-          disabled={resending || !captchaToken || remainingSeconds > 0}
+          disabled={resending || remainingSeconds > 0}
           onClick={() => void handleResend()}
         >
           <Mail data-slot="icon" aria-hidden="true" />
@@ -263,12 +244,11 @@ export default function AuthPage() {
   const [invalidField, setInvalidField] = useState<"email" | "password" | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
     null,
   );
   const [confirmationSent, setConfirmationSent] = useState(false);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const emailSubmissionRef = useRef(false);
 
   useEffect(() => {
     setError(null);
@@ -276,8 +256,6 @@ export default function AuthPage() {
     setInvalidField(null);
     setConfirmationEmail(null);
     setConfirmationSent(false);
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
   }, [emailMode, requestingConfirmation]);
 
   useEffect(() => {
@@ -291,11 +269,6 @@ export default function AuthPage() {
     }
 
   }, [navigate]);
-
-  const resetCaptcha = () => {
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
-  };
 
   const switchEmailMode = (mode: AuthMode) => {
     if (mode === emailMode || (reconnecting && mode === "sign-up")) return;
@@ -330,7 +303,7 @@ export default function AuthPage() {
 
   const handleEmailSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loading) return;
+    if (emailSubmissionRef.current) return;
     setError(null);
     setInvalidField(null);
 
@@ -370,66 +343,57 @@ export default function AuthPage() {
       return;
     }
 
-    if (!captchaToken) {
-      setError(
-        emailMode === "sign-up"
-          ? "Complete the security verification before creating an account."
-          : "Complete the security verification before signing in.",
-      );
-      return;
-    }
-
+    emailSubmissionRef.current = true;
     setLoading(true);
 
-    if (emailMode === "sign-in") {
-      const { error: signInError } = await favLockAuth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-        options: { captchaToken },
-      });
-      resetCaptcha();
+    try {
+      if (emailMode === "sign-in") {
+        const { error: signInError } = await favLockAuth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
 
-      if (signInError) {
-        if ("code" in signInError && signInError.code === "email_not_confirmed") {
-          setPassword("");
-          setConfirmationSent(false);
-          setConfirmationEmail(normalizedEmail);
+        if (signInError) {
+          if ("code" in signInError && signInError.code === "email_not_confirmed") {
+            setPassword("");
+            setConfirmationSent(false);
+            setConfirmationEmail(normalizedEmail);
+          }
+          setError(signInError.message);
+          return;
         }
-        setError(signInError.message);
-        setLoading(false);
+
+        navigate(nextPath);
         return;
       }
 
+      const { data, error: signUpError } = await favLockAuth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          emailRedirectTo,
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      if (data.session) {
+        navigate(nextPath);
+        return;
+      }
+
+      setPassword("");
+      setConfirmationSent(true);
+      setConfirmationEmail(normalizedEmail);
+    } catch {
+      setError("Authentication is temporarily unavailable.");
+    } finally {
+      emailSubmissionRef.current = false;
       setLoading(false);
-      navigate(nextPath);
-      return;
     }
-
-    const { data, error: signUpError } = await favLockAuth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        captchaToken,
-        emailRedirectTo,
-      },
-    });
-    resetCaptcha();
-
-    if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(false);
-    if (data.session) {
-      navigate(nextPath);
-      return;
-    }
-
-    setPassword("");
-    setConfirmationSent(true);
-    setConfirmationEmail(normalizedEmail);
   };
 
   if (confirmationEmail || requestingConfirmation) {
@@ -443,7 +407,6 @@ export default function AuthPage() {
             setConfirmationEmail(null);
             setEmail("");
             setError(null);
-            resetCaptcha();
             navigate(buildAuthPath("/login", nextPath, { mode: reconnecting ? "sign-in" : "sign-up", reconnect: reconnecting }));
           }}
           onBackToSignIn={() => {
@@ -451,7 +414,6 @@ export default function AuthPage() {
             navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting }));
             setShowEmailForm(true);
             setError(null);
-            resetCaptcha();
           }}
         />
       </AuthLayout>
@@ -487,7 +449,6 @@ export default function AuthPage() {
               onClick={() => {
                 setError(null);
                 setInvalidField(null);
-                resetCaptcha();
                 setShowEmailForm(true);
               }}
             >
@@ -518,7 +479,6 @@ export default function AuthPage() {
               onClick={() => {
                 setError(null);
                 setInvalidField(null);
-                resetCaptcha();
                 setShowEmailForm(false);
               }}
             >
@@ -633,17 +593,17 @@ export default function AuthPage() {
                   </Field>
                 </FieldGroup>
 
-                <CloudflareTurnstile
-                  ref={captchaRef}
-                  action={emailMode === "sign-up" ? "register" : "login"}
-                  onVerify={setCaptchaToken}
-                />
-
                 <Button
                   type="submit"
                   color="emerald"
                   className="mt-6 w-full"
-                  disabled={loading || !captchaToken}
+                  disabled={
+                    loading ||
+                    !email.trim() ||
+                    !password ||
+                    (emailMode === "sign-up" &&
+                      password.length < MIN_PASSWORD_LENGTH)
+                  }
                 >
                   {loading
                     ? emailMode === "sign-up"

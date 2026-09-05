@@ -29,18 +29,6 @@ vi.mock("../lib/favLockAuth", () => ({
   favLockAuth: { resend, signInWithOAuth, signInWithPassword, signUp },
 }));
 
-vi.mock("../components/CloudflareTurnstile", () => ({
-  default: ({
-    onVerify,
-  }: {
-    onVerify: (token: string | null) => void;
-  }) => (
-    <button type="button" onClick={() => onVerify("turnstile-token")}>
-      Complete security check
-    </button>
-  ),
-}));
-
 function findButton(container: HTMLElement, label: string): HTMLButtonElement {
   const button = Array.from(container.querySelectorAll("button")).find(
     (candidate) => candidate.textContent?.trim() === label,
@@ -103,12 +91,6 @@ describe("AuthPage", () => {
     });
   };
 
-  const completeSecurityCheck = async () => {
-    await act(async () => {
-      findButton(container, "Complete security check").click();
-    });
-  };
-
   const submitForm = async () => {
     await act(async () => {
       const form = container.querySelector("form");
@@ -119,7 +101,7 @@ describe("AuthPage", () => {
       if (!submitButton) throw new Error("Could not find the email submit button.");
       expect(form.noValidate).toBe(true);
       expect(submitButton.type).toBe("submit");
-      submitButton.click();
+      form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
     });
   };
 
@@ -173,7 +155,6 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?mode=sign-up");
     await openEmailSignIn();
     await fillSignUpForm(email, password);
-    await completeSecurityCheck();
     await submitForm();
     const input = container.querySelector<HTMLInputElement>(`input[name="${field}"]`)!;
     expect(input.getAttribute("aria-invalid")).toBe("true");
@@ -183,33 +164,33 @@ describe("AuthPage", () => {
     expect(signUp).not.toHaveBeenCalled();
   });
 
-  it("blocks signup without security verification, including direct form submissions", async () => {
+  it("submits a valid signup without requiring widget completion", async () => {
+    signUp.mockResolvedValue({ data: { session: null }, error: null });
     await renderAuthPage("/login?mode=sign-up");
     await openEmailSignIn();
     await fillSignUpForm();
-    expect(findButton(container, "Create account with email").disabled).toBe(true);
+    expect(findButton(container, "Create account with email").disabled).toBe(false);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain("Complete the security verification");
-    expect(signUp).not.toHaveBeenCalled();
+    expect(signUp).toHaveBeenCalledWith({
+      email: "ada@example.com",
+      password: "secret123",
+      options: { emailRedirectTo: expect.any(String) },
+    });
   });
 
   it.each([
-    "Security verification failed. Please try again.",
     "Too many requests. Try again later.",
     "The account request could not be completed.",
     "Choose a stronger password and try again.",
-  ])("shows the safe signup error and requires fresh CAPTCHA: %s", async (message) => {
+  ])("shows the safe signup error while keeping a valid form retryable: %s", async (message) => {
     signUp.mockResolvedValue({ data: { session: null }, error: { message } });
     await renderAuthPage("/login?mode=sign-up");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await submitForm();
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(message);
-    expect(findButton(container, "Create account with email").disabled).toBe(true);
-    expect(container.textContent).not.toContain("Check your inbox");
-    await completeSecurityCheck();
     expect(findButton(container, "Create account with email").disabled).toBe(false);
+    expect(container.textContent).not.toContain("Check your inbox");
   });
 
   it("does not submit again while signup is pending", async () => {
@@ -218,7 +199,6 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?mode=sign-up");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await submitForm();
     expect(findButton(container, "Creating account...").disabled).toBe(true);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
@@ -280,11 +260,10 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("Request a new link for the email you used to sign up.");
   });
 
-  it("follows browser history without reusing passwords or CAPTCHA across modes", async () => {
+  it("follows browser history without reusing passwords across modes", async () => {
     await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await act(async () => findButton(container, "Sign in").click());
     expect(container.querySelector("[data-location]")?.textContent).toBe("/login?next=%2Fcheckout");
     await act(async () => findButton(container, "Browser back").click());
@@ -343,7 +322,7 @@ describe("AuthPage", () => {
     ).toBe("0");
   });
 
-  it("signs an existing user in with email and Turnstile", async () => {
+  it("signs an existing user in with email without widget completion", async () => {
     signInWithPassword.mockResolvedValue({ data: {}, error: null });
     await renderAuthPage();
     await openEmailSignIn();
@@ -353,13 +332,11 @@ describe("AuthPage", () => {
       setInputValue(inputs[0], " ada@example.com ");
       setInputValue(inputs[1], "old1");
     });
-    await completeSecurityCheck();
     await submitForm();
 
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "ada@example.com",
       password: "old1",
-      options: { captchaToken: "turnstile-token" },
     });
   });
 
@@ -376,13 +353,11 @@ describe("AuthPage", () => {
     inputs[0].setCustomValidity("Native validation would block submission.");
     expect(inputs[0].validity.valid).toBe(false);
 
-    await completeSecurityCheck();
     await submitForm();
 
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "ada@example.com",
       password: "correct horse battery staple",
-      options: { captchaToken: "turnstile-token" },
     });
   });
 
@@ -395,7 +370,6 @@ describe("AuthPage", () => {
       setInputValue(inputs[0], "not-an-email");
       setInputValue(inputs[1], "correct horse battery staple");
     });
-    await completeSecurityCheck();
     await submitForm();
 
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(
@@ -415,14 +389,12 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await submitForm();
 
     expect(signUp).toHaveBeenCalledWith({
       email: "ada@example.com",
       password: "secret123",
       options: {
-        captchaToken: "turnstile-token",
         emailRedirectTo: expect.stringMatching(/\/checkout$/),
       },
     });
@@ -433,7 +405,6 @@ describe("AuthPage", () => {
     expect(container.querySelector("[data-location]")?.textContent).toBe("/login?mode=sign-up&next=%2Fcheckout");
     expect(findButton(container, "Resend available in 60s").disabled).toBe(true);
 
-    await completeSecurityCheck();
     expect(resend).not.toHaveBeenCalled();
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
     await act(async () => {
@@ -444,7 +415,6 @@ describe("AuthPage", () => {
       type: "signup",
       email: "ada@example.com",
       options: {
-        captchaToken: "turnstile-token",
         emailRedirectTo: expect.stringMatching(/\/checkout$/),
       },
     });
@@ -469,7 +439,6 @@ describe("AuthPage", () => {
     await renderAuthPage();
     await openEmailSignUp();
     await fillSignUpForm("test@mailinator.com");
-    await completeSecurityCheck();
     await submitForm();
 
     const alert = container.querySelector('[role="alert"]')!;
@@ -494,7 +463,6 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?mode=sign-up&next=%2Fcheckout");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await submitForm();
     expect(container.querySelector("[data-location]")?.textContent).toBe("/checkout");
     expect(container.textContent).not.toContain("Check your inbox");
@@ -563,7 +531,6 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?next=%2Fcheckout&reconnect=1");
     await openEmailSignIn();
     await fillSignUpForm();
-    await completeSecurityCheck();
     await submitForm();
     expect(container.textContent).toContain("Confirm your email");
     expect(container.textContent).not.toContain("Check your inbox");
@@ -580,15 +547,12 @@ describe("AuthPage", () => {
     await renderAuthPage("/login?confirmation=1&next=%2Fcheckout");
     const input = container.querySelector<HTMLInputElement>('input[name="confirmationEmail"]')!;
     await act(async () => setInputValue(input, "ada@example.com"));
-    await completeSecurityCheck();
     await act(async () => findButton(container, "Resend confirmation email").click());
     expect(resend).toHaveBeenCalledOnce();
     expect(resend).toHaveBeenCalledWith(expect.objectContaining({ email: "ada@example.com", options: expect.objectContaining({ emailRedirectTo: expect.stringMatching(/\/checkout$/) }) }));
     expect(container.querySelector('[role="alert"]')?.textContent).toContain(failure === "rate_limited" ? "Wait at least a minute" : "Check your inbox before trying again");
     expect(container.textContent).not.toContain("private network details");
     await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
-    expect(findButton(container, "Resend confirmation email").disabled).toBe(true);
-    await completeSecurityCheck();
     expect(findButton(container, "Resend confirmation email").disabled).toBe(false);
     expect(signUp).not.toHaveBeenCalled();
   });
@@ -598,7 +562,6 @@ describe("AuthPage", () => {
     resend.mockReturnValue(new Promise((resolve) => { finish = resolve; }));
     await renderAuthPage("/login?confirmation=1");
     await act(async () => setInputValue(container.querySelector<HTMLInputElement>('input[name="confirmationEmail"]')!, "ada@example.com"));
-    await completeSecurityCheck();
     await act(async () => findButton(container, "Resend confirmation email").click());
     expect(findButton(container, "Sending...").disabled).toBe(true);
     expect(findButton(container, "Use a different email").disabled).toBe(true);

@@ -65,7 +65,7 @@ function storageEvent(key: string | null, newValue: string | null, oldValue: str
 
 function signIn(client: FavLockAuthClient) {
   return client.signInWithPassword({
-    email: "test@example.com", password: "fake-test-password", options: { captchaToken: "fake-captcha" },
+    email: "test@example.com", password: "fake-test-password",
   });
 }
 
@@ -75,7 +75,7 @@ function startPkce(client: FavLockAuthClient, flow: "sign-in" | "recovery") {
       provider: "google", options: { redirectTo: "https://dashboard.favlock.example/library" },
     })
     : client.resetPasswordForEmail("test@example.com", {
-      redirectTo: "https://dashboard.favlock.example/reset-password", captchaToken: "fake-captcha",
+      redirectTo: "https://dashboard.favlock.example/reset-password",
     });
 }
 

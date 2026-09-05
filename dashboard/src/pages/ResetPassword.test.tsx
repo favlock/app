@@ -30,19 +30,7 @@ vi.mock("../lib/favLockAuth", () => ({
   },
 }));
 
-vi.mock("../components/CloudflareTurnstile", () => ({
-  default: ({
-    onVerify,
-  }: {
-    onVerify: (token: string | null) => void;
-  }) => (
-    <button type="button" onClick={() => onVerify("turnstile-token")}>
-      Complete security check
-    </button>
-  ),
-}));
-
-describe("ResetPassword security verification", () => {
+describe("ResetPassword", () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -62,7 +50,7 @@ describe("ResetPassword security verification", () => {
     container.remove();
   });
 
-  it("passes the Turnstile token when requesting a reset email", async () => {
+  it("requests a reset email without widget completion", async () => {
     resetPasswordForEmail.mockResolvedValue({ data: {}, error: null });
 
     await act(async () => {
@@ -82,9 +70,6 @@ describe("ResetPassword security verification", () => {
     await act(async () => {
       setInputValue.call(emailInput, "ada@example.com");
       emailInput.dispatchEvent(new Event("input", { bubbles: true }));
-      Array.from(container.querySelectorAll("button"))
-        .find((button) => button.textContent?.includes("Complete security"))!
-        .click();
     });
 
     await act(async () => {
@@ -95,7 +80,6 @@ describe("ResetPassword security verification", () => {
 
     expect(resetPasswordForEmail).toHaveBeenCalledWith("ada@example.com", {
       redirectTo: DASHBOARD_RESET_PASSWORD_URL,
-      captchaToken: "turnstile-token",
     });
   });
 
