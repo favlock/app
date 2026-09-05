@@ -1,5 +1,10 @@
 # Chrome extension changelog
 
+## 1.10.0 — September 5, 2026
+
+- Refreshed the popup, settings, reader, and exported highlights with FavLock's new pastel design.
+- Improved account-pairing state cleanup and clarified reconnection guidance.
+
 ## 1.9.0 — September 5, 2026
 
 Minimum supported FavLock dashboard version: **1.9.0**.
