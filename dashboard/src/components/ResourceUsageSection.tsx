@@ -40,7 +40,7 @@ function UsageMeter({
       <div className="mb-2 flex items-center justify-between gap-4">
         <div
           className={`flex items-center gap-2 text-sm font-medium ${
-            isLimitReached ? "text-red-600" : "liquid-ink"
+            isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-ink"
           }`}
         >
           <Icon className="size-4" aria-hidden="true" />
@@ -48,12 +48,12 @@ function UsageMeter({
         </div>
         <span
           className={`text-sm tabular-nums ${
-            isLimitReached ? "text-red-600" : "liquid-muted"
+            isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-muted"
           }`}
         >
           <span
             className={`font-semibold ${
-              isLimitReached ? "text-red-600" : "liquid-ink"
+              isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-ink"
             }`}
           >
             {used.toLocaleString("en-US")}
@@ -86,7 +86,7 @@ function UsageMeter({
       </div>
       <p
         className={`mt-1.5 text-xs ${
-          isLimitReached ? "font-medium text-red-600" : "liquid-muted"
+          isLimitReached ? "font-medium text-red-600 dark:text-red-300" : "liquid-muted"
         }`}
       >
         {remaining === null
@@ -133,7 +133,7 @@ export default function ResourceUsageSection({ localOnly = false }: { localOnly?
       ) : isError || isPlanError || !data ? (
         <div
           role="alert"
-          className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600"
+          className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
         >
           <p>Could not load account usage.</p>
           <Button

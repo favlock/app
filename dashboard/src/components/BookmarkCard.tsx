@@ -264,7 +264,7 @@ export default function BookmarkCard({
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}
-            className="relative block max-w-full truncate rounded-sm decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35"
+            className="relative block max-w-full truncate rounded-sm decoration-[var(--app-primary)] underline-offset-4 transition-colors hover:text-[var(--app-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35"
           >
             {bookmark.title}
             <span className="sr-only"> (opens in a new tab)</span>
@@ -303,7 +303,7 @@ export default function BookmarkCard({
                   const tagBadge = (
                     <Badge
                       color="violet"
-                      className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                      className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600! dark:text-violet-300!"
                     >
                       <span className="truncate" title={`#${tag.name}`}>
                         #{tag.name}
@@ -416,7 +416,7 @@ export default function BookmarkCard({
                   >
                     No collection
                   </Button>
-                  <div className="my-1 border-t border-[#1d2230]/10 " />
+                  <div className="my-1 border-t border-[var(--app-ink)]/10 " />
                   {folders.map((folder) => (
                     <Button
                       key={folder.id}
@@ -438,14 +438,14 @@ export default function BookmarkCard({
                     </Button>
                   ))}
                   {folders.length === 0 && (
-                    <p className="px-4 py-2 text-sm text-gray-400 ">
+                    <p className="px-4 py-2 text-sm text-gray-400 dark:text-[var(--app-muted)] ">
                       No collections created
                     </p>
                   )}
                   {moveError && (
                     <p
                       role="alert"
-                      className="mx-2 mt-1 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-700"
+                      className="mx-2 mt-1 rounded-lg bg-red-50 dark:bg-[var(--app-rose)] px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
                     >
                       {moveError}
                     </p>
@@ -459,7 +459,7 @@ export default function BookmarkCard({
               <Button
                 onClick={handleToggleFavorite}
                 plain
-                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50! data-active:bg-red-100!"
+                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]! data-active:bg-red-100! data-active:dark:bg-[var(--app-rose)]!"
                 title={favorite ? "Remove from favorites" : "Add to favorites"}
                 aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
                 aria-pressed={favorite}
@@ -468,7 +468,7 @@ export default function BookmarkCard({
                   <Heart
                     size={15}
                     aria-hidden="true"
-                    className={favorite ? "fill-red-500 text-red-500" : "text-current"}
+                    className={favorite ? "fill-red-500 text-red-500 dark:fill-[var(--app-danger)] dark:text-[var(--app-danger)]" : "text-current"}
                   />
                 </span>
               </Button>
@@ -490,7 +490,7 @@ export default function BookmarkCard({
                 }}
                 disabled={deleting}
                 plain
-                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
+                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]!"
                 title={isLocalAccount ? "Delete permanently" : "Move to Trash"}
                 aria-label={isLocalAccount ? "Delete bookmark permanently" : "Move bookmark to Trash"}
               >
@@ -504,7 +504,7 @@ export default function BookmarkCard({
 
       {favoriteError ? (
         <div
-          className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700"
+          className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
           role="alert"
         >
           <span>{favoriteError}</span>
@@ -533,7 +533,7 @@ export default function BookmarkCard({
         </DialogDescription>
         {deleteError ? (
           <p
-            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600"
+            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             {deleteError}

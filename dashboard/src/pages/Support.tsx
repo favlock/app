@@ -86,7 +86,7 @@ export default function Support() {
         <div
           role="tablist"
           aria-label="Support sections"
-          className="mb-6 flex w-fit gap-1 rounded-2xl border bg-white/50 p-1 backdrop-blur-md liquid-divider"
+          className="mb-6 flex w-fit gap-1 rounded-2xl border bg-[var(--app-highlight)]/50 p-1 backdrop-blur-md liquid-divider"
         >
           {tabs.map(({ id, label, icon: Icon }) => (
             <button
@@ -212,7 +212,7 @@ function ContactForm({
       <div className="retro-panel rounded-2xl p-6">
         <div className="mb-3 flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-xl bg-cyan-100">
-            <Mail size={16} className="text-cyan-700" aria-hidden="true" />
+            <Mail size={16} className="text-cyan-700 dark:text-cyan-300" aria-hidden="true" />
           </div>
           <h2 className="text-sm font-semibold liquid-ink">Contact us</h2>
         </div>
@@ -225,8 +225,8 @@ function ContactForm({
             <div
               className={`rounded-xl border px-4 py-3 text-sm ${
                 status.type === "success"
-                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600"
-                  : "border-red-500/30 bg-red-500/10 text-red-600"
+                  ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                  : "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300"
               }`}
               role={status.type === "error" ? "alert" : "status"}
               aria-live="polite"
@@ -351,7 +351,7 @@ function ContactForm({
           <div className="flex size-9 items-center justify-center rounded-xl bg-cyan-100">
             <ScrollText
               size={16}
-              className="text-cyan-700"
+              className="text-cyan-700 dark:text-cyan-300"
               aria-hidden="true"
             />
           </div>
@@ -364,7 +364,7 @@ function ContactForm({
           href={WEB_DOCS_URL}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 transition-colors hover:text-cyan-800"
+          className="inline-flex items-center gap-2 text-sm font-medium text-cyan-700 dark:text-cyan-300 transition-colors hover:text-cyan-800"
         >
           FavLock documentation
           <ExternalLink size={12} aria-hidden="true" />

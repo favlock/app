@@ -249,7 +249,7 @@ export default function FavLockMigrationImportSection() {
       />
 
       <div
-        className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-950"
+        className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 dark:bg-[var(--app-mint)] p-3 text-emerald-950 dark:text-emerald-200"
         role="note"
       >
         <ShieldCheck className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
@@ -259,7 +259,7 @@ export default function FavLockMigrationImportSection() {
         </p>
       </div>
       <div
-        className="mt-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-amber-950"
+        className="mt-3 flex gap-3 rounded-xl border border-amber-200 bg-amber-50/70 dark:bg-[var(--app-butter)] p-3 text-amber-950 dark:text-amber-200"
         role="note"
       >
         <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
@@ -352,19 +352,19 @@ export default function FavLockMigrationImportSection() {
           </Button>
         </DataTransferActionBar>
       ) : summary ? (
-        <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50/70 p-4">
-          <p className="text-sm font-semibold text-gray-900">Ready to migrate</p>
+        <div className="mt-5 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 p-4">
+          <p className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Ready to migrate</p>
           <dl className="mt-3 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             {Object.entries(summary).map(([label, count]) => (
               <div key={label}>
-                <dt className="capitalize text-gray-500">{label}</dt>
-                <dd className="font-semibold text-gray-900">{count}</dd>
+                <dt className="capitalize text-gray-500 dark:text-[var(--app-muted)]">{label}</dt>
+                <dd className="font-semibold text-gray-900 dark:text-[var(--app-ink)]">{count}</dd>
               </div>
             ))}
           </dl>
           {progress ? (
             <div className="mt-4" role="status">
-              <div className="flex justify-between text-xs text-gray-600">
+              <div className="flex justify-between text-xs text-gray-600 dark:text-[var(--app-muted)]">
                 <span>Preparing encrypted migration</span>
                 <span>{progress.completed} / {progress.total}</span>
               </div>
@@ -394,13 +394,13 @@ export default function FavLockMigrationImportSection() {
       ) : null}
 
       {error ? (
-        <p className="mt-4 text-sm text-red-700" role="alert">
+        <p className="mt-4 text-sm text-red-700 dark:text-red-300" role="alert">
           {error}
         </p>
       ) : null}
       {completed ? (
         <div
-          className="mt-4 flex items-start gap-2 text-sm text-emerald-700"
+          className="mt-4 flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300"
           role="status"
         >
           <CheckCircle2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
@@ -412,13 +412,13 @@ export default function FavLockMigrationImportSection() {
         </div>
       ) : null}
       {rememberWarning ? (
-        <p className="mt-3 text-sm text-amber-700" role="alert">
+        <p className="mt-3 text-sm text-amber-700 dark:text-amber-300" role="alert">
           Migration completed, but this browser could not remember the key.
           Keep the recovery key available for your next unlock.
         </p>
       ) : null}
       {cleanupWarning ? (
-        <p className="mt-3 text-sm text-amber-700" role="alert">
+        <p className="mt-3 text-sm text-amber-700 dark:text-amber-300" role="alert">
           Migration completed, but some temporary local data could not be
           cleared. Clear this site&apos;s data if old content appears.
         </p>

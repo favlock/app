@@ -40,7 +40,7 @@ export default function EntrySearchResults({
 
   return (
     <section
-      className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,white)] p-3 shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] sm:p-4"
+      className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,var(--app-highlight))] p-3 shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] sm:p-4"
       aria-labelledby={titleId}
     >
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -48,8 +48,8 @@ export default function EntrySearchResults({
           <span
             className={`inline-flex size-8 items-center justify-center rounded-lg ${
               isTodo
-                ? "bg-emerald-500/12 text-emerald-700"
-                : "bg-[color-mix(in_oklab,var(--app-primary)_12%,white)] text-[var(--app-primary)]"
+                ? "bg-emerald-500/12 text-emerald-700 dark:text-emerald-300"
+                : "bg-[color-mix(in_oklab,var(--app-primary)_12%,var(--app-highlight))] text-[var(--app-primary)]"
             }`}
           >
             {isTodo ? (
@@ -83,13 +83,13 @@ export default function EntrySearchResults({
             <li key={entry.id}>
               <Link
                 to={buildUrl(entry.id)}
-                className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-white/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-white/88"
+                className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
               >
                 {isTodo ? (
                   isCompleted ? (
                     <CheckCircle2
                       size={18}
-                      className="mt-0.5 flex-none text-emerald-600"
+                      className="mt-0.5 flex-none text-emerald-600 dark:text-emerald-300"
                       aria-hidden="true"
                     />
                   ) : (

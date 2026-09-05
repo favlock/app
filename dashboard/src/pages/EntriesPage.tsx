@@ -317,8 +317,8 @@ export default function EntriesPage<TEntry extends Entry>({
                         aria-pressed={filter === value}
                         className={`min-h-10 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
                           filter === value
-                            ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-white"
-                            : "border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] bg-white/70 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                            ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-[var(--app-on-primary)]"
+                            : "border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] bg-[var(--app-highlight)]/70 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
                         }`}
                       >
                         {label}
@@ -335,8 +335,8 @@ export default function EntriesPage<TEntry extends Entry>({
                     aria-expanded={todoSearchOpen}
                     className={`inline-flex min-h-10 flex-none items-center gap-1.5 rounded-xl border px-3 text-xs font-semibold transition-colors ${
                       todoSearchOpen || searchQuery
-                        ? "border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_10%,white)] text-[var(--app-primary)]"
-                        : "border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white/70 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
+                        ? "border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-highlight))] text-[var(--app-primary)]"
+                        : "border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/70 text-[var(--app-muted)] hover:text-[var(--app-ink)]"
                     }`}
                   >
                     <Search size={14} aria-hidden="true" />
@@ -348,7 +348,7 @@ export default function EntriesPage<TEntry extends Entry>({
                 </div>
 
                 {todoSearchOpen ? (
-                  <div className="mt-3 flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
+                  <div className="mt-3 flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))] px-3 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
                     <Search
                       size={18}
                       className="flex-none text-[var(--app-muted)]"
@@ -384,7 +384,7 @@ export default function EntriesPage<TEntry extends Entry>({
                         <X size={16} aria-hidden="true" />
                       </button>
                     ) : null}
-                    <span className="hidden flex-none rounded-md border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white/70 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)] sm:inline-flex">
+                    <span className="hidden flex-none rounded-md border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/70 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)] sm:inline-flex">
                       /
                     </span>
                   </div>
@@ -402,7 +402,7 @@ export default function EntriesPage<TEntry extends Entry>({
               </>
             ) : (
               <>
-                <div className="flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
+                <div className="flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))] px-3 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_38%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
                   <Search
                     size={18}
                     className="flex-none text-[var(--app-muted)]"
@@ -430,7 +430,7 @@ export default function EntriesPage<TEntry extends Entry>({
                       <X size={16} aria-hidden="true" />
                     </button>
                   ) : null}
-                  <span className="hidden flex-none rounded-md border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white/70 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)] sm:inline-flex">
+                  <span className="hidden flex-none rounded-md border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/70 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)] sm:inline-flex">
                     /
                   </span>
                 </div>
@@ -465,13 +465,13 @@ export default function EntriesPage<TEntry extends Entry>({
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className={`${layout === "list" ? "min-h-20" : isTodo ? "min-h-44" : "min-h-64"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/50`}
+                className={`${layout === "list" ? "min-h-20" : isTodo ? "min-h-44" : "min-h-64"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50`}
               />
             ))}
           </div>
         ) : error ? (
           <div
-            className="rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700"
+            className="rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             <p>
@@ -484,7 +484,7 @@ export default function EntriesPage<TEntry extends Entry>({
             </Button>
           </div>
         ) : entries.length === 0 ? (
-          <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,white)] px-5 py-12 text-center shadow-[0_6px_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-16">
+          <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-12 text-center shadow-[0_6px_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-16">
             <div className="mx-auto flex max-w-md flex-col items-center">
               <span
                 className={`flex size-16 items-center justify-center rounded-2xl border border-[color-mix(in_oklab,var(--app-primary)_22%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_12%,var(--app-card))] text-[var(--app-primary)] ${
@@ -516,7 +516,7 @@ export default function EntriesPage<TEntry extends Entry>({
           </div>
         ) : visibleEntries.length === 0 ? (
           <div
-            className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,white)] px-5 py-10 text-center shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)]"
+            className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,var(--app-highlight))] px-5 py-10 text-center shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)]"
             role="status"
           >
             <Search

@@ -96,7 +96,7 @@ export default function HighlightExportDialog({
       </DialogDescription>
 
       <fieldset className="mt-6">
-        <legend className="text-sm font-semibold text-gray-900">Format</legend>
+        <legend className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Format</legend>
         <div className="mt-3 grid gap-3 sm:grid-cols-3">
           {formats.map((item) => {
             const Icon = item.icon;
@@ -108,24 +108,24 @@ export default function HighlightExportDialog({
                 onClick={() => setFormat(item.id)}
                 className={`rounded-xl border p-4 text-left transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)] ${
                   format === item.id
-                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,white)] ring-1 ring-[var(--app-primary)]"
-                    : "border-gray-200 bg-white hover:border-gray-300"
+                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,var(--app-highlight))] ring-1 ring-[var(--app-primary)]"
+                    : "border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] hover:border-gray-300 hover:dark:border-[var(--app-line)]/20"
                 }`}
               >
                 <Icon className="size-5 text-[var(--app-primary)]" aria-hidden="true" />
-                <span className="mt-2 block text-sm font-semibold text-gray-900">{item.label}</span>
-                <span className="mt-1 block text-xs leading-5 text-gray-600">{item.description}</span>
+                <span className="mt-2 block text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">{item.label}</span>
+                <span className="mt-1 block text-xs leading-5 text-gray-600 dark:text-[var(--app-muted)]">{item.description}</span>
               </button>
             );
           })}
         </div>
       </fieldset>
 
-      <div className="mt-5 flex gap-3 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-amber-950" role="note">
+      <div className="mt-5 flex gap-3 rounded-xl border border-amber-300/70 bg-amber-50 dark:bg-[var(--app-butter)] p-3 text-amber-950 dark:text-amber-200" role="note">
         <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
         <div>
           <p className="text-sm font-semibold">Readable export</p>
-          <p className="mt-0.5 text-sm text-amber-900/80">
+          <p className="mt-0.5 text-sm text-amber-900/80 dark:text-amber-200">
             Quotes, source links, and annotations in this download are not encrypted.
           </p>
         </div>

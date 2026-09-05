@@ -4,7 +4,7 @@ import {
 } from "../lib/passwordPolicy";
 
 const strengthColors = {
-  0: "bg-[#1d2230]/10",
+  0: "bg-[var(--app-ink)]/10",
   1: "bg-red-500",
   2: "bg-amber-500",
   3: "bg-teal-500",
@@ -12,11 +12,11 @@ const strengthColors = {
 } as const;
 
 const strengthTextColors = {
-  0: "text-[#686d78]",
-  1: "text-red-600",
-  2: "text-amber-700",
-  3: "text-teal-700",
-  4: "text-emerald-700",
+  0: "text-[var(--app-muted)]",
+  1: "text-red-600 dark:text-red-300",
+  2: "text-amber-700 dark:text-amber-300",
+  3: "text-teal-700 dark:text-teal-300",
+  4: "text-emerald-700 dark:text-emerald-300",
 } as const;
 
 export default function PasswordStrengthMeter({
@@ -54,7 +54,7 @@ export default function PasswordStrengthMeter({
           />
         ))}
       </div>
-      <p className="mt-1.5 text-xs leading-5 text-[#686d78]">
+      <p className="mt-1.5 text-xs leading-5 text-[var(--app-muted)]">
         At least {MIN_PASSWORD_LENGTH} characters. Mix lowercase, uppercase,
         numbers, and symbols for a stronger password.
       </p>

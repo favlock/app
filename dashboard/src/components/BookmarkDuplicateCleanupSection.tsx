@@ -187,8 +187,8 @@ export default function BookmarkDuplicateCleanupSection() {
           aria-live="polite"
           className={`mt-4 flex items-start gap-2 rounded-xl border px-4 py-3 text-sm ${
             status.type === "error"
-              ? "border-red-500/30 bg-red-500/10 text-red-600"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
+              ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-300"
+              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
           }`}
         >
           {status.type === "success" ? (
@@ -215,7 +215,7 @@ export default function BookmarkDuplicateCleanupSection() {
             {groups.map((group) => (
               <CheckboxField
                 key={group.normalizedUrl}
-                className="rounded-xl border border-gray-200 bg-gray-50/70 p-4"
+                className="rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 p-4"
               >
                 <Checkbox
                   color="emerald"
@@ -226,13 +226,13 @@ export default function BookmarkDuplicateCleanupSection() {
                   }
                 />
                 <Label className="min-w-0">
-                  <span className="block truncate text-sm font-semibold text-gray-900">
+                  <span className="block truncate text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
                     {group.keeper.title || group.normalizedUrl}
                   </span>
-                  <span className="mt-1 block break-all text-xs font-normal text-gray-500">
+                  <span className="mt-1 block break-all text-xs font-normal text-gray-500 dark:text-[var(--app-muted)]">
                     {group.normalizedUrl}
                   </span>
-                  <span className="mt-2 block text-xs font-medium text-amber-700">
+                  <span className="mt-2 block text-xs font-medium text-amber-700 dark:text-amber-300">
                     {group.duplicates.length} extra{" "}
                     {group.duplicates.length === 1 ? "copy" : "copies"}
                   </span>

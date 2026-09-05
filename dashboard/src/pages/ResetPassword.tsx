@@ -167,7 +167,7 @@ export default function ResetPassword() {
             className="mt-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3"
             role="alert"
           >
-            <Text className="!text-red-600  text-sm">
+            <Text className="!text-red-600 dark:text-red-300  text-sm">
               {error}
             </Text>
           </div>
@@ -179,7 +179,7 @@ export default function ResetPassword() {
             role="status"
             aria-live="polite"
           >
-            <Text className="!text-green-600  text-sm">
+            <Text className="!text-green-600 dark:text-green-300  text-sm">
               {success}
             </Text>
           </div>

@@ -122,7 +122,7 @@ export default function CollectionHeaderActions({
           aria-label="Change collection color"
         >
           <span
-            className={`size-3.5 rounded-full block border border-gray-300  ${
+            className={`size-3.5 rounded-full block border border-gray-300 dark:border-[var(--app-line)]/20  ${
               selectedFolderColor === COLOR_NONE ? "bg-[var(--app-line)]" : ""
             }`}
             style={{
@@ -169,7 +169,7 @@ export default function CollectionHeaderActions({
           setIsDeleteDialogOpen(true);
         }}
         disabled={deleteFolder.isPending}
-        className="inline-flex size-8! p-0! items-center justify-center rounded-lg text-red-500! hover:bg-red-50! hover:text-red-600! cursor-pointer"
+        className="inline-flex size-8! p-0! items-center justify-center rounded-lg text-red-500! dark:text-[var(--app-danger)]! hover:bg-red-50! hover:dark:bg-[var(--app-rose)]! hover:text-red-600! hover:dark:text-[var(--app-danger)]! cursor-pointer"
         aria-label="Delete collection"
       >
         <Trash2 className="size-4" />

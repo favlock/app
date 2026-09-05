@@ -275,8 +275,8 @@ export default function LocalVaultCloudMergeDialog() {
           <>
             <div className="rounded-xl border border-emerald-600/20 bg-emerald-500/10 p-4">
               <div className="flex gap-3">
-                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-700" aria-hidden="true" />
-                <div className="text-sm leading-6 text-emerald-950">
+                <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
+                <div className="text-sm leading-6 text-emerald-950 dark:text-emerald-200">
                   <p className="font-semibold">Cloud synchronization is ready.</p>
                   <p>
                     The original encrypted local copy is still stored in this browser.
@@ -292,8 +292,8 @@ export default function LocalVaultCloudMergeDialog() {
             </div>
             {adoptedLocalKey && !passkeyCreated && (
               <div className="mt-4 rounded-xl border border-sky-600/20 bg-sky-500/8 p-4">
-                <p className="text-sm font-semibold text-sky-950">Create a cloud passkey</p>
-                <p className="mt-1 text-sm leading-6 text-sky-900">
+                <p className="text-sm font-semibold text-sky-950 dark:text-sky-200">Create a cloud passkey</p>
+                <p className="mt-1 text-sm leading-6 text-sky-900 dark:text-sky-200">
                   Create a new passkey for this account. It will unlock the same migrated vault key; the local passkey itself is not transferred.
                 </p>
                 <Button
@@ -309,7 +309,7 @@ export default function LocalVaultCloudMergeDialog() {
               </div>
             )}
             {adoptedLocalKey && passkeyCreated && (
-              <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800" role="status">
+              <p className="mt-4 rounded-xl bg-emerald-500/10 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200" role="status">
                 Cloud passkey created. It protects the same migrated vault key.
               </p>
             )}
@@ -318,8 +318,8 @@ export default function LocalVaultCloudMergeDialog() {
           <>
             <div className="rounded-xl border border-sky-600/20 bg-sky-500/8 p-4">
               <div className="flex gap-3">
-                <CloudUpload className="mt-0.5 size-5 shrink-0 text-sky-700" aria-hidden="true" />
-                <p className="text-sm leading-6 text-sky-950">
+                <CloudUpload className="mt-0.5 size-5 shrink-0 text-sky-700 dark:text-sky-300" aria-hidden="true" />
+                <p className="text-sm leading-6 text-sky-950 dark:text-sky-200">
                   FavLock first checks the encrypted destination. An empty account
                   adopts the local vault key. If this account already has a vault,
                   local records are decrypted only here, encrypted with that
@@ -357,14 +357,14 @@ export default function LocalVaultCloudMergeDialog() {
               </Button>
             )}
             {progress && (
-              <p className="mt-4 text-sm text-zinc-600" role="status">
+              <p className="mt-4 text-sm text-zinc-600 dark:text-[var(--app-muted)]" role="status">
                 Uploaded encrypted batch {progress.completed} of {progress.total}…
               </p>
             )}
           </>
         )}
         {error && (
-          <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <p className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             {error}
           </p>
         )}

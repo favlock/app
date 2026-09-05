@@ -119,8 +119,8 @@ export default function KeyQrScanner({ active, onScan }: KeyQrScannerProps) {
   if (!active) return null;
 
   return (
-    <div className="mt-4 overflow-hidden rounded-xl border border-zinc-950/10 bg-zinc-50  ">
-      <div className="relative aspect-video bg-zinc-950">
+    <div className="mt-4 overflow-hidden rounded-xl border border-zinc-950/10 dark:border-[var(--app-line)]/10 bg-zinc-50 dark:bg-[var(--app-card)]  ">
+      <div className="relative aspect-video bg-zinc-950 dark:bg-[var(--app-line)]">
         <video
           ref={videoRef}
           className="h-full w-full object-cover"
@@ -135,11 +135,11 @@ export default function KeyQrScanner({ active, onScan }: KeyQrScannerProps) {
       <canvas ref={canvasRef} className="hidden" />
       <div className="flex items-start gap-2 px-4 py-3">
         <Camera
-          className="mt-0.5 size-4 shrink-0 text-zinc-500 "
+          className="mt-0.5 size-4 shrink-0 text-zinc-500 dark:text-[var(--app-muted)] "
           aria-hidden="true"
         />
         <Text
-          className="text-sm text-zinc-600! "
+          className="text-sm text-zinc-600! dark:text-[var(--app-muted)]! "
           role={error ? "alert" : "status"}
           aria-live="polite"
         >

@@ -62,7 +62,7 @@ export default function LibraryCard({
             {isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}
           </span>
           {meta ? (
-            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-white/60 px-1.5 py-0.5 text-xs font-medium text-[#4f5566]">
+            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-[var(--app-highlight)]/60 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)]">
               {meta}
             </div>
           ) : null}

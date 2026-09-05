@@ -49,7 +49,7 @@ function AuthErrorNotice({ message }: { message: string }) {
       role="alert"
       id="email-auth-error"
     >
-      <Text className="text-sm text-red-600!">
+      <Text className="text-sm text-red-600! dark:text-red-300!">
         {isDisposableEmailError ? (
           <>
             Disposable email addresses are not allowed for new FavLock
@@ -150,24 +150,24 @@ function EmailConfirmation({
 
       <Heading id="confirmation-heading" className="mt-5">{initiallySent || resent ? "Check your inbox" : "Confirm your email"}</Heading>
       <Text className="mt-2">{initiallySent ? "Your signup request was accepted. Check for a confirmation email at" : "Request a new link for the email you used to sign up."}</Text>
-      {email && <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>}
+      {email && <p className="mt-1 break-all text-sm font-bold text-[var(--app-ink)]">{email}</p>}
 
       <div className="mt-5 rounded-2xl border border-[var(--app-sky-border)] bg-[var(--app-sky)] px-4 py-3 text-left">
-        <p className="text-sm font-semibold text-[#202229]">
+        <p className="text-sm font-semibold text-[var(--app-ink)]">
           Confirm your email to finish signing up
         </p>
-        <p className="mt-1 text-sm leading-5 text-[#555b6b]">
+        <p className="mt-1 text-sm leading-5 text-[var(--app-muted)]">
           You are not signed in yet. Open the latest confirmation link in this
           browser and profile to continue. Check your spam folder too.
         </p>
-        <p className="mt-2 text-sm leading-5 text-[#555b6b]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
+        <p className="mt-2 text-sm leading-5 text-[var(--app-muted)]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
       </div>
 
-      <div className="mt-5 border-t border-[#1d2230]/10 pt-5 text-left">
-        <p className="text-sm font-semibold text-[#202229]">
+      <div className="mt-5 border-t border-[var(--app-ink)]/10 pt-5 text-left">
+        <p className="text-sm font-semibold text-[var(--app-ink)]">
           Didn’t receive it?
         </p>
-        <p className="mt-1 text-sm leading-5 text-[#555b6b]">
+        <p className="mt-1 text-sm leading-5 text-[var(--app-muted)]">
           If the link expired, request a new one below. Wait at least 60 seconds
           between requests; the email service may apply longer limits.
         </p>
@@ -181,13 +181,13 @@ function EmailConfirmation({
             className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3"
             role="alert"
           >
-            <Text className="text-sm text-red-600!">{resendError}</Text>
+            <Text className="text-sm text-red-600! dark:text-red-300!">{resendError}</Text>
           </div>
         )}
 
         {resent && (
           <div
-            className="mt-3 rounded-lg border border-emerald-600/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800"
+            className="mt-3 rounded-lg border border-emerald-600/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200"
             role="status"
             aria-live="polite"
           >
@@ -210,18 +210,18 @@ function EmailConfirmation({
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
         <button
           type="button"
-          className="font-medium text-emerald-700 hover:underline"
+          className="font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
           onClick={onUseDifferentEmail}
           disabled={resending}
         >
           Use a different email
         </button>
-        <span className="text-[#1d2230]/20" aria-hidden="true">
+        <span className="text-[var(--app-ink)]/20" aria-hidden="true">
           •
         </span>
         <button
           type="button"
-          className="font-medium text-emerald-700 hover:underline"
+          className="font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
           onClick={onBackToSignIn}
           disabled={resending}
         >
@@ -438,7 +438,7 @@ export default function AuthPage() {
     return (
       <AuthLayout>
         <div className="w-full text-center" role="status" aria-live="polite">
-          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700">
+          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
             <HardDrive className={loading ? "animate-pulse" : ""} aria-hidden="true" />
           </span>
           <Heading className="mt-4">
@@ -754,7 +754,7 @@ export default function AuthPage() {
             {emailMode === "sign-up" ? "Already have an account? " : "New to FavLock? "}
             <Link
               to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up", reconnect: reconnecting, merge: mergingLocalVault })}
-              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 dark:text-emerald-300 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
             >
               {emailMode === "sign-up" ? "Sign in" : "Create account"}
             </Link>
@@ -764,7 +764,7 @@ export default function AuthPage() {
         {!reconnecting && (
           <p className="mt-2 text-center text-xs leading-5">
             <Link
-              className="inline-flex min-h-11 items-center rounded px-2 text-[#686d78] underline decoration-[#686d78]/30 underline-offset-2 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              className="inline-flex min-h-11 items-center rounded px-2 text-[var(--app-muted)] underline decoration-[var(--app-muted)]/30 underline-offset-2 hover:text-emerald-700 hover:dark:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
               to={`${buildAuthPath("/login", nextPath)}${nextPath === "/" ? "?" : "&"}confirmation=1`}
             >
               Need another confirmation email?

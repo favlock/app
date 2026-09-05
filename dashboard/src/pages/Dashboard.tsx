@@ -733,7 +733,7 @@ export default function Dashboard() {
           Trash before its recovery period expires.
         </DialogDescription>
         {deleteArticleError ? (
-          <p className="mt-3 text-sm text-red-600" role="alert">
+          <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">
             {deleteArticleError}
           </p>
         ) : null}

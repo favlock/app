@@ -27,7 +27,7 @@ export function Legend({
       {...props}
       className={clsx(
         className,
-        "text-base/6 font-bold text-zinc-950 data-disabled:opacity-50 sm:text-sm/6 ",
+        "text-base/6 font-bold text-zinc-950 dark:text-[var(--app-ink)] data-disabled:opacity-50 sm:text-sm/6 ",
       )}
     />
   );
@@ -76,7 +76,7 @@ export function Label({
       {...props}
       className={clsx(
         className,
-        "text-base/6 text-zinc-950 select-none data-disabled:opacity-50 sm:text-sm/6 ",
+        "text-base/6 text-zinc-950 dark:text-[var(--app-ink)] select-none data-disabled:opacity-50 sm:text-sm/6 ",
       )}
     />
   );
@@ -95,7 +95,7 @@ export function Description({
       {...props}
       className={clsx(
         className,
-        "text-base/6 text-zinc-500 data-disabled:opacity-50 sm:text-sm/6 ",
+        "text-base/6 text-zinc-500 dark:text-[var(--app-muted)] data-disabled:opacity-50 sm:text-sm/6 ",
       )}
     />
   );
@@ -114,7 +114,7 @@ export function ErrorMessage({
       {...props}
       className={clsx(
         className,
-        "text-base/6 text-red-600 data-disabled:opacity-50 sm:text-sm/6 ",
+        "text-base/6 text-red-600 dark:text-red-300 data-disabled:opacity-50 sm:text-sm/6 ",
       )}
     />
   );

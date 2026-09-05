@@ -226,19 +226,19 @@ export default function LocalBrowserBookmarkImportSection() {
         {activeDuplicate?.existingBookmark ? (
           <div className="mt-5 space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Existing bookmark</p>
-                <p className="mt-2 truncate text-sm font-semibold text-gray-900">{activeDuplicate.existingBookmark.title}</p>
-                <p className="mt-1 break-all text-xs text-gray-500">{activeDuplicate.existingBookmark.url}</p>
+              <div className="min-w-0 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50 dark:bg-[var(--app-card)] p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--app-muted)]">Existing bookmark</p>
+                <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">{activeDuplicate.existingBookmark.title}</p>
+                <p className="mt-1 break-all text-xs text-gray-500 dark:text-[var(--app-muted)]">{activeDuplicate.existingBookmark.url}</p>
               </div>
-              <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Imported bookmark</p>
-                <p className="mt-2 truncate text-sm font-semibold text-gray-900">{activeDuplicate.title}</p>
-                <p className="mt-1 break-all text-xs text-gray-500">{activeDuplicate.url}</p>
-                <p className="mt-2 text-xs text-gray-500">Collection: {activeDuplicate.folderPath.length ? folderPathLabel(activeDuplicate.folderPath) : "None"}</p>
+              <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60 dark:bg-[var(--app-mint)] p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Imported bookmark</p>
+                <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">{activeDuplicate.title}</p>
+                <p className="mt-1 break-all text-xs text-gray-500 dark:text-[var(--app-muted)]">{activeDuplicate.url}</p>
+                <p className="mt-2 text-xs text-gray-500 dark:text-[var(--app-muted)]">Collection: {activeDuplicate.folderPath.length ? folderPathLabel(activeDuplicate.folderPath) : "None"}</p>
               </div>
             </div>
-            <p className="text-sm leading-6 text-gray-600">
+            <p className="text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
               Overwrite updates the title, URL, and Collection while preserving Tags and favorite status.
             </p>
             <CheckboxField>
@@ -285,13 +285,13 @@ export default function LocalBrowserBookmarkImportSection() {
         </Field>
 
         {preview ? (
-          <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/70 p-4" aria-label="Import preview">
+          <div className="mt-5 rounded-2xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 p-4" aria-label="Import preview">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Import preview</h3>
-                <p className="mt-1 text-sm text-gray-600">Nothing is written until you continue.</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Import preview</h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">Nothing is written until you continue.</p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+              <span className="rounded-full bg-[var(--app-highlight)] px-3 py-1 text-xs font-medium text-gray-600 dark:text-[var(--app-muted)] ring-1 ring-gray-200 dark:ring-[var(--app-line)]">
                 {preview.availableBookmarks?.toLocaleString() ?? "Unlimited"} spaces available
               </span>
             </div>
@@ -302,30 +302,30 @@ export default function LocalBrowserBookmarkImportSection() {
                 ["Invalid", preview.invalidCount],
                 ["New Collections", preview.newFolderPaths.length],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl bg-white p-3 ring-1 ring-gray-200/80">
-                  <dt className="text-xs text-gray-500">{label}</dt>
-                  <dd className="mt-1 text-lg font-semibold text-gray-900">{value}</dd>
+                <div key={label} className="rounded-xl bg-[var(--app-highlight)] p-3 ring-1 ring-gray-200/80 dark:ring-[var(--app-line)]/80">
+                  <dt className="text-xs text-gray-500 dark:text-[var(--app-muted)]">{label}</dt>
+                  <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-[var(--app-ink)]">{value}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-sm leading-6 text-gray-600">
+            <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
               {preview.readyToAddCount} can be added immediately. {preview.libraryDuplicateCount} existing duplicates need a choice; {preview.sourceDuplicateCount} repeated records in the file will be skipped.
             </p>
             {preview.invalidItems.length > 0 ? (
-              <details className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
-                <summary className="cursor-pointer font-medium text-gray-900">Invalid or unsupported records ({preview.invalidItems.length})</summary>
+              <details className="mt-3 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] px-4 py-3 text-sm">
+                <summary className="cursor-pointer font-medium text-gray-900 dark:text-[var(--app-ink)]">Invalid or unsupported records ({preview.invalidItems.length})</summary>
                 <ul className="mt-3 space-y-3">
                   {preview.invalidItems.slice(0, 25).map((item) => (
                     <li key={item.index} className="min-w-0">
-                      <p className="truncate font-medium text-gray-900">{item.title}</p>
-                      <p className="break-all text-xs text-red-700">{item.url}</p>
+                      <p className="truncate font-medium text-gray-900 dark:text-[var(--app-ink)]">{item.title}</p>
+                      <p className="break-all text-xs text-red-700 dark:text-red-300">{item.url}</p>
                     </li>
                   ))}
                 </ul>
               </details>
             ) : null}
             {preview.blockedReason ? (
-              <p className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700" role="alert">
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300" role="alert">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 {preview.blockedReason}
               </p>
@@ -344,7 +344,7 @@ export default function LocalBrowserBookmarkImportSection() {
           <div
             role={status.type === "error" ? "alert" : "status"}
             aria-live="polite"
-            className={`mt-4 rounded-xl px-4 py-3 text-sm ${status.type === "error" ? "bg-red-500/10 text-red-700" : status.type === "success" ? "bg-emerald-500/10 text-emerald-700" : "bg-sky-500/10 text-sky-700"}`}
+            className={`mt-4 rounded-xl px-4 py-3 text-sm ${status.type === "error" ? "bg-red-500/10 text-red-700 dark:text-red-300" : status.type === "success" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-sky-500/10 text-sky-700 dark:text-sky-300"}`}
           >
             <div className="flex items-start gap-2">
               {status.type === "success" ? <Check className="mt-0.5 size-4" aria-hidden="true" /> : null}

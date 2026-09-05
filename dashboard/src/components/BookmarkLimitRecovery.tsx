@@ -16,7 +16,7 @@ function formatDate(value: string | null): string {
 
 export function BookmarkLimitGraceNotice({ access }: { access: BookmarkAccess }) {
   return (
-    <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-900" role="status">
+    <div className="mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-sm text-amber-900 dark:text-amber-200" role="status">
       <p className="font-semibold">Your library is above the Free bookmark allowance.</p>
       <p className="mt-1">
         You can keep using and editing FavLock until {formatDate(access.graceEndsAt)},
@@ -53,7 +53,7 @@ export default function BookmarkLimitRecovery({ access }: { access: BookmarkAcce
     <main className="mx-auto min-h-screen max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
       <section className="rounded-[2rem] border border-amber-500/30 bg-[var(--app-card)] p-6 shadow-sm sm:p-8">
         <div className="flex items-start gap-4">
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700">
+          <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-700 dark:text-amber-300">
             <AlertTriangle className="size-5" aria-hidden="true" />
           </span>
           <div>
@@ -62,7 +62,7 @@ export default function BookmarkLimitRecovery({ access }: { access: BookmarkAcce
               This Free account has {access.count.toLocaleString()} bookmarks; the allowance is {access.limit.toLocaleString()}.
               Normal library use is paused. Export your data, delete {excess.toLocaleString()} bookmarks, or upgrade to Pro to restore access immediately.
             </p>
-            <p className="mt-2 text-sm font-medium text-amber-800">
+            <p className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-200">
               On {formatDate(access.cleanupAt)}, FavLock will permanently remove the newest excess bookmarks and preserve the oldest {access.limit.toLocaleString()}.
             </p>
           </div>
@@ -72,7 +72,7 @@ export default function BookmarkLimitRecovery({ access }: { access: BookmarkAcce
       <div className="mt-6 grid gap-6">
         <section className="rounded-[2rem] border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] bg-[var(--app-card)] p-6 sm:p-8">
           <div className="mb-5 flex items-center gap-3">
-            <Download className="size-5 text-emerald-700" aria-hidden="true" />
+            <Download className="size-5 text-emerald-700 dark:text-emerald-300" aria-hidden="true" />
             <h2 className="text-lg font-semibold liquid-ink">Export your library</h2>
           </div>
           <DataExportSection />
@@ -84,13 +84,13 @@ export default function BookmarkLimitRecovery({ access }: { access: BookmarkAcce
 
         <section className="rounded-[2rem] border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] bg-[var(--app-card)] p-6 sm:p-8">
           <div className="flex items-center gap-3">
-            <Trash2 className="size-5 text-red-600" aria-hidden="true" />
+            <Trash2 className="size-5 text-red-600 dark:text-red-300" aria-hidden="true" />
             <div>
               <h2 className="text-lg font-semibold liquid-ink">Delete bookmarks</h2>
               <p className="mt-1 text-sm liquid-muted">The newest 100 bookmarks are shown first. Deleted bookmarks move to Trash under the normal recovery rules.</p>
             </div>
           </div>
-          {deleteError ? <p className="mt-4 text-sm text-red-700" role="alert">{deleteError}</p> : null}
+          {deleteError ? <p className="mt-4 text-sm text-red-700 dark:text-red-300" role="alert">{deleteError}</p> : null}
           <ul className="mt-5 divide-y divide-[color-mix(in_oklab,var(--app-line)_14%,transparent)]">
             {newestBookmarks.map((bookmark) => (
               <li key={bookmark.id} className="flex items-center gap-4 py-3">
@@ -114,7 +114,7 @@ export default function BookmarkLimitRecovery({ access }: { access: BookmarkAcce
         </section>
 
         <p className="text-center text-sm liquid-muted">
-          Need help? <a className="font-medium text-emerald-700 underline" href="mailto:support@favlock.app">support@favlock.app</a>
+          Need help? <a className="font-medium text-emerald-700 dark:text-emerald-300 underline" href="mailto:support@favlock.app">support@favlock.app</a>
         </p>
       </div>
     </main>

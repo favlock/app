@@ -157,7 +157,7 @@ export default function CollectionBadgeMenu({
           >
             No collection
           </Button>
-          <div className="my-1 border-t border-[#1d2230]/10" />
+          <div className="my-1 border-t border-[var(--app-ink)]/10" />
           {folders.map((candidate) => (
             <Button
               key={candidate.id}
@@ -185,18 +185,18 @@ export default function CollectionBadgeMenu({
             </Button>
           ))}
           {isLoading ? (
-            <p className="px-3 py-2 text-sm text-[#4f5566]">
+            <p className="px-3 py-2 text-sm text-[var(--app-muted)]">
               Loading collections…
             </p>
           ) : folders.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-[#4f5566]">
+            <p className="px-3 py-2 text-sm text-[var(--app-muted)]">
               No collections created
             </p>
           ) : null}
           {error ? (
             <p
               role="alert"
-              className="mx-2 mt-1 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-700"
+              className="mx-2 mt-1 rounded-lg bg-red-50 dark:bg-[var(--app-rose)] px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
             >
               {error}
             </p>

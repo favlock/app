@@ -98,7 +98,7 @@ export default function ChromeExtensionPrompt({
     return (
       <aside
         aria-label="Chrome extension suggestion"
-        className="relative flex items-start gap-2.5 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_7%,white)] px-3 py-2.5 pr-11 text-sm leading-5 text-[var(--app-muted)] sm:items-center"
+        className="relative flex items-start gap-2.5 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_7%,var(--app-highlight))] px-3 py-2.5 pr-11 text-sm leading-5 text-[var(--app-muted)] sm:items-center"
       >
         <span className="inline-flex h-5 flex-none items-center justify-center self-center">
           <Puzzle

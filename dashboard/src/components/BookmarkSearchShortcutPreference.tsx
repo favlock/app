@@ -50,7 +50,7 @@ export default function BookmarkSearchShortcutPreference() {
 
       {saveError ? (
         <p
-          className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600"
+          className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
           role="alert"
         >
           {saveError}

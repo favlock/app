@@ -87,12 +87,12 @@ export default function SearchHistoryPrivacySection() {
   const busy = clearing || updateMode.isPending;
 
   return (
-    <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm sm:p-5">
       <div className="flex items-center gap-2">
-        <History className="size-4 text-gray-500" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-gray-900">Search history</h3>
+        <History className="size-4 text-gray-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Search history</h3>
       </div>
-      <p className="mt-1 text-sm text-gray-600">
+      <p className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">
         Choose where FavLock keeps your 10 most recent searches for
         autocomplete.
       </p>
@@ -108,8 +108,8 @@ export default function SearchHistoryPrivacySection() {
                 key={option.value}
                 className={`relative flex cursor-pointer flex-col rounded-xl border p-4 transition-colors ${
                   selected
-                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,white)] shadow-sm"
-                    : "border-gray-200 bg-white/70 hover:border-gray-300"
+                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,var(--app-highlight))] shadow-sm"
+                    : "border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/70 hover:border-gray-300 hover:dark:border-[var(--app-line)]/20"
                 } ${busy ? "cursor-wait opacity-60" : ""}`}
               >
                 <input
@@ -122,14 +122,14 @@ export default function SearchHistoryPrivacySection() {
                 />
                 <div className="flex items-center gap-2">
                   <Icon
-                    className={`size-4 ${selected ? "text-[var(--app-primary)]" : "text-gray-500"}`}
+                    className={`size-4 ${selected ? "text-[var(--app-primary)]" : "text-gray-500 dark:text-[var(--app-muted)]"}`}
                     aria-hidden="true"
                   />
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
                     {option.label}
                   </span>
                 </div>
-                <span className="mt-2 text-sm leading-5 text-gray-600">
+                <span className="mt-2 text-sm leading-5 text-gray-600 dark:text-[var(--app-muted)]">
                   {option.description}
                 </span>
               </label>
@@ -140,10 +140,10 @@ export default function SearchHistoryPrivacySection() {
 
       <div className="mt-4 flex gap-3 rounded-xl border border-emerald-500/20 bg-emerald-500/8 p-4">
         <LockKeyhole
-          className="mt-0.5 size-4 flex-none text-emerald-700"
+          className="mt-0.5 size-4 flex-none text-emerald-700 dark:text-emerald-300"
           aria-hidden="true"
         />
-        <p className="text-sm leading-6 text-gray-600">
+        <p className="text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
           Search history is encrypted with your FavLock key before it is saved.
           In Cloud mode, the server never receives your searches in plaintext.
         </p>
@@ -154,16 +154,16 @@ export default function SearchHistoryPrivacySection() {
           role="status"
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
             status.type === "error"
-              ? "bg-red-500/10 text-red-600"
-              : "bg-emerald-500/10 text-emerald-600"
+              ? "bg-red-500/10 text-red-600 dark:text-red-300"
+              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
           }`}
         >
           {status.message}
         </div>
       ) : null}
 
-      <div className="mt-5 flex flex-col gap-3 border-t border-gray-200/80 pt-5 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-gray-600">
+      <div className="mt-5 flex flex-col gap-3 border-t border-gray-200/80 dark:border-[var(--app-line)]/20 pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-sm text-gray-600 dark:text-[var(--app-muted)]">
           {entries.length > 0
             ? `${entries.length} saved ${entries.length === 1 ? "search" : "searches"}`
             : "No saved searches"}

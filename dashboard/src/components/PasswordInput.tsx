@@ -30,7 +30,7 @@ export default function PasswordInput({
         aria-pressed={isVisible}
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => setIsVisible((visible) => !visible)}
-        className="absolute top-1/2 right-1.5 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-zinc-500 transition-colors hover:bg-emerald-700/8 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500 sm:right-1 sm:size-8"
+        className="absolute top-1/2 right-1.5 z-20 flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-zinc-500 dark:text-[var(--app-muted)] transition-colors hover:bg-emerald-700/8 hover:text-emerald-700 hover:dark:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-amber-500 sm:right-1 sm:size-8"
       >
         <VisibilityIcon className="size-4" aria-hidden="true" />
       </button>

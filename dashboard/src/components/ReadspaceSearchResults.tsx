@@ -19,12 +19,12 @@ export default function ReadspaceSearchResults({
 
   return (
     <section
-      className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,white)] p-3 shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] sm:p-4"
+      className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_86%,var(--app-highlight))] p-3 shadow-[0_5px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] sm:p-4"
       aria-labelledby="readspace-search-results-title"
     >
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-amber-500/12 text-amber-700">
+          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-amber-500/12 text-amber-700 dark:text-amber-300">
             <BookOpen size={16} aria-hidden="true" />
           </span>
           <div>
@@ -55,11 +55,11 @@ export default function ReadspaceSearchResults({
           <li key={article.entry.id}>
             <Link
               to={buildUrl(article.entry.id)}
-              className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-white/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-white/88"
+              className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
             >
               <BookOpen
                 size={17}
-                className="mt-0.5 flex-none text-amber-700"
+                className="mt-0.5 flex-none text-amber-700 dark:text-amber-300"
                 aria-hidden="true"
               />
               <span className="min-w-0">

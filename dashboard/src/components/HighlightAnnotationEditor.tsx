@@ -23,7 +23,7 @@ export default function HighlightAnnotationEditor({
   onRemove: () => void;
 }) {
   return (
-    <div className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_58%,white)] p-3">
+    <div className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card-strong)_58%,var(--app-highlight))] p-3">
       <div className="mb-2.5 flex items-start gap-2">
         <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-card))] text-[var(--app-primary)]">
           <MessageSquareText className="size-4" aria-hidden="true" />
@@ -44,7 +44,7 @@ export default function HighlightAnnotationEditor({
         placeholder="Add a note about this passage…"
         onChange={(event) => onChange(event.target.value)}
       />
-      {error ? <p className="mt-2 text-xs text-red-600" role="alert">{error}</p> : null}
+      {error ? <p className="mt-2 text-xs text-red-600 dark:text-red-300" role="alert">{error}</p> : null}
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className="text-xs tabular-nums text-[var(--app-muted)]">
@@ -54,7 +54,7 @@ export default function HighlightAnnotationEditor({
             <Button
               type="button"
               plain
-              className="text-red-600! data-hover:text-red-700!"
+              className="text-red-600! dark:text-red-300! data-hover:text-red-700! data-hover:dark:text-red-300!"
               disabled={saving}
               onClick={onRemove}
             >

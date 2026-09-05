@@ -175,7 +175,7 @@ export default function ExtensionPair() {
     return (
       <AuthLayout>
         <div className="w-full">
-          <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700">
+          <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
             <KeyRound size={22} aria-hidden="true" />
           </span>
           <Heading>Cloud account required</Heading>
@@ -210,7 +210,7 @@ export default function ExtensionPair() {
   return (
     <AuthLayout>
       <div className="w-full">
-        <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+        <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
           <KeyRound size={22} aria-hidden="true" />
         </span>
         <Heading>{connected ? "Extension connected" : "Unlock the extension"}</Heading>
@@ -221,7 +221,7 @@ export default function ExtensionPair() {
         </Text>
 
         {!validExtensionId && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             This extension pairing request is not configured or is invalid.
           </div>
         )}
@@ -241,7 +241,7 @@ export default function ExtensionPair() {
               </Button>
             )}
             {checkingPasskey && (
-              <Text className="text-center text-sm text-zinc-500">
+              <Text className="text-center text-sm text-zinc-500 dark:text-[var(--app-muted)]">
                 Checking for a saved passkey...
               </Text>
             )}
@@ -262,12 +262,12 @@ export default function ExtensionPair() {
               className="hidden"
               onChange={(event) => void handleFileUpload(event)}
             />
-            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
-              <span className="h-px flex-1 bg-zinc-200" />
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400 dark:text-[var(--app-muted)]">
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-[var(--app-card)]" />
               Or enter your key
-              <span className="h-px flex-1 bg-zinc-200" />
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-[var(--app-card)]" />
             </div>
-            <label className="block text-sm font-medium text-zinc-800" htmlFor="extension-encryption-key">
+            <label className="block text-sm font-medium text-zinc-800 dark:text-[var(--app-ink)]" htmlFor="extension-encryption-key">
               FavLock encryption key
             </label>
             <Input
@@ -278,7 +278,7 @@ export default function ExtensionPair() {
               autoComplete="off"
               spellCheck={false}
             />
-            <label className="flex items-start gap-2 text-sm text-zinc-600">
+            <label className="flex items-start gap-2 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -291,13 +291,13 @@ export default function ExtensionPair() {
         )}
 
         {cryptoKey && !connected && validExtensionId && (
-          <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-zinc-700">
+          <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-zinc-700 dark:text-[var(--app-ink)]">
             FavLock is already unlocked on this device. Confirm to pair the same key with the extension.
           </div>
         )}
 
         {error && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             {error}
           </div>
         )}

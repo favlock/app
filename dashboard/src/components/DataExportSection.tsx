@@ -248,7 +248,7 @@ export default function DataExportSection() {
   };
 
   if (!isLocalAccount && !online) {
-    return <p role="status" className="text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>;
+    return <p role="status" className="text-sm text-gray-600 dark:text-[var(--app-muted)]">{OFFLINE_EXPORT_MESSAGE}</p>;
   }
 
   return (
@@ -258,10 +258,10 @@ export default function DataExportSection() {
         title="Export data"
         description="Download a portable copy of your FavLock data. The export is created locally in this browser."
       />
-      {isLocalAccount && <p role="note" className="mt-4 text-sm text-amber-800">This backup contains the bookmarks, Lists, Documents, Tasks, Collections, and Tags saved in this browser. Keep it with your recovery key; FavLock cannot recover either one for you.</p>}
+      {isLocalAccount && <p role="note" className="mt-4 text-sm text-amber-800 dark:text-amber-200">This backup contains the bookmarks, Lists, Documents, Tasks, Collections, and Tags saved in this browser. Keep it with your recovery key; FavLock cannot recover either one for you.</p>}
 
       <fieldset className="mt-6">
-        <legend className="text-sm font-semibold text-gray-900">
+        <legend className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
           Export format
         </legend>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -274,15 +274,15 @@ export default function DataExportSection() {
             }}
             className={`rounded-xl border p-4 text-left transition-colors ${
               format === "encrypted"
-                ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,white)] ring-1 ring-[var(--app-primary)]"
-                : "border-gray-200 bg-white hover:border-gray-300"
+                ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,var(--app-highlight))] ring-1 ring-[var(--app-primary)]"
+                : "border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] hover:border-gray-300 hover:dark:border-[var(--app-line)]/20"
             }`}
           >
             <KeyRound className="size-5 text-[var(--app-primary)]" />
-            <span className="mt-2 block text-sm font-semibold text-gray-900">
+            <span className="mt-2 block text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
               Encrypted FavLock archive
             </span>
-            <span className="mt-1 block text-xs leading-5 text-gray-600">
+            <span className="mt-1 block text-xs leading-5 text-gray-600 dark:text-[var(--app-muted)]">
               Protected by your existing FavLock recovery key
             </span>
           </button>
@@ -295,15 +295,15 @@ export default function DataExportSection() {
             }}
             className={`rounded-xl border p-4 text-left transition-colors ${
               format === "html"
-                ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,white)] ring-1 ring-[var(--app-primary)]"
-                : "border-gray-200 bg-white hover:border-gray-300"
+                ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_8%,var(--app-highlight))] ring-1 ring-[var(--app-primary)]"
+                : "border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] hover:border-gray-300 hover:dark:border-[var(--app-line)]/20"
             }`}
           >
             <Globe2 className="size-5 text-[var(--app-primary)]" />
-            <span className="mt-2 block text-sm font-semibold text-gray-900">
+            <span className="mt-2 block text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
               Browser HTML
             </span>
-            <span className="mt-1 block text-xs leading-5 text-gray-600">
+            <span className="mt-1 block text-xs leading-5 text-gray-600 dark:text-[var(--app-muted)]">
               Bookmarks for Chrome, Safari, Firefox, and Edge
             </span>
           </button>
@@ -313,7 +313,7 @@ export default function DataExportSection() {
       {format === "encrypted" ? (
         <>
           <div
-            className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 text-emerald-950"
+            className="mt-5 flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 dark:bg-[var(--app-mint)] p-3 text-emerald-950 dark:text-emerald-200"
             role="note"
           >
             <ShieldCheck
@@ -322,7 +322,7 @@ export default function DataExportSection() {
             />
             <div>
               <p className="text-sm font-semibold">Encrypted before download</p>
-              <p className="mt-0.5 text-sm text-emerald-900/80">
+              <p className="mt-0.5 text-sm text-emerald-900/80 dark:text-emerald-200">
                 This archive uses the same recovery key as your FavLock account.
                 The key and readable data stay in this browser.
               </p>
@@ -330,10 +330,10 @@ export default function DataExportSection() {
           </div>
 
           {!isLocalAccount && <fieldset className="mt-6">
-            <legend className="text-sm font-semibold text-gray-900">
+            <legend className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
               What to export
             </legend>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="mt-1 text-xs text-gray-500 dark:text-[var(--app-muted)]">
               Collection, tag, and List details are included to preserve organization.
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -351,11 +351,11 @@ export default function DataExportSection() {
             </div>
           </fieldset>}
 
-          <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-semibold text-gray-900">
+          <div className="mt-5 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50 dark:bg-[var(--app-card)] p-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">
               Need to read the archive without FavLock?
             </p>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">
               Download the self-contained decryptor and keep it with your
               backup. It works locally and contains no network code.
             </p>
@@ -374,7 +374,7 @@ export default function DataExportSection() {
       ) : (
         <>
           <div
-            className="mt-5 flex gap-3 rounded-xl border border-amber-300/70 bg-amber-50 p-3 text-amber-950"
+            className="mt-5 flex gap-3 rounded-xl border border-amber-300/70 bg-amber-50 dark:bg-[var(--app-butter)] p-3 text-amber-950 dark:text-amber-200"
             role="note"
           >
             <AlertTriangle className="mt-0.5 size-5 shrink-0" aria-hidden="true" />
@@ -382,14 +382,14 @@ export default function DataExportSection() {
               <p className="text-sm font-semibold">
                 Browser HTML is not encrypted
               </p>
-              <p className="mt-0.5 text-sm text-amber-900/80">
+              <p className="mt-0.5 text-sm text-amber-900/80 dark:text-amber-200">
                 Anyone with the downloaded file can read its bookmarks.
               </p>
             </div>
           </div>
-          <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
-            <p className="text-sm font-semibold text-gray-900">Bookmarks only</p>
-            <p className="mt-1 text-sm text-gray-600">
+          <div className="mt-6 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50 dark:bg-[var(--app-card)] p-4">
+            <p className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Bookmarks only</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">
               Nested collections and bookmark tags will be preserved where the
               destination browser supports them.
             </p>
@@ -398,7 +398,7 @@ export default function DataExportSection() {
       )}
 
       {hasError || exportError ? (
-        <p className="mt-5 text-sm text-red-600" role="alert">
+        <p className="mt-5 text-sm text-red-600 dark:text-red-300" role="alert">
           {exportError ??
             "FavLock could not load all of your data. Please close this window and try again."}
         </p>
@@ -407,7 +407,7 @@ export default function DataExportSection() {
       <DataTransferActionBar>
         {exported ? (
           <span
-            className="inline-flex items-center gap-2 text-sm text-emerald-700 sm:mr-auto"
+            className="inline-flex items-center gap-2 text-sm text-emerald-700 dark:text-emerald-300 sm:mr-auto"
             role="status"
           >
             <CheckCircle2 className="size-4" aria-hidden="true" />

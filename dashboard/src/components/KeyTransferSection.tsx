@@ -93,16 +93,16 @@ export default function KeyTransferSection() {
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm   sm:p-5">
+    <section className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm   sm:p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <KeyRound className="size-4 text-gray-500 " />
-            <h3 className="text-sm font-semibold text-gray-900 ">
+            <KeyRound className="size-4 text-gray-500 dark:text-[var(--app-muted)] " />
+            <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)] ">
               Encryption key
             </h3>
           </div>
-          <Text className="mt-1 text-sm text-gray-600 ">
+          <Text className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)] ">
             View your key or show a private QR to scan from another signed-in
             device.
           </Text>
@@ -156,8 +156,8 @@ export default function KeyTransferSection() {
           aria-live="polite"
           className={`mt-4 rounded-xl px-4 py-3 text-sm ${
             status.type === "error"
-              ? "bg-red-500/10 text-red-600 "
-              : "bg-sky-500/10 text-sky-600 "
+              ? "bg-red-500/10 text-red-600 dark:text-red-300 "
+              : "bg-sky-500/10 text-sky-600 dark:text-sky-300 "
           }`}
         >
           {status.message}
@@ -165,13 +165,13 @@ export default function KeyTransferSection() {
       ) : null}
 
       {visibleKey ? (
-        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
+        <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 dark:bg-[var(--app-butter)] p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0">
-              <p className="font-mono text-sm font-bold tracking-wide break-all text-gray-900">
+              <p className="font-mono text-sm font-bold tracking-wide break-all text-gray-900 dark:text-[var(--app-ink)]">
                 {visibleKey}
               </p>
-              <Text className="mt-2 text-sm text-gray-600 ">
+              <Text className="mt-2 text-sm text-gray-600 dark:text-[var(--app-muted)] ">
                 Keep this key private. Anyone with it can unlock your encrypted
                 bookmarks.
               </Text>
@@ -191,7 +191,7 @@ export default function KeyTransferSection() {
 
       {qrDataUrl ? (
         <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="w-fit rounded-xl border border-gray-200 bg-white p-3 ">
+          <div className="w-fit rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] p-3 ">
             <img
               src={qrDataUrl}
               alt="Encryption key transfer QR code"
@@ -199,7 +199,7 @@ export default function KeyTransferSection() {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <Text className="text-sm text-gray-600 ">
+            <Text className="text-sm text-gray-600 dark:text-[var(--app-muted)] ">
               Keep this QR private. Anyone who scans it can unlock your
               encrypted bookmarks.
             </Text>

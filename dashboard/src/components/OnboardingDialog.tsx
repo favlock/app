@@ -71,8 +71,8 @@ function ChecklistItem({
       aria-current={active ? "step" : undefined}
       className={`flex gap-3 px-4 py-3 sm:px-5 ${
         active
-          ? "bg-[color-mix(in_oklab,var(--app-primary)_5%,white)]"
-          : "bg-[color-mix(in_oklab,var(--app-card)_72%,white)]"
+          ? "bg-[color-mix(in_oklab,var(--app-primary)_5%,var(--app-highlight))]"
+          : "bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))]"
       }`}
     >
       <span
@@ -80,8 +80,8 @@ function ChecklistItem({
           complete
             ? "bg-emerald-500 text-white"
             : active
-              ? "bg-[var(--app-primary)] text-white"
-              : "bg-[color-mix(in_oklab,var(--app-line)_9%,white)] text-[var(--app-muted)]"
+              ? "bg-[var(--app-primary)] text-[var(--app-on-primary)]"
+              : "bg-[color-mix(in_oklab,var(--app-line)_9%,var(--app-highlight))] text-[var(--app-muted)]"
         }`}
       >
         {complete ? (
@@ -257,7 +257,7 @@ export default function OnboardingDialog({
             Getting started · {completedCount} of 3 complete
           </p>
           {localOnly ? (
-            <p className="mb-2 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-800">
+            <p className="mb-2 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200">
               Stored on this device
             </p>
           ) : null}
@@ -339,7 +339,7 @@ export default function OnboardingDialog({
                   </div>
 
                   {!bookmarkWritesAllowed ? (
-                    <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800" role="status">
+                    <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200" role="status">
                       Your current allowance does not permit another bookmark. Free supported space or upgrade, then try again.
                     </p>
                   ) : null}

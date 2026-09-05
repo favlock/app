@@ -153,24 +153,24 @@ function ImportIssueDetails({
   if (items.length === 0) return null;
   const visibleItems = items.slice(0, VISIBLE_IMPORT_ISSUE_LIMIT);
   return (
-    <details className="mt-3 rounded-xl border border-gray-200 bg-white px-4 py-3 text-sm">
-      <summary className="cursor-pointer font-medium text-gray-900">
+    <details className="mt-3 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] px-4 py-3 text-sm">
+      <summary className="cursor-pointer font-medium text-gray-900 dark:text-[var(--app-ink)]">
         {title} ({items.length})
       </summary>
-      <ul className="mt-3 divide-y divide-gray-200">
+      <ul className="mt-3 divide-y divide-gray-200 dark:divide-[var(--app-line)]/20">
         {visibleItems.map((item) => (
           <li key={item.index} className="min-w-0 py-3 first:pt-0 last:pb-0">
-            <p className="truncate font-medium text-gray-900">{item.title}</p>
-            <p className="mt-1 break-all text-xs text-gray-500">{item.url}</p>
-            <p className="mt-1 text-xs text-gray-500">
+            <p className="truncate font-medium text-gray-900 dark:text-[var(--app-ink)]">{item.title}</p>
+            <p className="mt-1 break-all text-xs text-gray-500 dark:text-[var(--app-muted)]">{item.url}</p>
+            <p className="mt-1 text-xs text-gray-500 dark:text-[var(--app-muted)]">
               Collection: {item.folderPath.length ? folderPathLabel(item.folderPath) : "None"}
             </p>
-            <p className="mt-1 text-xs text-red-700">{item.reason}</p>
+            <p className="mt-1 text-xs text-red-700 dark:text-red-300">{item.reason}</p>
           </li>
         ))}
       </ul>
       {items.length > visibleItems.length ? (
-        <p className="mt-3 border-t border-gray-200 pt-3 text-xs text-gray-500">
+        <p className="mt-3 border-t border-gray-200 dark:border-[var(--app-line)]/20 pt-3 text-xs text-gray-500 dark:text-[var(--app-muted)]">
           Showing the first {visibleItems.length} of {items.length} records.
         </p>
       ) : null}
@@ -1021,22 +1021,22 @@ export default function BrowserBookmarkImportSection() {
         </DialogDescription>
         {activeDuplicateConflict && pendingDuplicateReview ? (
           <div className="mt-5 space-y-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--app-muted)]">
               Duplicate {pendingDuplicateReview.currentIndex + 1} of {pendingDuplicateReview.conflicts.length}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Existing bookmark</p>
-                <p className="mt-2 truncate text-sm font-semibold text-gray-900">{activeDuplicateConflict.existingBookmark.title}</p>
-                <p className="mt-1 break-all text-xs text-gray-500">{activeDuplicateConflict.existingBookmark.url}</p>
+              <div className="min-w-0 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50 dark:bg-[var(--app-card)] p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-[var(--app-muted)]">Existing bookmark</p>
+                <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">{activeDuplicateConflict.existingBookmark.title}</p>
+                <p className="mt-1 break-all text-xs text-gray-500 dark:text-[var(--app-muted)]">{activeDuplicateConflict.existingBookmark.url}</p>
               </div>
-              <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">Imported bookmark</p>
-                <p className="mt-2 truncate text-sm font-semibold text-gray-900">{activeDuplicateConflict.item.title}</p>
-                <p className="mt-1 break-all text-xs text-gray-500">{activeDuplicateConflict.item.url}</p>
+              <div className="min-w-0 rounded-xl border border-emerald-200 bg-emerald-50/60 dark:bg-[var(--app-mint)] p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Imported bookmark</p>
+                <p className="mt-2 truncate text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">{activeDuplicateConflict.item.title}</p>
+                <p className="mt-1 break-all text-xs text-gray-500 dark:text-[var(--app-muted)]">{activeDuplicateConflict.item.url}</p>
               </div>
             </div>
-            <p className="text-sm leading-6 text-gray-600">
+            <p className="text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
               Overwrite replaces the existing title, URL, and collection while preserving its tags and favorite status.
             </p>
             <CheckboxField>
@@ -1100,13 +1100,13 @@ export default function BrowserBookmarkImportSection() {
         ) : null}
 
         {preparedImport ? (
-          <div className="mt-5 rounded-2xl border border-gray-200 bg-gray-50/70 p-4" aria-label="Import preview">
+          <div className="mt-5 rounded-2xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 p-4" aria-label="Import preview">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h3 className="text-sm font-semibold text-gray-900">Import preview</h3>
-                <p className="mt-1 text-sm text-gray-600">Nothing is written until you continue.</p>
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-[var(--app-ink)]">Import preview</h3>
+                <p className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">Nothing is written until you continue.</p>
               </div>
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-600 ring-1 ring-gray-200">
+              <span className="rounded-full bg-[var(--app-highlight)] px-3 py-1 text-xs font-medium text-gray-600 dark:text-[var(--app-muted)] ring-1 ring-gray-200 dark:ring-[var(--app-line)]">
                 {preparedImport.preview.availableBookmarks === null
                   ? "Unlimited bookmark capacity"
                   : `${preparedImport.preview.availableBookmarks.toLocaleString("en-US")} bookmark spaces available`}
@@ -1119,13 +1119,13 @@ export default function BrowserBookmarkImportSection() {
                 ["Invalid / unsupported", preparedImport.preview.invalidCount],
                 ["New collections", preparedImport.preview.newFolderPaths.length],
               ].map(([label, value]) => (
-                <div key={label} className="rounded-xl bg-white p-3 ring-1 ring-gray-200/80">
-                  <dt className="text-xs text-gray-500">{label}</dt>
-                  <dd className="mt-1 text-lg font-semibold text-gray-900">{value}</dd>
+                <div key={label} className="rounded-xl bg-[var(--app-highlight)] p-3 ring-1 ring-gray-200/80 dark:ring-[var(--app-line)]/80">
+                  <dt className="text-xs text-gray-500 dark:text-[var(--app-muted)]">{label}</dt>
+                  <dd className="mt-1 text-lg font-semibold text-gray-900 dark:text-[var(--app-ink)]">{value}</dd>
                 </div>
               ))}
             </dl>
-            <p className="mt-3 text-sm leading-6 text-gray-600">
+            <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
               {preparedImport.preview.readyToAddCount} records can be added immediately. {preparedImport.preview.libraryDuplicateCount} library duplicates require a choice; {preparedImport.preview.sourceDuplicateCount} repeated source records will be skipped. {preparedImport.preview.bookmarkLimit === 0 ? "Your plan has no bookmark-count limit." : `Your ${preparedImport.preview.bookmarkLimit.toLocaleString("en-US")}-bookmark plan limit is unchanged.`}
             </p>
             <ImportIssueDetails
@@ -1133,7 +1133,7 @@ export default function BrowserBookmarkImportSection() {
               items={preparedImport.preview.invalidItems}
             />
             {preparedImport.preview.blockedReason ? (
-              <p className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700" role="alert">
+              <p className="mt-3 flex items-start gap-2 rounded-xl bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-300" role="alert">
                 <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                 {preparedImport.preview.blockedReason} Remove records from the export or free supported space, then select the source again.
               </p>
@@ -1148,9 +1148,9 @@ export default function BrowserBookmarkImportSection() {
         ) : null}
 
         {recoverySummary && !preparedImport ? (
-          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
-            <h3 className="text-sm font-semibold text-amber-950">Interrupted import</h3>
-            <p className="mt-1 text-sm leading-6 text-amber-900">
+          <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 dark:bg-[var(--app-butter)] p-4">
+            <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-200">Interrupted import</h3>
+            <p className="mt-1 text-sm leading-6 text-amber-900 dark:text-amber-200">
               {resultMessage(recoveryJournal!)}. Reselect the original {recoveryJournal?.sourceKind === "safari-zip" ? "Safari ZIP" : recoveryJournal?.sourceKind === "chrome" ? "Chrome bookmark source" : "HTML file"} to verify and resume.
             </p>
             <DataTransferActionBar className="mt-3">
@@ -1182,22 +1182,22 @@ export default function BrowserBookmarkImportSection() {
           </DataTransferActionBar>
         ) : null}
 
-        <details className="mt-4 rounded-xl border border-gray-200/80 bg-gray-50/70 px-4 py-3 text-sm text-gray-600">
-          <summary className="cursor-pointer font-medium text-gray-900">
+        <details className="mt-4 rounded-xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-gray-50/70 dark:bg-[var(--app-card)]/70 px-4 py-3 text-sm text-gray-600 dark:text-[var(--app-muted)]">
+          <summary className="cursor-pointer font-medium text-gray-900 dark:text-[var(--app-ink)]">
             {bookmarkExportGuide ? `How to export bookmarks from ${bookmarkExportGuide.label}` : "How to export bookmarks from your browser"}
           </summary>
           <div className="mt-3 space-y-2.5 leading-6">
             <p>{bookmarkExportGuide?.instructions ?? "Export your bookmarks as an HTML file, or as a ZIP file from Safari."}</p>
-            <p className="border-t border-gray-200/80 pt-2.5 text-gray-500">
+            <p className="border-t border-gray-200/80 dark:border-[var(--app-line)]/20 pt-2.5 text-gray-500 dark:text-[var(--app-muted)]">
               After exporting, select Choose file above and open the saved HTML or Safari ZIP file. For another browser, see the{" "}
-              <a href={`${WEB_DOCS_URL}/bookmarks#import`} target="_blank" rel="noreferrer" className="font-medium text-emerald-700 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700">complete export guide</a>.
+              <a href={`${WEB_DOCS_URL}/bookmarks#import`} target="_blank" rel="noreferrer" className="font-medium text-emerald-700 dark:text-emerald-300 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700">complete export guide</a>.
             </p>
           </div>
         </details>
 
-        {progress ? <p className="mt-3 text-sm text-gray-600" role="status" aria-live="polite">{progress}</p> : null}
+        {progress ? <p className="mt-3 text-sm text-gray-600 dark:text-[var(--app-muted)]" role="status" aria-live="polite">{progress}</p> : null}
         {status ? (
-          <div role={status.type === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-xl px-4 py-3 text-sm ${status.type === "error" ? "bg-red-500/10 text-red-700" : status.type === "success" ? "bg-emerald-500/10 text-emerald-700" : "bg-sky-500/10 text-sky-700"}`}>
+          <div role={status.type === "error" ? "alert" : "status"} aria-live="polite" className={`mt-3 rounded-xl px-4 py-3 text-sm ${status.type === "error" ? "bg-red-500/10 text-red-700 dark:text-red-300" : status.type === "success" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-sky-500/10 text-sky-700 dark:text-sky-300"}`}>
             <div className="flex items-start gap-2">
               {status.type === "success" ? <Check className="mt-0.5 size-4" aria-hidden="true" /> : null}
               <span>{status.message}</span>

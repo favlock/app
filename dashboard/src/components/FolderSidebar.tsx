@@ -157,14 +157,14 @@ function SortableCollection({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`relative flex items-center rounded-lg transition-[margin,box-shadow,background-color] duration-150 ${
         displayAsChild ? "ml-4" : "ml-0"
-      } ${isDragging ? "relative z-10 bg-white opacity-80 shadow-md" : ""} ${
-        isNestTarget ? "bg-emerald-50/40 ring-1 ring-emerald-300/60" : ""
-      } ${isBlocked ? "bg-red-50 ring-2 ring-red-400" : ""}`}
+      } ${isDragging ? "relative z-10 bg-[var(--app-highlight)] opacity-80 shadow-md" : ""} ${
+        isNestTarget ? "bg-emerald-50/40 dark:bg-[var(--app-mint)] ring-1 ring-emerald-300/60" : ""
+      } ${isBlocked ? "bg-red-50 dark:bg-[var(--app-rose)] ring-2 ring-red-400" : ""}`}
     >
       {displayAsChild && (
         <CornerDownRight
           className={`size-3 flex-none ${
-            previewDepth === 1 ? "text-emerald-500" : "text-gray-300"
+            previewDepth === 1 ? "text-emerald-500" : "text-gray-300 dark:text-[var(--app-muted)]"
           }`}
         />
       )}
@@ -701,7 +701,7 @@ export default function FolderSidebar({
                 setNewName(e.target.value)
               }
               autoFocus
-              className="min-h-11 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+              className="min-h-11 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === "Escape") {
                   setCreating(false);
@@ -721,7 +721,7 @@ export default function FolderSidebar({
                     value={newParentId}
                     onChange={(event) => setNewParentId(event.target.value)}
                     aria-label="Parent collection"
-                    className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-2.5 text-sm text-[var(--app-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+                    className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-2.5 text-sm text-[var(--app-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
                   >
                     <option value="">Top-level collection</option>
                     {folders
@@ -795,7 +795,7 @@ export default function FolderSidebar({
           <FolderSidebarSkeleton />
         ) : foldersError ? (
           <div
-            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600"
+            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             <p>Could not load collections.</p>
@@ -870,12 +870,12 @@ export default function FolderSidebar({
           <p
             className={`mt-2 min-h-4 px-1 text-xs font-medium transition-colors ${
               dragIntent?.action === "nest"
-                ? "text-emerald-600"
+                ? "text-emerald-600 dark:text-emerald-300"
                 : dragIntent?.action === "unnest"
-                  ? "text-sky-600"
+                  ? "text-sky-600 dark:text-sky-300"
                   : dragIntent?.action === "blocked"
-                    ? "text-red-600"
-                    : "text-gray-400"
+                    ? "text-red-600 dark:text-red-300"
+                    : "text-gray-400 dark:text-[var(--app-muted)]"
             }`}
             role="status"
             aria-live="polite"
@@ -906,7 +906,7 @@ export default function FolderSidebar({
           </div>
         ) : tagsError ? (
           <div
-            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600"
+            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             <p>Could not load tags.</p>
@@ -957,7 +957,7 @@ export default function FolderSidebar({
           <button
             type="button"
             onClick={() => setUpgradeDialogOpen(true)}
-            className="group flex min-h-12 w-full items-center gap-3 rounded-full border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] px-3 py-2 text-left transition-colors hover:bg-[color-mix(in_oklab,var(--app-lavender)_75%,white)] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
+            className="group flex min-h-12 w-full items-center gap-3 rounded-full border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] px-3 py-2 text-left transition-colors hover:bg-[color-mix(in_oklab,var(--app-lavender)_75%,var(--app-highlight))] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
             aria-label="Upgrade to FavLock Pro"
           >
             <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--app-reading)] text-[var(--app-primary)]">
@@ -981,7 +981,7 @@ export default function FolderSidebar({
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
+              <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-on-primary)] font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
                 {accountDisplayName[0]?.toUpperCase() ?? "U"}
               </div>
             </div>
@@ -1072,7 +1072,7 @@ export default function FolderSidebar({
             disabled={signingOut}
             className="theme-nav-button theme-danger-button w-full group flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200"
           >
-            <div className="size-7 rounded-lg bg-[color-mix(in_oklab,var(--app-line)_7%,var(--app-card))] group-hover:bg-red-100 flex items-center justify-center transition-all duration-200">
+            <div className="size-7 rounded-lg bg-[color-mix(in_oklab,var(--app-line)_7%,var(--app-card))] group-hover:bg-red-100 group-hover:dark:bg-[var(--app-rose)] flex items-center justify-center transition-all duration-200">
               <LogOutIcon
                 size={16}
                 className={`transition-all duration-200 ${signingOut ? "animate-pulse" : "group-hover:translate-x-0.5"}`}

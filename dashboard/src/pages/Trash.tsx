@@ -31,27 +31,27 @@ const resourcePresentation: Record<
   bookmark: {
     label: "Bookmark",
     icon: Bookmark,
-    colorClass: "bg-sky-500/10 text-sky-700",
+    colorClass: "bg-sky-500/10 text-sky-700 dark:text-sky-300",
   },
   note: {
     label: "Document",
     icon: StickyNote,
-    colorClass: "bg-amber-500/12 text-amber-700",
+    colorClass: "bg-amber-500/12 text-amber-700 dark:text-amber-300",
   },
   todo: {
     label: "Task",
     icon: ListTodo,
-    colorClass: "bg-emerald-500/10 text-emerald-700",
+    colorClass: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   },
   read: {
     label: "Readspace",
     icon: BookOpen,
-    colorClass: "bg-violet-500/10 text-violet-700",
+    colorClass: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
   },
   highlight: {
     label: "Highlight",
     icon: Highlighter,
-    colorClass: "bg-yellow-500/12 text-yellow-700",
+    colorClass: "bg-yellow-500/12 text-yellow-700 dark:text-yellow-300",
   },
 };
 
@@ -168,7 +168,7 @@ export default function Trash() {
       <section className="px-3 pb-8 lg:px-0">
         {restoreError ? (
           <div
-            className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700"
+            className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             {restoreError}
@@ -186,7 +186,7 @@ export default function Trash() {
           </div>
         ) : trashQuery.isError ? (
           <div
-            className="rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-6 text-sm text-red-700"
+            className="rounded-xl border border-red-500/20 bg-red-500/10 px-5 py-6 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             <p>Could not load Trash.</p>
@@ -200,7 +200,7 @@ export default function Trash() {
             </Button>
           </div>
         ) : items.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_22%,transparent)] bg-white/55 px-5 py-14 text-center">
+          <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_22%,transparent)] bg-[var(--app-highlight)]/55 px-5 py-14 text-center">
             <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-[color-mix(in_oklab,var(--app-line)_9%,transparent)] text-[var(--app-muted)]">
               <Trash2 size={22} aria-hidden="true" />
             </span>
@@ -226,7 +226,7 @@ export default function Trash() {
                 return (
                   <li
                     key={item.id}
-                    className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white/78 p-4 shadow-sm"
+                    className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/78 p-4 shadow-sm"
                   >
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div className="flex min-w-0 items-start gap-3">
