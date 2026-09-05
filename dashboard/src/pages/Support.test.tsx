@@ -143,7 +143,7 @@ describe("Support contact form", () => {
         ?.getAttribute("aria-selected"),
     ).toBe("true");
     expect(container.querySelectorAll("form")).toHaveLength(0);
-    expect(container.textContent).toContain("v1.9.0");
+    expect(container.textContent).toContain("v1.10.0");
   });
 
   it("moves between tabs with arrow keys", async () => {
