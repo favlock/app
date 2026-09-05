@@ -1,13 +1,23 @@
 import { FAVLOCK_CONFIG } from "./config.js";
 import { requestChromeBookmarkPermission } from "./extension-permissions.js";
-import { resolveUseFavLockNewTab } from "./extension-settings.js";
+import {
+  resolveShowHighlightsOnWebpages,
+  resolveUseFavLockNewTab,
+} from "./extension-settings.js";
 
 async function loadSettings() {
-  const stored = await chrome.storage.sync.get("useFavLockNewTab");
+  const stored = await chrome.storage.sync.get([
+    "showHighlightsOnWebpages",
+    "useFavLockNewTab",
+  ]);
   const newTabCheckbox = document.getElementById("useFavLockNewTab");
+  const highlightsCheckbox = document.getElementById("showHighlightsOnWebpages");
 
   newTabCheckbox.checked = resolveUseFavLockNewTab(
     stored.useFavLockNewTab,
+  );
+  highlightsCheckbox.checked = resolveShowHighlightsOnWebpages(
+    stored.showHighlightsOnWebpages,
   );
 }
 
@@ -32,8 +42,8 @@ async function loadConnection() {
 
   const identity = response.email ? `Connected as ${response.email}. ` : "";
   const availability = response.cloudStatus === "available"
-    ? "Cloud access is available."
-    : "The local connection is saved, but cloud access needs to be reconnected from the popup.";
+      ? "Cloud access is available."
+      : "The extension is paired, but cloud access needs to be reconnected from the popup.";
   description.textContent = `${identity}${availability}`;
   disconnectButton.hidden = false;
 }
@@ -74,20 +84,37 @@ async function saveSettings(event) {
   event?.preventDefault();
   const status = document.getElementById("status");
   const newTabCheckbox = document.getElementById("useFavLockNewTab");
+  const highlightsCheckbox = document.getElementById("showHighlightsOnWebpages");
 
-  await chrome.storage.sync.set({
-    useFavLockNewTab: newTabCheckbox.checked,
-  });
+  try {
+    const response = await chrome.runtime.sendMessage({
+      type: "favlock.highlights.preference",
+      enabled: highlightsCheckbox.checked,
+    });
+    if (!response?.ok) {
+      throw new Error(response?.error || "FavLock could not update highlight access.");
+    }
+    await chrome.storage.sync.set({
+      useFavLockNewTab: newTabCheckbox.checked,
+    });
 
-  status.textContent = "Saved.";
-  window.setTimeout(() => {
-    status.textContent = "";
-  }, 1600);
+    status.textContent = response.removedSiteAccess
+      ? "Saved. Website access was removed."
+      : "Saved.";
+    window.setTimeout(() => {
+      status.textContent = "";
+    }, 1600);
+  } catch (error) {
+    status.textContent = error instanceof Error
+      ? error.message
+      : "FavLock could not save these settings.";
+  }
 }
 
 async function openChromeBookmarkImport() {
   const status = document.getElementById("status");
   const newTabCheckbox = document.getElementById("useFavLockNewTab");
+  const highlightsCheckbox = document.getElementById("showHighlightsOnWebpages");
   const importButton = document.getElementById("importBookmarksButton");
   const importUrl = new URL(FAVLOCK_CONFIG.dashboardUrl);
 
@@ -99,6 +126,16 @@ async function openChromeBookmarkImport() {
       status.textContent =
         "Bookmark access was not allowed. FavLock only needs it when you import from Chrome.";
       return;
+    }
+
+    const preferenceResponse = await chrome.runtime.sendMessage({
+      type: "favlock.highlights.preference",
+      enabled: highlightsCheckbox.checked,
+    });
+    if (!preferenceResponse?.ok) {
+      throw new Error(
+        preferenceResponse?.error || "FavLock could not update highlight access.",
+      );
     }
 
     await chrome.storage.sync.set({

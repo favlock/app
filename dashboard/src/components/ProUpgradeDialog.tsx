@@ -6,6 +6,7 @@ import {
   FileText,
   Headphones,
   History,
+  Highlighter,
   ListChecks,
   Search,
   Sparkles,
@@ -38,13 +39,19 @@ const comparisonRows = [
     icon: Search,
   },
   {
+    label: "Web highlights",
+    free: formatResourceLimit(PLANS.free.limits.highlights),
+    pro: `${formatResourceLimit(PLANS.pro.limits.highlights)} · annotations`,
+    icon: Highlighter,
+  },
+  {
     label: "Documents and tasks",
     free: PLANS.free.limits.entries.toLocaleString("en-US"),
     pro: PLANS.pro.limits.entries.toLocaleString("en-US"),
     icon: FileText,
   },
   {
-    label: "Saved articles",
+    label: "Readspace articles",
     free: PLANS.free.limits.readspace.toLocaleString("en-US"),
     pro: PLANS.pro.limits.readspace.toLocaleString("en-US"),
     icon: BookOpen,
@@ -71,6 +78,7 @@ const comparisonRows = [
 
 const freeFeaturesIncluded = [
   "Browser-side encryption for protected content",
+  "Markdown, HTML, and JSON highlight exports",
   "Sync across unlocked browser sessions",
   "Unlimited collections and tags",
   "No ads",
@@ -91,8 +99,8 @@ export default function ProUpgradeDialog({
             Save more. Find more. Recover longer.
           </DialogTitle>
           <DialogDescription className="text-[var(--app-muted)]!">
-            FavLock Pro gives you unlimited bookmarks, deeper search, and more
-            space for everything you save.
+            FavLock Pro gives you unlimited bookmarks and highlights, encrypted
+            annotations, deeper search, and more space for everything you save.
           </DialogDescription>
         </div>
       </div>
@@ -165,8 +173,9 @@ export default function ProUpgradeDialog({
             <span className="font-semibold text-[var(--app-ink)]">
               Full-content search
             </span>{" "}
-            covers documents, tasks, and saved articles. Both plans search
-            bookmark titles, URLs, tags, and collections.
+            covers documents, tasks, and Readspace articles. Both plans search
+            bookmark titles, URLs, tags, collections, and highlighted text in
+            Readspace.
           </p>
         </div>
 

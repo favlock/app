@@ -26,12 +26,14 @@ export default function ReadspaceCard({
   onOpen,
   onOrganize,
   onDelete,
+  deletePermanently = false,
 }: {
   entry: ReadspaceEntry;
   content: ReadspaceContent;
   onOpen: () => void;
   onOrganize: () => void;
   onDelete: () => void;
+  deletePermanently?: boolean;
 }) {
   const updateFolder = useUpdateEntryFolder();
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
@@ -44,7 +46,6 @@ export default function ReadspaceCard({
     : "";
   const sourceDetails = [
     content.siteName,
-    content.byline,
     published ? `Published ${published}` : "",
     updated && updated !== published ? `Updated ${updated}` : "",
   ].filter(Boolean);
@@ -159,7 +160,7 @@ export default function ReadspaceCard({
             onClick={onDelete}
             plain
             className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-            aria-label={`Move ${entry.title} to Trash`}
+            aria-label={deletePermanently ? `Delete ${entry.title} permanently` : `Move ${entry.title} to Trash`}
           >
             <span className="flex size-10 items-center justify-center rounded-full">
               <Trash2 size={14} aria-hidden="true" />

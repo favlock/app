@@ -53,6 +53,7 @@ describe("account read API clients", () => {
       bookmarks: 12,
       entries: 3,
       readspace: 4,
+      highlights: 7,
       collections: 5,
       tags: 6,
       lists: 2,

@@ -2,6 +2,7 @@ export { Logo } from "./Logo";
 export {
   DEFAULT_PLAN,
   DEFAULT_PLAN_ID,
+  LOCAL_PLAN,
   formatResourceLimit,
   getRemainingResourceLimit,
   getPlan,

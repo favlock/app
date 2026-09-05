@@ -1,4 +1,5 @@
 import { FAVLOCK_CONFIG } from "./config.js";
+import { saveReadspaceArticle } from "./extension-data.js";
 
 const captureId = new URLSearchParams(location.search).get("capture");
 const articleDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -39,12 +40,6 @@ function datesDisplayTheSame(publishedAt, updatedAt) {
   );
 }
 
-function formatByline(value) {
-  const byline = String(value || "").trim();
-  if (!byline) return "";
-  return /^by\b/i.test(byline) ? byline : `By ${byline}`;
-}
-
 async function loadArticle() {
   if (!captureId) {
     setStatus("This reading view has expired. Open it again from the FavLock extension.");
@@ -61,7 +56,6 @@ async function loadArticle() {
   document.title = `${article.title} | FavLock Reader`;
   document.getElementById("title").textContent = article.title;
   document.getElementById("siteName").textContent = article.siteName || "Article";
-  document.getElementById("byline").textContent = formatByline(article.byline);
   setArticleDate("publishedDate", "Published", article.publishedAt);
   setArticleDate(
     "updatedDate",
@@ -82,18 +76,16 @@ async function saveToReading() {
   const button = document.getElementById("saveButton");
   const buttonLabel = document.getElementById("saveButtonLabel");
   button.disabled = true;
-  buttonLabel.textContent = "Opening…";
+  buttonLabel.textContent = "Saving…";
 
   try {
-    const saveUrl = new URL(FAVLOCK_CONFIG.dashboardUrl);
-    saveUrl.pathname = `${saveUrl.pathname.replace(/\/+$/, "")}/readspace`;
-    saveUrl.searchParams.set("capture", captureId);
-    saveUrl.searchParams.set("chromeExtensionId", chrome.runtime.id);
-    await chrome.tabs.create({ url: saveUrl.toString() });
+    await saveReadspaceArticle(article);
+    await chrome.storage.session.remove(`readerCapture:${captureId}`);
+    buttonLabel.textContent = "Saved";
+    setStatus("Article encrypted and saved to Readspace.");
   } catch (error) {
     console.error("Failed to save the article:", error);
-    setStatus("Could not open FavLock. Try again.");
-  } finally {
+    setStatus(error instanceof Error ? error.message : "Could not save this article.");
     button.disabled = false;
     buttonLabel.textContent = "Save to Readspace";
   }

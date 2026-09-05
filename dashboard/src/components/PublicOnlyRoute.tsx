@@ -22,8 +22,9 @@ export default function PublicOnlyRoute({
     );
   }
 
+  const loginParams = new URLSearchParams(location.search);
   const reconnecting = location.pathname === "/login" &&
-    new URLSearchParams(location.search).get("reconnect") === "1" && cloudStatus !== "available";
+    loginParams.get("reconnect") === "1" && cloudStatus !== "available";
   if (user && !reconnecting) {
     return (
       <Navigate

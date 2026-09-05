@@ -63,6 +63,10 @@ import ReadspaceSearchResults from "../components/ReadspaceSearchResults";
 import { useReadspaceFullTextSearch } from "../hooks/useReadspaceFullTextSearch";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useHighlights } from "../hooks/useHighlightsQuery";
+import { useBookmarks } from "../hooks/useBookmarksQuery";
+import { searchHighlights } from "../lib/highlightSearch";
+import HighlightSearchResults from "../components/HighlightSearchResults";
 
 export default function Dashboard() {
   const { setIsMobileSidebarOpen, openAddBookmark } =
@@ -72,6 +76,7 @@ export default function Dashboard() {
     bookmarkCacheSyncedAt,
     bookmarkCacheError,
     retryBookmarkCacheSync,
+    isLocalAccount,
   } = useAuth();
   const { collectionSlug, tagSlug } = useParams();
   const location = useLocation();
@@ -80,7 +85,10 @@ export default function Dashboard() {
   const { data: folders = [] } = useFolders();
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const cachedBookmarksQuery = useCachedBookmarks();
-  const cachedBookmarks = cachedBookmarksQuery.data ?? [];
+  const cachedBookmarks = useMemo(
+    () => cachedBookmarksQuery.data ?? [],
+    [cachedBookmarksQuery.data],
+  );
   const updateSearchEngine = useUpdateSearchEngine();
   const { data: userInfo } = useUserInfo();
   const searchHistory = useSearchHistory();
@@ -163,6 +171,12 @@ export default function Dashboard() {
   const selectedTagName = selectedTag?.name;
   const normalizedBookmarkSearch = debouncedBookmarkSearch.trim();
   const isSearchView = normalizedBookmarkSearch.length > 0;
+  const cloudSearchEnabled = isSearchView && !isLocalAccount;
+  const highlightsQuery = useHighlights(cloudSearchEnabled);
+  const highlightSourceBookmarksQuery = useBookmarks(null, {
+    enabled: cloudSearchEnabled,
+    includeHighlightSources: true,
+  });
   const isFavoritesView = location.pathname === "/favorites";
   const isUnsortedView = location.pathname === "/unsorted";
   const effectiveFolderId = isFavoritesView
@@ -208,7 +222,8 @@ export default function Dashboard() {
   const shouldLoadCollectionEntries =
     isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0;
   const readspaceQuery = useReadspace(
-    isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0,
+    !isLocalAccount &&
+      (isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0),
   );
   const deleteReadspaceEntry = useDeleteReadspaceEntry();
   const readspaceArticles = useMemo(
@@ -224,11 +239,29 @@ export default function Dashboard() {
     normalizedBookmarkSearch,
     100,
     fullTextSearchEnabled,
+    !isLocalAccount,
   );
   const readspaceSearchResult = readspaceSearchQuery.data ?? {
     matches: [],
     total: 0,
   };
+  const highlightSearchMatches = useMemo(
+    () => searchHighlights(
+      highlightsQuery.data ?? [],
+      highlightSourceBookmarksQuery.data ?? cachedBookmarks,
+      readspaceArticles,
+      normalizedBookmarkSearch,
+      { includeAnnotations: fullTextSearchEnabled },
+    ),
+    [
+      cachedBookmarks,
+      fullTextSearchEnabled,
+      highlightSourceBookmarksQuery.data,
+      highlightsQuery.data,
+      normalizedBookmarkSearch,
+      readspaceArticles,
+    ],
+  );
   const notesQuery = useNotes({
     enabled: shouldLoadCollectionEntries,
   });
@@ -286,10 +319,16 @@ export default function Dashboard() {
       bookmarkSearchLoading ||
       notesQuery.isLoading ||
       todosQuery.isLoading ||
-      readspaceQuery.isLoading ||
-      readspaceSearchQuery.isLoading
+      (!isLocalAccount && (
+        readspaceQuery.isLoading ||
+        readspaceSearchQuery.isLoading ||
+        highlightsQuery.isLoading ||
+        highlightSourceBookmarksQuery.isLoading
+      ))
     ) {
-      return "Searching bookmarks, documents, tasks, and Readspace...";
+      return isLocalAccount
+        ? "Searching bookmarks, documents, and tasks..."
+        : "Searching bookmarks, documents, tasks, Readspace, and highlights...";
     }
     const bookmarkLabel = `${bookmarkSearchResults} ${
       bookmarkSearchResults === 1 ? "bookmark" : "bookmarks"
@@ -303,13 +342,22 @@ export default function Dashboard() {
     const readspaceLabel = `${readspaceSearchResult.total} ${
       readspaceSearchResult.total === 1 ? "article" : "articles"
     }`;
-    return `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
+    const highlightLabel = `${highlightSearchMatches.length} ${
+      highlightSearchMatches.length === 1 ? "highlight" : "highlights"
+    }`;
+    return isLocalAccount
+      ? `${bookmarkLabel} · ${noteLabel} · ${todoLabel} for \u201c${normalizedBookmarkSearch}\u201d`
+      : `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
   }, [
     normalizedBookmarkSearch,
     bookmarkIndexStatus,
     fullTextSearchEnabled,
     bookmarkSearchLoading,
     bookmarkSearchResults,
+    highlightSearchMatches.length,
+    highlightSourceBookmarksQuery.isLoading,
+    highlightsQuery.isLoading,
+    isLocalAccount,
     noteSearchMatches.length,
     notesQuery.isLoading,
     readspaceQuery.isLoading,
@@ -464,21 +512,35 @@ export default function Dashboard() {
                         ? readspaceSearchQuery.error.message
                         : readspaceSearchQuery.error
                           ? "Could not search Readspace article text."
-                          : null)
+                          : highlightsQuery.error instanceof Error
+                            ? highlightsQuery.error.message
+                            : highlightsQuery.error
+                              ? "Could not search highlights."
+                              : highlightSourceBookmarksQuery.error instanceof Error
+                                ? highlightSourceBookmarksQuery.error.message
+                                : highlightSourceBookmarksQuery.error
+                                  ? "Could not load highlight sources."
+                                  : null)
         }
         onRetryBookmarkSearch={() => {
           retryBookmarkCacheSync();
           void notesQuery.refetch();
           void todosQuery.refetch();
-          void readspaceQuery.refetch();
-          void readspaceSearchQuery.refetch();
+          if (!isLocalAccount) {
+            void readspaceQuery.refetch();
+            void readspaceSearchQuery.refetch();
+            void highlightsQuery.refetch();
+            void highlightSourceBookmarksQuery.refetch();
+          }
         }}
       />
 
       {normalizedBookmarkSearch ? (
         <div
           className="space-y-3 px-3 lg:px-0"
-          aria-label="Search results from documents, tasks, and articles"
+          aria-label={isLocalAccount
+            ? "Search results from documents and tasks"
+            : "Search results from documents, tasks, articles, and highlights"}
         >
           <NoteSearchResults
             matches={noteSearchMatches}
@@ -488,10 +550,18 @@ export default function Dashboard() {
             matches={todoSearchMatches}
             query={normalizedBookmarkSearch}
           />
-          <ReadspaceSearchResults
-            result={readspaceSearchResult}
-            query={normalizedBookmarkSearch}
-          />
+          {!isLocalAccount ? (
+            <>
+              <ReadspaceSearchResults
+                result={readspaceSearchResult}
+                query={normalizedBookmarkSearch}
+              />
+              <HighlightSearchResults
+                matches={highlightSearchMatches}
+                query={normalizedBookmarkSearch}
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -659,8 +729,8 @@ export default function Dashboard() {
       >
         <DialogTitle>Move saved article to Trash?</DialogTitle>
         <DialogDescription>
-          “{deleteTarget?.entry.title}” can be restored from Trash before its
-          recovery period expires.
+          “{deleteTarget?.entry.title ?? "This article"}” can be restored from
+          Trash before its recovery period expires.
         </DialogDescription>
         {deleteArticleError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -682,7 +752,7 @@ export default function Dashboard() {
             disabled={deleteReadspaceEntry.isPending}
             onClick={() => void confirmDeleteArticle()}
           >
-            {deleteReadspaceEntry.isPending ? "Moving…" : "Move to Trash"}
+            {deleteReadspaceEntry.isPending ? "Deleting…" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

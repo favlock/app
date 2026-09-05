@@ -11,6 +11,11 @@ import { readOnboardingState } from "../lib/onboarding";
 
 const mocks = vi.hoisted(() => ({
   moveBookmark: vi.fn(),
+  isLocalAccount: { current: false },
+}));
+
+vi.mock("../context/useAuth", () => ({
+  useAuth: () => ({ isLocalAccount: mocks.isLocalAccount.current }),
 }));
 
 const folders: Folder[] = [
@@ -69,10 +74,30 @@ describe("BookmarkCard", () => {
 
   beforeEach(() => {
     localStorage.clear();
+    mocks.isLocalAccount.current = false;
     mocks.moveBookmark.mockReset().mockResolvedValue(undefined);
     container = document.createElement("div");
     document.body.appendChild(container);
     root = createRoot(container);
+  });
+
+  it("warns that local deletion is immediate and Trash requires cloud", async () => {
+    mocks.isLocalAccount.current = true;
+    await act(async () => {
+      root.render(
+        <BookmarkCard bookmark={bookmark} onDeleted={() => {}} />,
+      );
+    });
+
+    const deleteButton = container.querySelector<HTMLButtonElement>(
+      '[aria-label="Delete bookmark permanently"]',
+    )!;
+    act(() => deleteButton.click());
+
+    expect(document.body.textContent).toContain("immediately deleted");
+    expect(document.body.textContent).toContain("free cloud account");
+    expect(document.body.textContent).toContain("7 days");
+    expect(document.body.textContent).toContain("Delete permanently");
   });
 
   afterEach(() => {

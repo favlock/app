@@ -8,7 +8,6 @@ import {
   loadLibraryKey,
   saveLibraryKey,
 } from "./extension-crypto.js";
-
 export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 export const ONBOARDING_STATUS_MESSAGE = "favlock.extension.onboarding-status";
 const SESSION_KEY = "favlockAuthSession";
@@ -44,7 +43,7 @@ export async function readLocalAccount() {
 
 export async function assertLocalAccount(account) {
   const current = await readLocalAccount();
-  if (!current || !account || current.userId !== account.userId || current.epoch !== account.epoch) throw new Error("The local account changed. Reopen the extension before continuing.");
+  if (!current || !account || current.userId !== account.userId || current.epoch !== account.epoch) throw new Error("The paired account changed. Reopen the extension before continuing.");
 }
 
 export async function reportCloudFailure(accessToken, status) {
@@ -350,8 +349,11 @@ export async function receivePairedKey(message, sender) {
     await withStateLock(async () => {
       if ((await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY] !== initialEpoch) throw new Error("Pairing was cancelled.");
       const currentAccount = await readLocalAccount();
-      if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The local account changed. Pair again.");
-      if (replacingSession) await writeSession(session);
+      if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The paired account changed. Pair again.");
+      if (replacingSession) {
+        await writeSession(session);
+      }
+      await chrome.storage.local.remove("favlockLocalLibraryProjection");
       await saveLibraryKey(key);
       await chrome.storage.session.remove(PAIRING_ATTEMPT_KEY);
     });
@@ -396,7 +398,11 @@ export async function getConnectionState() {
     connected: !!account,
     unlocked: !!(await loadLibraryKey()),
     email: account?.email || session?.email || "",
-    cloudStatus: globalThis.navigator?.onLine === false ? "offline" : !session ? "reconnect_required" : account?.cloudStatus || "available",
+    cloudStatus: globalThis.navigator?.onLine === false
+        ? "offline"
+        : !session
+          ? "reconnect_required"
+          : account?.cloudStatus || "available",
   };
 }
 
@@ -428,6 +434,14 @@ export async function disconnectExtension() {
       chrome.storage.local.remove([SESSION_KEY, PROFILE_KEY]),
       chrome.storage.session.remove([ORIGINAL_TAB_KEY, PAIRING_ATTEMPT_KEY]),
       deleteLibraryKey(),
+      chrome.storage.local.remove("favlockLocalLibraryProjection"),
     ]);
   });
+}
+
+export async function removeLegacyLocalVaultConnection() {
+  const account = await readLocalAccount();
+  if (account?.cloudStatus !== "local") return false;
+  await disconnectExtension();
+  return true;
 }

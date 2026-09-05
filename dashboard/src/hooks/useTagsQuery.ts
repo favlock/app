@@ -9,21 +9,34 @@ import {
   getCachedTagsForUser,
 } from '../lib/bookmarkCache';
 import { deleteTag, updateTag } from '../lib/taxonomyRepository';
+import {
+  deleteLocalTag,
+  readLocalBookmarks,
+  readLocalEntries,
+  readLocalTags,
+  updateLocalTag,
+} from '../lib/localVault';
 
 const TAGS_QUERY_KEY = ['tags'];
 
 export const useTagBookmarkCounts = () => {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery({
     queryKey: ['bookmarks', 'tagCounts', user?.id],
-    enabled: !!user && !!bookmarkCacheSyncedAt,
+    enabled: !!user && !!bookmarkCacheSyncedAt && (!isLocalAccount || !!cryptoKey),
     queryFn: async () => {
-      const [bookmarks, entries] = await Promise.all([
-        getCachedBookmarksForUser(user!.id),
-        getCachedEntriesForUser(user!.id),
-      ]);
+      const [bookmarks, entries] = isLocalAccount
+        ? await Promise.all([
+            readLocalBookmarks(user!.id, cryptoKey!),
+            readLocalEntries(user!.id, cryptoKey!),
+          ])
+        : await Promise.all([
+            getCachedBookmarksForUser(user!.id),
+            getCachedEntriesForUser(user!.id),
+          ]);
       const relationIds = [
-        ...bookmarks.flatMap((bookmark) =>
+        ...bookmarks.filter((bookmark) => !bookmark.is_highlight_source).flatMap((bookmark) =>
           (bookmark.tags ?? []).map((tag) => tag.id),
         ),
         ...entries.flatMap((entry) =>
@@ -39,11 +52,15 @@ export const useTagBookmarkCounts = () => {
 
 export const useDeleteTag = () => {
   const queryClient = useQueryClient();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
 
   return useMutation({
-    mutationFn: (tagId: string) =>
-      deleteTag(session?.access_token ?? '', tagId),
+    mutationFn: (tagId: string) => {
+      if (!user) throw new Error('Open a FavLock vault before deleting.');
+      return isLocalAccount
+        ? deleteLocalTag(user.id, tagId)
+        : deleteTag(session?.access_token ?? '', tagId);
+    },
     onSuccess: () => {
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: TAGS_QUERY_KEY });
@@ -58,15 +75,17 @@ export const useDeleteTag = () => {
 export const useUpdateTag = () => {
   const queryClient = useQueryClient();
   const { encryptField } = useEncryption();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
 
   return useMutation({
     mutationFn: async ({ tagId, name }: { tagId: string; name: string }) => {
-      await updateTag(
-        session?.access_token ?? '',
-        tagId,
-        await encryptField(name),
-      );
+      if (!user) throw new Error('Open a FavLock vault before updating.');
+      const encryptedName = await encryptField(name);
+      if (isLocalAccount) {
+        await updateLocalTag(user.id, tagId, encryptedName);
+      } else {
+        await updateTag(session?.access_token ?? '', tagId, encryptedName);
+      }
     },
     onSuccess: () => {
       retryBookmarkCacheSync();
@@ -80,12 +99,15 @@ export const useUpdateTag = () => {
 };
 
 export const useTags = () => {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery<Tag[]>({
     queryKey: [...TAGS_QUERY_KEY, user?.id],
-    enabled: !!user && !!bookmarkCacheSyncedAt,
+    enabled: !!user && !!bookmarkCacheSyncedAt && (!isLocalAccount || !!cryptoKey),
     queryFn: async () =>
-      (await getCachedTagsForUser(user!.id)).sort((a, b) =>
+      (isLocalAccount
+        ? await readLocalTags(user!.id, cryptoKey!)
+        : await getCachedTagsForUser(user!.id)).sort((a, b) =>
         a.name.localeCompare(b.name),
       ),
     staleTime: Number.POSITIVE_INFINITY,

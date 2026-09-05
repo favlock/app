@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   acknowledgeCloudOnboardingProgress,
   applyCloudOnboardingProgress,
+  carryLocalOnboardingProgress,
   LEGACY_ONBOARDING_STORAGE_KEY,
   hasCompletedFirstValue,
   hasConfirmedProtection,
@@ -184,6 +185,47 @@ describe("account-scoped onboarding state", () => {
     expect(readOnboardingState("account-a")).toMatchObject({
       libraryPopulated: "empty",
       cloudSync: { pendingCompletedSteps: [] },
+    });
+  });
+
+  it("carries completed local steps into a connected cloud account", () => {
+    markProtectionConfirmed("local-vault", "passkey");
+    setLibraryPopulated("local-vault", true);
+    markFirstRetrieval("local-vault");
+    saveOnboardingPreference("local-vault", true);
+
+    carryLocalOnboardingProgress("local-vault", "cloud-account");
+
+    expect(readOnboardingState("cloud-account")).toMatchObject({
+      accountReadiness: "ready",
+      protection: { status: "confirmed", method: "recovery-key" },
+      libraryPopulated: "populated",
+      firstRetrieval: "completed",
+      dismissals: { welcomeTour: true },
+      cloudSync: {
+        pendingCompletedSteps: [
+          "library_protected",
+          "first_save_or_import",
+          "first_deliberate_retrieval",
+        ],
+        pendingDismissal: true,
+      },
+    });
+  });
+
+  it("preserves explicit destination progress while adding local milestones", () => {
+    markProtectionConfirmed("local-vault", "passkey");
+    setLibraryPopulated("local-vault", true);
+    markProtectionConfirmed("cloud-account", "passkey");
+    saveOnboardingPreference("cloud-account", false);
+
+    carryLocalOnboardingProgress("local-vault", "cloud-account");
+
+    expect(readOnboardingState("cloud-account")).toMatchObject({
+      protection: { status: "confirmed", method: "passkey" },
+      libraryPopulated: "populated",
+      dismissals: { welcomeTour: false },
+      cloudSync: { pendingDismissal: false },
     });
   });
 });

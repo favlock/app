@@ -71,6 +71,7 @@ export type EncryptedLibraryBookmark = {
   encryptedUrl: string;
   isFavorite: boolean;
   favoritedAt: string | null;
+  isHighlightSource: boolean;
   createdAt: string;
   folders: EncryptedLibraryFolder[];
   tags: EncryptedLibraryTag[];
@@ -192,6 +193,7 @@ function parseBookmark(value: unknown): EncryptedLibraryBookmark {
     encryptedUrl,
     isFavorite,
     favoritedAt,
+    isHighlightSource,
     createdAt,
     folders,
     tags,
@@ -204,6 +206,7 @@ function parseBookmark(value: unknown): EncryptedLibraryBookmark {
     encryptedUrl.length > TAXONOMY_NAME_MAX_LENGTH ||
     typeof isFavorite !== "boolean" ||
     (favoritedAt !== null && !isTimestamp(favoritedAt)) ||
+    typeof isHighlightSource !== "boolean" ||
     !isTimestamp(createdAt) ||
     !Array.isArray(folders) ||
     folders.length > 1 ||
@@ -218,6 +221,7 @@ function parseBookmark(value: unknown): EncryptedLibraryBookmark {
     encryptedUrl,
     isFavorite,
     favoritedAt,
+    isHighlightSource,
     createdAt,
     folders: folders.map(parseFolder),
     tags: tags.map(parseTag),

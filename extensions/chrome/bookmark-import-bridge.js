@@ -24,7 +24,12 @@ async function announceReady() {
 window.addEventListener("message", async (event) => {
   if (
     event.source !== window.parent ||
-    ![PING_TYPE, REQUEST_TYPE, READER_REQUEST_TYPE, READER_DELETE_TYPE].includes(
+    ![
+      PING_TYPE,
+      REQUEST_TYPE,
+      READER_REQUEST_TYPE,
+      READER_DELETE_TYPE,
+    ].includes(
       event.data?.type,
     )
   ) {

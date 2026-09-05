@@ -143,6 +143,14 @@ export default function FavLockMigrationImportSection() {
         throw new Error("Could not load this account's migration limits.");
       }
       const archiveSummary = summarizeFavLockExport(archive);
+      const hasAnnotations = archive.data.highlights?.some(
+        (highlight) => highlight.payload.note.trim().length > 0,
+      );
+      if (hasAnnotations && destinationPlan.id !== "pro") {
+        throw new Error(
+          "This archive includes annotated highlights. FavLock Pro is required to migrate them without losing annotations.",
+        );
+      }
       const checks = [
         [
           archiveSummary.bookmarks,
@@ -158,6 +166,11 @@ export default function FavLockMigrationImportSection() {
           archiveSummary.readspace,
           destinationPlan.limits.readspace,
           "Readspace items",
+        ],
+        [
+          archiveSummary.highlights,
+          destinationPlan.limits.highlights,
+          "highlights",
         ],
         [
           archiveSummary.collections,
@@ -209,6 +222,7 @@ export default function FavLockMigrationImportSection() {
         ["todos"],
         ["readspace"],
         ["lists"],
+        ["highlights"],
         ["resource-usage"],
       ]) {
         void queryClient.invalidateQueries({ queryKey });

@@ -6,6 +6,7 @@ import {
   exchangeExtensionSessionToken,
   getConnectionState,
   getExternalOnboardingStatus,
+  removeLegacyLocalVaultConnection,
   refreshSession,
   disconnectExtension,
   receivePairedKey,
@@ -101,6 +102,22 @@ afterEach(() => {
 });
 
 describe("extension dashboard connection", () => {
+  it("removes a legacy local-vault pairing after the cloud-only update", async () => {
+    localData.favlockLocalProfile = {
+      version: 1,
+      userId: user.id,
+      email: "",
+      cloudStatus: "local",
+    };
+    localData.favlockLocalLibraryProjection = { version: 1 };
+
+    await expect(removeLegacyLocalVaultConnection()).resolves.toBe(true);
+
+    expect(localData.favlockLocalProfile).toBeUndefined();
+    expect(localData.favlockLocalLibraryProjection).toBeUndefined();
+    expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
+  });
+
   it("rejects pairing another account before exchanging credentials or replacing a key", async () => {
     localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
     sessionData.favlockPairingAttempt = { value: "p".repeat(43), expiresAt: Date.now() + 60_000 };
@@ -241,6 +258,26 @@ describe("extension dashboard connection", () => {
     expect(sessionData.favlockPairingAttempt).toBeUndefined();
   });
 
+  it("rejects a legacy local-vault pairing without cloud authorization", async () => {
+    const pairingAttempt = "p".repeat(43);
+    sessionData.favlockPairingAttempt = {
+      value: pairingAttempt,
+      expiresAt: Date.now() + 60_000,
+    };
+    const result = await receivePairedKey({
+      type: PAIR_KEY_MESSAGE,
+      pairingAttempt,
+      userId: user.id,
+      rawKey: "test-key",
+      localMode: true,
+      localProjection: { version: 1 },
+    }, { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin });
+
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("authorization") });
+    expect(cryptoMocks.importLibraryKey).not.toHaveBeenCalled();
+    expect(localData.favlockLocalProfile).toBeUndefined();
+  });
+
   it("exchanges the dashboard one-time token through the fixed API verifier", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse(sessionResponse()));
     vi.stubGlobal("fetch", fetchMock);
@@ -340,7 +377,7 @@ describe("extension dashboard connection", () => {
     expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
   });
 
-  it("retains the local account and key when refresh credentials are rejected", async () => {
+  it("retains the paired account and key when refresh credentials are rejected", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

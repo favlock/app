@@ -30,6 +30,8 @@ import { getMainDomain } from "../lib/domains";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
 import LibraryCard from "./LibraryCard";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useAuth } from "../context/useAuth";
+import { PLANS } from "@favlock/shared";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -46,6 +48,7 @@ export default function BookmarkCard({
 }: BookmarkCardProps) {
   const { data: folders = [] } = useFolders();
   const { data: tags = [] } = useTags();
+  const { isLocalAccount } = useAuth();
   const deleteBookmarkMutation = useDeleteBookmark();
   const moveBookmarkMutation = useMoveBookmark();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -490,8 +493,8 @@ export default function BookmarkCard({
                 disabled={deleting}
                 plain
                 className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-                title="Move to Trash"
-                aria-label="Move bookmark to Trash"
+                title={isLocalAccount ? "Delete permanently" : "Move to Trash"}
+                aria-label={isLocalAccount ? "Delete bookmark permanently" : "Move bookmark to Trash"}
               >
                 <span className="flex size-10 items-center justify-center rounded-full">
                   <TrashIcon size={14} aria-hidden="true" />
@@ -522,10 +525,13 @@ export default function BookmarkCard({
         open={showDeleteDialog}
         onClose={deleting ? () => {} : setShowDeleteDialog}
       >
-        <DialogTitle>Move bookmark to Trash?</DialogTitle>
+        <DialogTitle>
+          {isLocalAccount ? "Delete bookmark permanently?" : "Move bookmark to Trash?"}
+        </DialogTitle>
         <DialogDescription>
-          You can restore this bookmark from Trash before its recovery period
-          expires.
+          {isLocalAccount
+            ? `This bookmark will be immediately deleted from this device and cannot be restored. A free cloud account keeps deleted items in Trash for ${PLANS.free.trashRecoveryDays} days.`
+            : "You can restore this bookmark from Trash before its recovery period expires."}
         </DialogDescription>
         {deleteError ? (
           <p
@@ -544,7 +550,9 @@ export default function BookmarkCard({
             Cancel
           </Button>
           <Button onClick={confirmDelete} disabled={deleting} color="red">
-            {deleting ? "Moving..." : "Move to Trash"}
+            {deleting
+              ? (isLocalAccount ? "Deleting..." : "Moving...")
+              : (isLocalAccount ? "Delete permanently" : "Move to Trash")}
           </Button>
         </DialogActions>
       </Dialog>

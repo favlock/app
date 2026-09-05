@@ -7,6 +7,7 @@ import type {
   Tag,
   Todo,
 } from "../types/bookmark";
+import type { WebHighlight } from "../hooks/useHighlightsQuery";
 import { buildFavLockExport, type ExportSourceData } from "./dataExport";
 import {
   parseFavLockExport,
@@ -78,6 +79,21 @@ const list: BookmarkList = {
     created_at: timestamp,
   }],
 };
+const highlight: WebHighlight = {
+  id: "60000000-0000-4000-8000-000000000001",
+  bookmarkId: bookmark.id,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  payload: {
+    version: 1,
+    quote: { exact: "Important quote", prefix: "Before", suffix: "After" },
+    position: null,
+    dom: null,
+    color: "blue",
+    note: "Private annotation",
+    capturedAt: timestamp,
+  },
+};
 const source: ExportSourceData = {
   folders: [rootFolder, childFolder],
   tags: [tag],
@@ -86,12 +102,14 @@ const source: ExportSourceData = {
   notes: [note],
   todos: [todo],
   readspace: [],
+  highlights: [highlight],
 };
 const selection = {
   bookmarks: true,
   notes: true,
   todos: true,
   readspace: true,
+  highlights: true,
 };
 
 describe("FavLock export validation", () => {
@@ -101,6 +119,7 @@ describe("FavLock export validation", () => {
     );
 
     expect(parsed.data.notes?.[0].content).toBe("<h2>Writing</h2><p>Safe <mark>content</mark></p>");
+    expect(parsed.version).toBe(2);
     expect(parsed.data.todos?.[0].dueDate).toBe("2026-08-30");
     expect(summarizeFavLockExport(parsed)).toEqual({
       collections: 2,
@@ -110,6 +129,7 @@ describe("FavLock export validation", () => {
       notes: 1,
       todos: 1,
       readspace: 0,
+      highlights: 1,
     });
   });
 
@@ -122,12 +142,34 @@ describe("FavLock export validation", () => {
   });
 
   it("keeps version-two archives created before List support compatible", () => {
-    const archive = buildFavLockExport(source, selection);
+    const archive = buildFavLockExport(source, {
+      ...selection,
+      highlights: false,
+    });
     delete archive.data.lists;
 
     const parsed = parseFavLockExport(archive);
     expect(parsed.data.lists).toBeUndefined();
     expect(summarizeFavLockExport(parsed).lists).toBe(0);
+  });
+
+  it("keeps version-two archives created before highlight support compatible", () => {
+    const archive = buildFavLockExport(source, selection);
+    archive.version = 2;
+    delete archive.selection.highlights;
+    delete archive.data.highlights;
+
+    const parsed = parseFavLockExport(archive);
+    expect(parsed.data.highlights).toBeUndefined();
+    expect(summarizeFavLockExport(parsed).highlights).toBe(0);
+  });
+
+  it("rejects highlights whose source bookmark is outside the archive", () => {
+    const archive = buildFavLockExport(source, selection);
+    archive.data.highlights![0].bookmarkId =
+      "90000000-0000-4000-8000-000000000001";
+
+    expect(() => parseFavLockExport(archive)).toThrow("not a valid");
   });
 
   it("accepts a Pro archive above the former 10,000-bookmark ceiling", () => {

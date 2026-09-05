@@ -7,6 +7,7 @@ const plan = {
     bookmarks: 5,
     entries: 0,
     readspace: 0,
+    highlights: 0,
     collections: 3,
     tags: 0,
     lists: 0,

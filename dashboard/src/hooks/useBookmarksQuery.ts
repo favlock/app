@@ -11,6 +11,15 @@ import {
 import { bookmarksForView, type BookmarkView } from "../lib/bookmarkViews";
 import { RESOURCE_USAGE_QUERY_KEY } from "./useResourceUsageQuery";
 import { setLibraryPopulated } from "../lib/onboarding";
+import { useEncryption } from "../context/useEncryption";
+import {
+  createLocalBookmark,
+  deleteLocalBookmark,
+  favoriteLocalBookmark,
+  moveLocalBookmark,
+  readLocalBookmarks,
+  updateLocalBookmark,
+} from "../lib/localVault";
 
 const BOOKMARKS_QUERY_KEY = ["bookmarks"];
 const TAG_IDS_QUERY_KEY_PREFIX = "tag-bookmark-ids";
@@ -23,17 +32,23 @@ function bookmarkView(folderId: string | null): BookmarkView {
 }
 
 export const useBookmarkCounts = () => {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery({
     queryKey: [...BOOKMARKS_QUERY_KEY, "counts", user?.id],
-    enabled: !!user && !!bookmarkCacheSyncedAt,
+    enabled: !!user && !!bookmarkCacheSyncedAt && (!isLocalAccount || !!cryptoKey),
     queryFn: async () => {
-      const bookmarks = await getCachedBookmarksForUser(user!.id);
+      const bookmarks = isLocalAccount
+        ? await readLocalBookmarks(user!.id, cryptoKey!)
+        : await getCachedBookmarksForUser(user!.id);
+      const visibleBookmarks = bookmarks.filter(
+        (bookmark) => !bookmark.is_highlight_source,
+      );
       return {
-        bookmarkCount: bookmarks.length,
-        favoriteCount: bookmarks.filter((bookmark) => bookmark.is_favorite)
+        bookmarkCount: visibleBookmarks.length,
+        favoriteCount: visibleBookmarks.filter((bookmark) => bookmark.is_favorite)
           .length,
-        unsortedCount: bookmarks.filter(
+        unsortedCount: visibleBookmarks.filter(
           (bookmark) => (bookmark.folders ?? []).length === 0,
         ).length,
       };
@@ -45,9 +60,10 @@ export const useBookmarkCounts = () => {
 
 export const useBookmarks = (
   folderId: string | null = null,
-  options?: { enabled?: boolean },
+  options?: { enabled?: boolean; includeHighlightSources?: boolean },
 ) => {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery({
     queryKey: [
       ...BOOKMARKS_QUERY_KEY,
@@ -55,14 +71,22 @@ export const useBookmarks = (
       folderId,
       user?.id,
       bookmarkCacheSyncedAt,
+      options?.includeHighlightSources ? "with-highlight-sources" : "visible-only",
     ],
     enabled:
-      (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt,
-    queryFn: async () =>
-      bookmarksForView(
-        await getCachedBookmarksForUser(user!.id),
-        bookmarkView(folderId),
-      ),
+      (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt &&
+      (!isLocalAccount || !!cryptoKey),
+    queryFn: async () => {
+      const bookmarks = isLocalAccount
+        ? await readLocalBookmarks(user!.id, cryptoKey!)
+        : await getCachedBookmarksForUser(user!.id);
+      if (options?.includeHighlightSources) {
+        return [...bookmarks].sort((left, right) =>
+          right.created_at.localeCompare(left.created_at),
+        );
+      }
+      return bookmarksForView(bookmarks, bookmarkView(folderId));
+    },
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: 1000 * 60 * 10,
   });
@@ -70,7 +94,7 @@ export const useBookmarks = (
 
 export const useAddBookmark = () => {
   const queryClient = useQueryClient();
-  const { session, user, retryBookmarkCacheSync } = useAuth();
+  const { session, user, retryBookmarkCacheSync, isLocalAccount } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -85,14 +109,24 @@ export const useAddBookmark = () => {
       folderId: string | null;
       existingTagIds: string[];
       newEncryptedTagNames: string[];
-    }) =>
-      createBookmark(session?.access_token ?? "", {
-        title,
-        url,
-        folderId,
-        existingTagIds,
-        newEncryptedTagNames,
-      }),
+    }) => {
+      if (!user) throw new Error("Open a FavLock vault before saving.");
+      return isLocalAccount
+        ? createLocalBookmark(user.id, {
+            encryptedTitle: title,
+            encryptedUrl: url,
+            folderId,
+            existingTagIds,
+            newEncryptedTagNames,
+          })
+        : createBookmark(session?.access_token ?? "", {
+            title,
+            url,
+            folderId,
+            existingTagIds,
+            newEncryptedTagNames,
+          });
+    },
     onSuccess: () => {
       if (user?.id) setLibraryPopulated(user.id, true);
       retryBookmarkCacheSync();
@@ -105,11 +139,15 @@ export const useAddBookmark = () => {
 
 export const useDeleteBookmark = () => {
   const queryClient = useQueryClient();
-  const { session, retryBookmarkCacheSync } = useAuth();
+  const { session, retryBookmarkCacheSync, user, isLocalAccount } = useAuth();
 
   return useMutation({
-    mutationFn: (bookmarkId: string) =>
-      trashBookmark(session?.access_token ?? "", bookmarkId),
+    mutationFn: (bookmarkId: string) => {
+      if (!user) throw new Error("Open a FavLock vault before deleting.");
+      return isLocalAccount
+        ? deleteLocalBookmark(user.id, bookmarkId)
+        : trashBookmark(session?.access_token ?? "", bookmarkId);
+    },
     onSuccess: () => {
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: BOOKMARKS_QUERY_KEY });
@@ -122,7 +160,7 @@ export const useDeleteBookmark = () => {
 
 export const useToggleFavorite = () => {
   const queryClient = useQueryClient();
-  const { session, retryBookmarkCacheSync } = useAuth();
+  const { session, retryBookmarkCacheSync, user, isLocalAccount } = useAuth();
 
   return useMutation({
     mutationFn: ({
@@ -131,12 +169,16 @@ export const useToggleFavorite = () => {
     }: {
       bookmarkId: string;
       isFavorite: boolean;
-    }) =>
-      setBookmarkFavorite(
-        session?.access_token ?? "",
-        bookmarkId,
-        isFavorite,
-      ),
+    }) => {
+      if (!user) throw new Error("Open a FavLock vault before updating.");
+      return isLocalAccount
+        ? favoriteLocalBookmark(user.id, bookmarkId, isFavorite)
+        : setBookmarkFavorite(
+            session?.access_token ?? "",
+            bookmarkId,
+            isFavorite,
+          );
+    },
     onSuccess: () => {
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: BOOKMARKS_QUERY_KEY });
@@ -146,7 +188,7 @@ export const useToggleFavorite = () => {
 
 export const useUpdateBookmark = () => {
   const queryClient = useQueryClient();
-  const { session, retryBookmarkCacheSync } = useAuth();
+  const { session, retryBookmarkCacheSync, user, isLocalAccount } = useAuth();
 
   return useMutation({
     mutationFn: async ({
@@ -161,13 +203,22 @@ export const useUpdateBookmark = () => {
       folderId: string | null;
       existingTagIds: string[];
       newEncryptedTagNames: string[];
-    }) =>
-      updateBookmark(session?.access_token ?? "", bookmarkId, {
-        title,
-        folderId,
-        existingTagIds,
-        newEncryptedTagNames,
-      }),
+    }) => {
+      if (!user) throw new Error("Open a FavLock vault before updating.");
+      return isLocalAccount
+        ? updateLocalBookmark(user.id, bookmarkId, {
+            encryptedTitle: title,
+            folderId,
+            existingTagIds,
+            newEncryptedTagNames,
+          })
+        : updateBookmark(session?.access_token ?? "", bookmarkId, {
+            title,
+            folderId,
+            existingTagIds,
+            newEncryptedTagNames,
+          });
+    },
     onSuccess: () => {
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: BOOKMARKS_QUERY_KEY });
@@ -179,7 +230,7 @@ export const useUpdateBookmark = () => {
 
 export const useMoveBookmark = () => {
   const queryClient = useQueryClient();
-  const { session, retryBookmarkCacheSync } = useAuth();
+  const { session, retryBookmarkCacheSync, user, isLocalAccount } = useAuth();
 
   return useMutation({
     mutationFn: ({
@@ -188,12 +239,16 @@ export const useMoveBookmark = () => {
     }: {
       bookmarkId: string;
       folderId: string | null;
-    }) =>
-      moveBookmarkToFolder(
-        session?.access_token ?? "",
-        bookmarkId,
-        folderId,
-      ),
+    }) => {
+      if (!user) throw new Error("Open a FavLock vault before updating.");
+      return isLocalAccount
+        ? moveLocalBookmark(user.id, bookmarkId, folderId)
+        : moveBookmarkToFolder(
+            session?.access_token ?? "",
+            bookmarkId,
+            folderId,
+          );
+    },
     onSuccess: () => {
       retryBookmarkCacheSync();
       queryClient.invalidateQueries({ queryKey: BOOKMARKS_QUERY_KEY });

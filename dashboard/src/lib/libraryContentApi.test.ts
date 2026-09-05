@@ -53,6 +53,7 @@ const bookmark = {
   encryptedUrl: "enc:bookmark-url",
   isFavorite: true,
   favoritedAt: "2026-08-20T10:30:00.000Z",
+  isHighlightSource: false,
   createdAt: "2026-08-20T09:00:00.000Z",
   folders: [folder],
   tags: [tag],

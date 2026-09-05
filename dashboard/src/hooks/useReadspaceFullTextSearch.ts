@@ -11,6 +11,7 @@ export function useReadspaceFullTextSearch(
   query: string,
   limit = 100,
   includeContent = true,
+  enabled = true,
 ) {
   const normalized = query.trim();
   const signature = useMemo(
@@ -34,7 +35,7 @@ export function useReadspaceFullTextSearch(
         limit,
         includeContent,
       ),
-    enabled: normalized.length > 0,
+    enabled: enabled && normalized.length > 0,
     staleTime: 1000 * 30,
     gcTime: 1000 * 60 * 5,
   });

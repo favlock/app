@@ -77,15 +77,19 @@ IndexedDB cache; import limits and the sidebar List count reuse API account
 usage. Cloud search-history reads, replacement, and deletion also use the API;
 Local and Off history modes remain browser-only and disabled respectively.
 Encrypted `.favlock` exports use the existing account recovery key and are
-created in the browser. Import decrypts and validates them locally, preserves
-that key as the new account's encryption key, and sends only ciphertext plus an
-opaque verifier through the staged atomic migration API.
+created in the browser. Import decrypts and validates the archive locally,
+preserves that key as the new account's encryption key, and sends only
+ciphertext plus an opaque verifier through the staged atomic migration API.
 The matching self-contained offline decryptor can produce plaintext JSON with
 no network connection. Migration requires an empty destination library and
-covers Collections, Tags, bookmarks, Notes, Tasks, and Readspace, but not
-account identity, billing, Trash, search history, Lists, or passkeys. Temporary
-destination search history is cleared, and a passkey must be created again for
-the migrated account.
+covers Collections, Tags, bookmarks, Lists, Notes, Tasks, Readspace, and web
+highlights. A Pro destination is required when highlights contain annotations.
+It does not migrate account identity, billing, Trash, search history, or
+passkeys. Temporary destination search history is cleared, and a passkey must
+be created again for the migrated account. Readspace also offers explicit
+plaintext highlight downloads as Markdown, HTML, or JSON for one item, a
+selection, a source page, or the current results; these are generated locally
+and clearly labeled as unencrypted.
 No direct Supabase table or RPC data calls remain in the dashboard. Email signup,
 signup-confirmation resend, and password-reset-email delivery preserve the
 browser's PKCE flow but now use `VITE_API_URL`. Password sign-in, token

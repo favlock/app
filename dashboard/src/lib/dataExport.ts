@@ -7,10 +7,14 @@ import type {
   Tag,
   Todo,
 } from "../types/bookmark";
+import type { WebHighlight } from "../hooks/useHighlightsQuery";
+import type { WebHighlightPayload } from "./webHighlight";
 
-export type ExportCategory = "bookmarks" | "notes" | "todos" | "readspace";
+export type ExportCategory = "bookmarks" | "notes" | "todos" | "readspace" | "highlights";
 
-export type ExportSelection = Record<ExportCategory, boolean>;
+export type ExportSelection = Record<Exclude<ExportCategory, "highlights">, boolean> & {
+  highlights?: boolean;
+};
 
 export type ExportSourceData = {
   bookmarks: Bookmark[];
@@ -20,6 +24,7 @@ export type ExportSourceData = {
   notes: Note[];
   todos: Todo[];
   readspace: ReadspaceEntry[];
+  highlights: WebHighlight[];
 };
 
 export type ExportedCollection = {
@@ -79,6 +84,15 @@ export type ExportedTodo = ExportedEntry & {
   dueDate: string | null;
 };
 
+export type ExportedHighlight = {
+  id: string;
+  bookmarkId: string | null;
+  entryId: string | null;
+  payload: WebHighlightPayload;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type FavLockExport = {
   format: "favlock-export";
   version: 2;
@@ -93,6 +107,7 @@ export type FavLockExport = {
     notes?: ExportedEntry[];
     todos?: ExportedTodo[];
     readspace?: ExportedEntry[];
+    highlights?: ExportedHighlight[];
   };
 };
 
@@ -118,7 +133,7 @@ export function buildFavLockExport(
     version: 2,
     exportedAt: exportedAt.toISOString(),
     encrypted: false,
-    selection,
+    selection: { ...selection },
     data: {
       collections: source.folders.map((folder) => ({
         id: folder.id,
@@ -176,6 +191,18 @@ export function buildFavLockExport(
         : {}),
       ...(selection.readspace
         ? { readspace: source.readspace.map(mapEntry) }
+        : {}),
+      ...(selection.highlights
+        ? {
+            highlights: source.highlights.map((highlight) => ({
+              id: highlight.id,
+              bookmarkId: highlight.bookmarkId,
+              entryId: highlight.entryId,
+              payload: highlight.payload,
+              createdAt: highlight.createdAt,
+              updatedAt: highlight.updatedAt,
+            })),
+          }
         : {}),
     },
   };

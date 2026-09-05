@@ -63,6 +63,17 @@ describe("library cache revalidation scheduling", () => {
     stop();
   });
 
+  it("revalidates when a cached page is shown again", () => {
+    const revalidate = vi.fn();
+    const stop = startLibraryRevalidation(revalidate, { random: () => 0 });
+
+    window.dispatchEvent(new Event("pageshow"));
+    vi.advanceTimersByTime(LIBRARY_REVALIDATION_DEBOUNCE_MS);
+
+    expect(revalidate).toHaveBeenCalledOnce();
+    stop();
+  });
+
   it("removes listeners and pending timers when stopped", () => {
     const revalidate = vi.fn();
     const stop = startLibraryRevalidation(revalidate, { random: () => 0 });
@@ -74,6 +85,7 @@ describe("library cache revalidation scheduling", () => {
         LIBRARY_REVALIDATION_DEBOUNCE_MS,
     );
     window.dispatchEvent(new Event("focus"));
+    window.dispatchEvent(new Event("pageshow"));
     window.dispatchEvent(new Event("online"));
     document.dispatchEvent(new Event("visibilitychange"));
     vi.runOnlyPendingTimers();

@@ -5,6 +5,7 @@ import {
 } from "./authenticatedApi";
 import type { FavLockExport } from "./dataExport";
 import { encryptField, VERIFY_CONSTANT } from "./encryption";
+import { encryptWebHighlightPayload } from "./webHighlight";
 
 const MIGRATION_BATCH_ITEM_LIMIT = 500;
 const MIGRATION_BATCH_MAX_BYTES = 450_000;
@@ -63,6 +64,18 @@ export type EncryptedMigrationItem =
       isCompleted: boolean;
       completedAt: string | null;
       dueDate: string | null;
+      createdAt: string;
+      updatedAt: string;
+    }
+  | {
+      type: "highlight";
+      id: string;
+      bookmarkId: string | null;
+      entryId: string | null;
+      encryptedQuote: string;
+      encryptedAnchors: string;
+      encryptedAnnotation: string | null;
+      color: "yellow" | "green" | "blue" | "pink";
       createdAt: string;
       updatedAt: string;
     };
@@ -224,6 +237,25 @@ export async function prepareEncryptedMigrationItems(
     });
   }
   await addEntries(archive.data.readspace ?? [], "read");
+  for (const highlight of archive.data.highlights ?? []) {
+    const payload = await encryptWebHighlightPayload(highlight.payload, encryptField);
+    items.push({
+      type: "highlight",
+      id: crypto.randomUUID(),
+      bookmarkId: highlight.bookmarkId
+        ? mappedId(bookmarkIds, highlight.bookmarkId)
+        : null,
+      entryId: highlight.entryId
+        ? mappedId(entryIds, highlight.entryId)
+        : null,
+      encryptedQuote: payload.encryptedQuote,
+      encryptedAnchors: payload.encryptedAnchors,
+      encryptedAnnotation: payload.encryptedAnnotation,
+      color: payload.color,
+      createdAt: highlight.createdAt,
+      updatedAt: highlight.updatedAt,
+    });
+  }
   for (const list of archive.data.lists ?? []) {
     for (const item of list.items) {
       items.push({
@@ -253,6 +285,42 @@ export async function migrateFavLockArchive(
   accessToken: string,
   encryptionKey: CryptoKey,
   onProgress?: (completed: number, total: number) => void,
+  migrationId?: string,
+): Promise<void> {
+  return runFavLockArchiveMigration(
+    archive,
+    accessToken,
+    encryptionKey,
+    "replace_empty",
+    onProgress,
+    migrationId,
+  );
+}
+
+export async function mergeFavLockArchive(
+  archive: FavLockExport,
+  accessToken: string,
+  destinationKey: CryptoKey,
+  onProgress?: (completed: number, total: number) => void,
+  migrationId?: string,
+): Promise<void> {
+  return runFavLockArchiveMigration(
+    archive,
+    accessToken,
+    destinationKey,
+    "merge_existing",
+    onProgress,
+    migrationId,
+  );
+}
+
+async function runFavLockArchiveMigration(
+  archive: FavLockExport,
+  accessToken: string,
+  encryptionKey: CryptoKey,
+  mode: "replace_empty" | "merge_existing",
+  onProgress?: (completed: number, total: number) => void,
+  requestedMigrationId?: string,
 ): Promise<void> {
   const encryptWithMigratedKey = (value: string) =>
     encryptField(value, encryptionKey);
@@ -262,13 +330,17 @@ export async function migrateFavLockArchive(
   );
   const batches = batchEncryptedMigrationItems(items);
   const verifier = await encryptWithMigratedKey(VERIFY_CONSTANT);
-  const migrationId = crypto.randomUUID();
+  const migrationId = requestedMigrationId ?? crypto.randomUUID();
   let began = false;
   try {
     const begin = await postAuthenticatedJson(
       "/v1/account/migrations",
       accessToken,
-      { migrationId, expectedBatchCount: batches.length },
+      {
+        migrationId,
+        expectedBatchCount: batches.length,
+        ...(mode === "merge_existing" ? { mode } : {}),
+      },
       "Could not start the account migration.",
     );
     if (isStatus(begin, migrationId, "completed")) return;
@@ -287,10 +359,14 @@ export async function migrateFavLockArchive(
       onProgress?.(index + 1, batches.length);
     }
     const completed = await postAuthenticatedJson(
-      `/v1/account/migrations/${migrationId}/complete`,
+      mode === "merge_existing"
+        ? `/v1/account/migrations/${migrationId}/merge`
+        : `/v1/account/migrations/${migrationId}/complete`,
       accessToken,
-      { verifier },
-      "Could not complete the migration. Make sure this account has an empty library.",
+      mode === "merge_existing" ? {} : { verifier },
+      mode === "merge_existing"
+        ? "Could not merge the local vault. Check this account's available space."
+        : "Could not complete the migration. Make sure this account has an empty library.",
     );
     if (!isStatus(completed, migrationId, "completed")) {
       throw new Error("Could not confirm the completed migration.");

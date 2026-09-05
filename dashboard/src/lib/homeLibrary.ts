@@ -39,7 +39,7 @@ export function mergeHomeLibraryItems(
   articles: HomeReadspaceArticle[] = [],
 ): HomeLibraryItem[] {
   return [
-    ...bookmarks.map(
+    ...bookmarks.filter((bookmark) => !bookmark.is_highlight_source).map(
       (bookmark) =>
         ({
           kind: "bookmark",
