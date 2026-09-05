@@ -27,7 +27,7 @@ authentication, browser-message, dependency, and validation rules in
 Do not use a public issue or pull request to disclose an unpatched vulnerability.
 
 Dashboard signup, confirmation resend, and password-reset-email delivery send
-only bounded email-flow fields, the Turnstile token, and the browser-generated
+only bounded email-flow fields and the browser-generated
 S256 PKCE challenge through the FavLock API. The PKCE verifier stays in browser
 storage. The adapter must never forward the upstream API key, an arbitrary Auth
 path, or an absolute redirect chosen by untrusted input.

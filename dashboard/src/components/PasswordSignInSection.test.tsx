@@ -15,18 +15,6 @@ vi.mock("../lib/favLockAuth", () => ({
   favLockAuth: { signInWithPassword, updateUser },
 }));
 
-vi.mock("./CloudflareTurnstile", () => ({
-  default: ({
-    onVerify,
-  }: {
-    onVerify: (token: string | null) => void;
-  }) => (
-    <button type="button" onClick={() => onVerify("turnstile-token")}>
-      Complete security check
-    </button>
-  ),
-}));
-
 describe("PasswordSignInSection", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -134,12 +122,6 @@ describe("PasswordSignInSection", () => {
     fillInputs("old-secret", "new-secret", "new-secret");
 
     await act(async () => {
-      Array.from(container.querySelectorAll("button"))
-        .find((button) => button.textContent?.includes("Complete security"))!
-        .click();
-    });
-
-    await act(async () => {
       container.querySelector("form")!.dispatchEvent(
         new Event("submit", { bubbles: true, cancelable: true }),
       );
@@ -148,7 +130,6 @@ describe("PasswordSignInSection", () => {
     expect(signInWithPassword).toHaveBeenCalledWith({
       email: "ada@example.com",
       password: "old-secret",
-      options: { captchaToken: "turnstile-token" },
     });
     expect(updateUser).toHaveBeenCalledWith({
       password: "new-secret",
@@ -165,12 +146,6 @@ describe("PasswordSignInSection", () => {
     });
     await renderSection(true);
     fillInputs("wrong-secret", "new-secret", "new-secret");
-
-    await act(async () => {
-      Array.from(container.querySelectorAll("button"))
-        .find((button) => button.textContent?.includes("Complete security"))!
-        .click();
-    });
 
     await act(async () => {
       container.querySelector("form")!.dispatchEvent(

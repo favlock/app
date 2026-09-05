@@ -233,7 +233,7 @@ describe("authenticated API with the real session client", () => {
     await vi.waitFor(() => expect(callsFor(REFRESH_PATH)).toHaveLength(1));
     if (otherAccount) await client.signOut();
     const login = await client.signInWithPassword({
-      email: "test@example.com", password: "fake-test-password", options: { captchaToken: "fake-captcha" },
+      email: "test@example.com", password: "fake-test-password",
     });
     expect(login.error).toBeNull();
 

@@ -4,9 +4,6 @@ import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "./ui/button";
 import { Field, FieldGroup, Label } from "./ui/fieldset";
 import { Text } from "./ui/text";
-import CloudflareTurnstile, {
-  type CloudflareTurnstileHandle,
-} from "./CloudflareTurnstile";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 import PasswordInput from "./PasswordInput";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
@@ -25,11 +22,11 @@ export default function PasswordSignInSection({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const savingRef = useRef(false);
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (savingRef.current) return;
     setError(null);
     setSuccess(null);
 
@@ -50,48 +47,46 @@ export default function PasswordSignInSection({
       return;
     }
 
-    if (passwordExists && !captchaToken) {
-      setError("Complete the security verification before changing your password.");
-      return;
-    }
-
+    savingRef.current = true;
     setSaving(true);
+    try {
+      if (passwordExists) {
+        const { error: confirmationError } =
+          await favLockAuth.signInWithPassword({
+            email,
+            password: currentPassword,
+          });
 
-    if (passwordExists) {
-      const { error: confirmationError } =
-        await favLockAuth.signInWithPassword({
-          email,
-          password: currentPassword,
-          options: { captchaToken: captchaToken! },
-        });
-      captchaRef.current?.reset();
+        if (confirmationError) {
+          setError("Current password is incorrect.");
+          return;
+        }
+      }
 
-      if (confirmationError) {
-        setSaving(false);
-        setError("Current password is incorrect.");
+      const { error: updateError } = await favLockAuth.updateUser({
+        password,
+        ...(passwordExists ? { current_password: currentPassword } : {}),
+        data: { password_sign_in_enabled: true },
+      });
+
+      if (updateError) {
+        setError(updateError.message);
         return;
       }
+
+      setCurrentPassword("");
+      setPassword("");
+      setConfirmPassword("");
+      setPasswordExists(true);
+      setSuccess(
+        `Password saved. You can now sign in as ${email} with Google or your password.`,
+      );
+    } catch {
+      setError("The password could not be changed. Try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-
-    const { error: updateError } = await favLockAuth.updateUser({
-      password,
-      ...(passwordExists ? { current_password: currentPassword } : {}),
-      data: { password_sign_in_enabled: true },
-    });
-    setSaving(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-
-    setCurrentPassword("");
-    setPassword("");
-    setConfirmPassword("");
-    setPasswordExists(true);
-    setSuccess(
-      `Password saved. You can now sign in as ${email} with Google or your password.`,
-    );
   };
 
   return (
@@ -173,18 +168,10 @@ export default function PasswordSignInSection({
           </Field>
         </FieldGroup>
 
-        {passwordExists && (
-          <CloudflareTurnstile
-            ref={captchaRef}
-            action="confirm_password"
-            onVerify={setCaptchaToken}
-          />
-        )}
-
         <Button
           type="submit"
           color="emerald"
-          disabled={saving || (passwordExists && !captchaToken)}
+          disabled={saving}
           className="cursor-pointer"
         >
           {saving ? "Changing password..." : "Change password"}
