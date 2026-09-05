@@ -21,35 +21,35 @@ export type ColorConstant =
   | typeof COLOR_PURPLE
   | typeof COLOR_PINK;
 
-// Warm, slightly softened collection colors tuned to the app theme.
+// Pastel collection swatches. Stored color identifiers remain unchanged.
 export const COLOR_MAP: Record<ColorConstant, string> = {
   [COLOR_NONE]: "var(--app-line)",
-  [COLOR_RED]: "#d95763",
-  [COLOR_ORANGE]: "#e8833a",
-  [COLOR_YELLOW]: "#d6a832",
-  [COLOR_GREEN]: "#45a56b",
-  [COLOR_CYAN]: "#2fa9a1",
-  [COLOR_BLUE]: "#4f86c6",
-  [COLOR_PURPLE]: "#8b6bc8",
-  [COLOR_PINK]: "#d46aa0",
+  [COLOR_RED]: "#edbbc5",
+  [COLOR_ORANGE]: "#efc5ac",
+  [COLOR_YELLOW]: "#ead498",
+  [COLOR_GREEN]: "#b4d8bf",
+  [COLOR_CYAN]: "#add9d4",
+  [COLOR_BLUE]: "#b8d1ea",
+  [COLOR_PURPLE]: "#d0bde6",
+  [COLOR_PINK]: "#eac0d7",
 };
 
 export const COLLECTION_BADGE_COLOR_MAP = {
-  [COLOR_NONE]: "zinc",
-  [COLOR_RED]: "red",
-  [COLOR_ORANGE]: "orange",
-  [COLOR_YELLOW]: "yellow",
-  [COLOR_GREEN]: "green",
-  [COLOR_CYAN]: "cyan",
-  [COLOR_BLUE]: "blue",
-  [COLOR_PURPLE]: "purple",
-  [COLOR_PINK]: "pink",
+  [COLOR_NONE]: "collection-neutral",
+  [COLOR_RED]: "collection-red",
+  [COLOR_ORANGE]: "collection-orange",
+  [COLOR_YELLOW]: "collection-yellow",
+  [COLOR_GREEN]: "collection-green",
+  [COLOR_CYAN]: "collection-cyan",
+  [COLOR_BLUE]: "collection-blue",
+  [COLOR_PURPLE]: "collection-purple",
+  [COLOR_PINK]: "collection-pink",
 } as const;
 
 export function getCollectionBadgeColor(
   color: ColorConstant | null | undefined,
 ): (typeof COLLECTION_BADGE_COLOR_MAP)[ColorConstant] {
-  return color ? (COLLECTION_BADGE_COLOR_MAP[color] ?? "zinc") : "zinc";
+  return color ? (COLLECTION_BADGE_COLOR_MAP[color] ?? "collection-neutral") : "collection-neutral";
 }
 
 // Preset colors array
@@ -76,3 +76,15 @@ export function getDisplayColor(constant: ColorConstant | null | undefined): str
   const hex = getColorHex(constant);
   return hex || "#d1d5db";
 }
+
+export const COLLECTION_SURFACE_MAP: Record<ColorConstant, string> = {
+  NONE: "var(--app-reading)",
+  RED: "var(--app-rose)",
+  ORANGE: "var(--app-peach)",
+  YELLOW: "var(--app-butter)",
+  GREEN: "var(--app-green)",
+  CYAN: "var(--app-mint)",
+  BLUE: "var(--app-sky)",
+  PURPLE: "var(--app-lavender)",
+  PINK: "var(--app-pink)",
+};

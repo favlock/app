@@ -17,6 +17,7 @@ import { Input } from "../components/ui/input";
 import { Text } from "../components/ui/text";
 import {
   Check,
+  Cloud,
   Gauge,
   Menu,
   ShieldCheck,
@@ -37,6 +38,7 @@ import LocalPrivacySection from "../components/LocalPrivacySection";
 import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySection";
 import BookmarkDuplicateCleanupSection from "../components/BookmarkDuplicateCleanupSection";
 import BillingSection from "../components/BillingSection";
+import AppearancePreference from "../components/AppearancePreference";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
 import { hasPasswordSignIn } from "../lib/auth";
 
@@ -50,7 +52,7 @@ const SETTINGS_TABS: SettingsTab[] = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const location = useLocation();
   const navigate = useNavigate();
@@ -149,7 +151,7 @@ export default function Settings() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
-            Manage your profile, preferences, security, and account usage
+            Manage your library preferences, security, and usage
           </p>
         </div>
       </header>
@@ -159,7 +161,7 @@ export default function Settings() {
           <div
             role="tablist"
             aria-label="Settings sections"
-            className="inline-flex flex-wrap rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_65%,transparent)] p-1"
+            className="flex w-fit max-w-full flex-wrap gap-1 rounded-2xl border bg-[var(--app-highlight)]/50 p-1 backdrop-blur-md liquid-divider"
           >
             <button
               id="profile-tab"
@@ -172,13 +174,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "profile")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "profile"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <UserRound className="size-4" aria-hidden="true" />
+              <UserRound size={14} aria-hidden="true" />
               Profile
             </button>
             <button
@@ -192,13 +194,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "preferences")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "preferences"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <SlidersHorizontal className="size-4" aria-hidden="true" />
+              <SlidersHorizontal size={14} aria-hidden="true" />
               Preferences
             </button>
             <button
@@ -212,13 +214,13 @@ export default function Settings() {
               onKeyDown={(event) =>
                 selectTabFromKeyboard(event, "security")
               }
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "security"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <ShieldCheck className="size-4" aria-hidden="true" />
+              <ShieldCheck size={14} aria-hidden="true" />
               Security &amp; privacy
             </button>
             <button
@@ -230,13 +232,13 @@ export default function Settings() {
               tabIndex={activeTab === "usage" ? 0 : -1}
               onClick={() => selectTab("usage")}
               onKeyDown={(event) => selectTabFromKeyboard(event, "usage")}
-              className={`inline-flex min-h-9 items-center gap-2 rounded-lg px-3.5 text-sm font-medium transition-colors ${
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
                 activeTab === "usage"
-                  ? "bg-[var(--app-card)] liquid-ink shadow-sm"
-                  : "liquid-muted hover:text-[var(--app-ink)]"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
               }`}
             >
-              <Gauge className="size-4" aria-hidden="true" />
+              <Gauge size={14} aria-hidden="true" />
               Plan &amp; usage
             </button>
           </div>
@@ -248,7 +250,12 @@ export default function Settings() {
                 role="tabpanel"
                 aria-labelledby="profile-tab"
               >
-                {loading ? (
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Profile"
+                    description="Profile details belong to a synced FavLock account. Connect a free account to add your name and email."
+                  />
+                ) : loading ? (
                   <div className="space-y-4">
                     <div className="h-10 liquid-skeleton rounded-[1.05rem]" />
                     <div className="h-10 liquid-skeleton rounded-[1.05rem]" />
@@ -269,7 +276,7 @@ export default function Settings() {
                           className="rounded-xl bg-red-500/10 border border-red-500/30 px-4 py-3"
                           role="alert"
                         >
-                          <Text className="text-red-600!  text-sm">
+                          <Text className="text-red-600! dark:text-red-300!  text-sm">
                             {error}
                           </Text>
                         </div>
@@ -282,10 +289,10 @@ export default function Settings() {
                           aria-live="polite"
                         >
                           <Check
-                            className="w-4 h-4 text-emerald-600 "
+                            className="w-4 h-4 text-emerald-600 dark:text-emerald-300 "
                             aria-hidden="true"
                           />
-                          <Text className="text-emerald-600!  text-sm">
+                          <Text className="text-emerald-600! dark:text-emerald-300!  text-sm">
                             {success}
                           </Text>
                         </div>
@@ -324,7 +331,7 @@ export default function Settings() {
                             disabled
                             className="opacity-60 cursor-not-allowed"
                           />
-                          <Description className="text-sm text-gray-500 mt-1">
+                          <Description className="text-sm text-gray-500 dark:text-[var(--app-muted)] mt-1">
                             Email cannot be changed
                           </Description>
                         </Field>
@@ -355,6 +362,7 @@ export default function Settings() {
                 role="tabpanel"
                 aria-labelledby="preferences-tab"
               >
+                <AppearancePreference />
                 <BookmarkSearchShortcutPreference />
               </div>
             ) : activeTab === "security" ? (
@@ -366,13 +374,25 @@ export default function Settings() {
               >
                 <KeyTransferSection />
                 <PasskeySettingsSection />
-                {user ? (
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Password sign-in"
+                    description="Password sign-in is available for synced FavLock accounts. Your local vault continues to unlock with its passkey or recovery key."
+                  />
+                ) : user ? (
                   <PasswordSignInSection
                     email={user.email ?? ""}
                     hasPassword={hasPasswordSignIn(user)}
                   />
                 ) : null}
-                <SearchHistoryPrivacySection />
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Cloud search history"
+                    description="Encrypted search-history sync is available with a FavLock account. Local vault searches are not sent to FavLock."
+                  />
+                ) : (
+                  <SearchHistoryPrivacySection />
+                )}
                 <LocalPrivacySection />
               </div>
             ) : (
@@ -382,9 +402,16 @@ export default function Settings() {
                 aria-labelledby="usage-tab"
                 className="space-y-6"
               >
-                <BillingSection />
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Plan and billing"
+                    description="Subscriptions and billing belong to a synced FavLock account. Your local vault limits are shown below."
+                  />
+                ) : (
+                  <BillingSection />
+                )}
                 <div className="h-px bg-[color-mix(in_oklab,var(--app-line)_14%,transparent)]" />
-                <ResourceUsageSection />
+                <ResourceUsageSection localOnly={isLocalAccount} />
                 <BookmarkDuplicateCleanupSection />
               </div>
             )}
@@ -392,5 +419,31 @@ export default function Settings() {
         </div>
       </section>
     </div>
+  );
+}
+
+function CloudOnlySettingsSection({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <section
+      aria-disabled="true"
+      className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-gray-50/80 dark:bg-[var(--app-card)]/80 p-4 opacity-75 shadow-sm sm:p-5"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <Cloud className="size-4 text-gray-500 dark:text-[var(--app-muted)]" aria-hidden="true" />
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-[var(--app-ink)]">{title}</h3>
+        <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-xs font-semibold text-sky-700 dark:text-sky-300">
+          Cloud only
+        </span>
+      </div>
+      <p className="mt-2 max-w-xl text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
+        {description}
+      </p>
+    </section>
   );
 }

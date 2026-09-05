@@ -92,8 +92,8 @@ export default function SearchEnginePreferenceDialog({
                 disabled={updateSearchEngine.isPending}
                 className={`flex min-h-24 flex-col items-center justify-center gap-2 rounded-xl border px-3 py-4 text-sm font-semibold transition ${
                   isSelected
-                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_10%,white)] text-[var(--app-ink)] ring-2 ring-[var(--app-primary)]/20"
-                    : "border-zinc-950/10 bg-white text-zinc-700 hover:border-[var(--app-primary)]/45 hover:bg-zinc-50"
+                    ? "border-[var(--app-primary)] bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-highlight))] text-[var(--app-ink)] ring-2 ring-[var(--app-primary)]/20"
+                    : "border-zinc-950/10 dark:border-[var(--app-line)]/10 bg-[var(--app-highlight)] text-zinc-700 dark:text-[var(--app-ink)] hover:border-[var(--app-primary)]/45 hover:bg-zinc-50 hover:dark:bg-[var(--app-card)]"
                 } disabled:cursor-not-allowed disabled:opacity-60`}
               >
                 <img src={engine.logo} alt="" className="size-8" />
@@ -105,7 +105,7 @@ export default function SearchEnginePreferenceDialog({
 
         {saveError ? (
           <p
-            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600"
+            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             {saveError}

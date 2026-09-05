@@ -4,9 +4,6 @@ import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "./ui/button";
 import { Field, FieldGroup, Label } from "./ui/fieldset";
 import { Text } from "./ui/text";
-import CloudflareTurnstile, {
-  type CloudflareTurnstileHandle,
-} from "./CloudflareTurnstile";
 import PasswordStrengthMeter from "./PasswordStrengthMeter";
 import PasswordInput from "./PasswordInput";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
@@ -25,11 +22,11 @@ export default function PasswordSignInSection({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const savingRef = useRef(false);
 
   const handleSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (savingRef.current) return;
     setError(null);
     setSuccess(null);
 
@@ -50,52 +47,50 @@ export default function PasswordSignInSection({
       return;
     }
 
-    if (passwordExists && !captchaToken) {
-      setError("Complete the security verification before changing your password.");
-      return;
-    }
-
+    savingRef.current = true;
     setSaving(true);
+    try {
+      if (passwordExists) {
+        const { error: confirmationError } =
+          await favLockAuth.signInWithPassword({
+            email,
+            password: currentPassword,
+          });
 
-    if (passwordExists) {
-      const { error: confirmationError } =
-        await favLockAuth.signInWithPassword({
-          email,
-          password: currentPassword,
-          options: { captchaToken: captchaToken! },
-        });
-      captchaRef.current?.reset();
+        if (confirmationError) {
+          setError("Current password is incorrect.");
+          return;
+        }
+      }
 
-      if (confirmationError) {
-        setSaving(false);
-        setError("Current password is incorrect.");
+      const { error: updateError } = await favLockAuth.updateUser({
+        password,
+        ...(passwordExists ? { current_password: currentPassword } : {}),
+        data: { password_sign_in_enabled: true },
+      });
+
+      if (updateError) {
+        setError(updateError.message);
         return;
       }
+
+      setCurrentPassword("");
+      setPassword("");
+      setConfirmPassword("");
+      setPasswordExists(true);
+      setSuccess(
+        `Password saved. You can now sign in as ${email} with Google or your password.`,
+      );
+    } catch {
+      setError("The password could not be changed. Try again.");
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
     }
-
-    const { error: updateError } = await favLockAuth.updateUser({
-      password,
-      ...(passwordExists ? { current_password: currentPassword } : {}),
-      data: { password_sign_in_enabled: true },
-    });
-    setSaving(false);
-
-    if (updateError) {
-      setError(updateError.message);
-      return;
-    }
-
-    setCurrentPassword("");
-    setPassword("");
-    setConfirmPassword("");
-    setPasswordExists(true);
-    setSuccess(
-      `Password saved. You can now sign in as ${email} with Google or your password.`,
-    );
   };
 
   return (
-    <section className="rounded-2xl border border-gray-200/80 bg-white/80 p-4 shadow-sm sm:p-5">
+    <section className="rounded-2xl border border-gray-200/80 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)]/80 p-4 shadow-sm sm:p-5">
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>
           <h3 className="text-sm font-semibold liquid-ink">
@@ -113,7 +108,7 @@ export default function PasswordSignInSection({
             role="alert"
             className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3"
           >
-            <Text className="text-sm text-red-600!">{error}</Text>
+            <Text className="text-sm text-red-600! dark:text-red-300!">{error}</Text>
           </div>
         )}
 
@@ -123,10 +118,10 @@ export default function PasswordSignInSection({
             className="flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3"
           >
             <Check
-              className="h-4 w-4 shrink-0 text-emerald-600"
+              className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-300"
               aria-hidden="true"
             />
-            <Text className="text-sm text-emerald-600!">{success}</Text>
+            <Text className="text-sm text-emerald-600! dark:text-emerald-300!">{success}</Text>
           </div>
         )}
 
@@ -173,18 +168,10 @@ export default function PasswordSignInSection({
           </Field>
         </FieldGroup>
 
-        {passwordExists && (
-          <CloudflareTurnstile
-            ref={captchaRef}
-            action="confirm_password"
-            onVerify={setCaptchaToken}
-          />
-        )}
-
         <Button
           type="submit"
           color="emerald"
-          disabled={saving || (passwordExists && !captchaToken)}
+          disabled={saving}
           className="cursor-pointer"
         >
           {saving ? "Changing password..." : "Change password"}

@@ -4,11 +4,11 @@ import {
 } from "../lib/appUrls";
 
 const legalLinkClass =
-  "font-semibold text-emerald-700 underline decoration-emerald-700/25 underline-offset-2 hover:text-emerald-800";
+  "font-semibold text-emerald-700 dark:text-emerald-300 underline decoration-emerald-700/25 underline-offset-2 hover:text-emerald-800 hover:dark:text-emerald-200";
 
 export function GoogleAccountDataNotice() {
   return (
-    <p className="mt-3 rounded-lg border border-[#1d2230]/10 bg-[#fffdf5]/70 px-3 py-2.5 text-xs leading-5 text-[#606674]">
+    <p className="mt-3 rounded-lg border border-[var(--app-ink)]/10 bg-[#fffdf5]/70 px-3 py-2.5 text-xs leading-5 text-[#606674]">
       <strong className="font-semibold text-[#343945]">
         Google account data:
       </strong>{" "}
@@ -30,7 +30,7 @@ export function GoogleAccountDataNotice() {
 
 export function AuthLegalNotice() {
   return (
-    <p className="mt-5 text-center text-xs leading-5 text-[#686d78]">
+    <p className="mt-5 text-center text-xs leading-5 text-[var(--app-muted)]">
       By continuing, you agree to the{" "}
       <a
         href={WEB_TERMS_URL}

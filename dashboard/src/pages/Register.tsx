@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -7,7 +8,7 @@ import {
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Description } from "@headlessui/react";
-import { ArrowLeft, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
+import { ArrowLeft, HardDrive, LogIn, Mail, MailCheck, UserPlus } from "lucide-react";
 import { favLockAuth } from "../lib/favLockAuth";
 import { Button } from "../components/ui/button";
 import { ErrorMessage, Field, FieldGroup, Label } from "../components/ui/fieldset";
@@ -20,9 +21,6 @@ import GoogleAuthButton from "../components/GoogleAuthButton";
 import { AuthLegalNotice } from "../components/AuthDataNotice";
 import PasswordInput from "../components/PasswordInput";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
-import CloudflareTurnstile, {
-  type CloudflareTurnstileHandle,
-} from "../components/CloudflareTurnstile";
 import {
   buildAuthPath,
   getAuthMode,
@@ -33,6 +31,7 @@ import {
 import { WEB_TERMS_URL } from "../lib/appUrls";
 import { MIN_PASSWORD_LENGTH } from "../lib/passwordPolicy";
 import { isPasswordRecoveryRedirectUrl } from "../lib/authRecovery";
+import { clearLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 
 const SUPPORT_EMAIL = "support@favlock.app";
 const DISPOSABLE_EMAIL_TERMS_URL = `${WEB_TERMS_URL}#disposable-email-addresses`;
@@ -50,7 +49,7 @@ function AuthErrorNotice({ message }: { message: string }) {
       role="alert"
       id="email-auth-error"
     >
-      <Text className="text-sm text-red-600!">
+      <Text className="text-sm text-red-600! dark:text-red-300!">
         {isDisposableEmailError ? (
           <>
             Disposable email addresses are not allowed for new FavLock
@@ -91,7 +90,6 @@ function EmailConfirmation({
   onUseDifferentEmail: () => void;
   onBackToSignIn: () => void;
 }) {
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [resending, setResending] = useState(false);
   const [resendError, setResendError] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
@@ -101,7 +99,6 @@ function EmailConfirmation({
   const remainingSeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
   const resendingRef = useRef(false);
   const panelRef = useRef<HTMLDivElement>(null);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
 
   useEffect(() => { panelRef.current?.focus(); }, []);
   useEffect(() => {
@@ -117,13 +114,6 @@ function EmailConfirmation({
       setResendError("Enter the email address you used to sign up.");
       return;
     }
-    if (!captchaToken) {
-      setResendError(
-        "Complete the security verification before requesting another email.",
-      );
-      return;
-    }
-
     resendingRef.current = true;
     setResending(true);
     setResendError(null);
@@ -135,7 +125,7 @@ function EmailConfirmation({
       const { error } = await favLockAuth.resend({
         type: "signup",
         email: normalizedEmail,
-        options: { captchaToken, emailRedirectTo },
+        options: { emailRedirectTo },
       });
       if (error) {
         setResendError("code" in error && error.code === "rate_limited"
@@ -147,8 +137,6 @@ function EmailConfirmation({
     } catch {
       setResendError("We could not confirm the request. Check your inbox before trying again.");
     } finally {
-      captchaRef.current?.reset();
-      setCaptchaToken(null);
       resendingRef.current = false;
       setResending(false);
     }
@@ -156,30 +144,30 @@ function EmailConfirmation({
 
   return (
     <div ref={panelRef} tabIndex={-1} aria-labelledby="confirmation-heading" className="w-full text-center outline-none">
-      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-emerald-700/20 bg-emerald-500/12 text-emerald-700 shadow-[0_4px_0_rgba(15,118,110,0.12)]">
+      <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] text-[var(--app-primary)]">
         <MailCheck className="size-7" aria-hidden="true" />
       </div>
 
       <Heading id="confirmation-heading" className="mt-5">{initiallySent || resent ? "Check your inbox" : "Confirm your email"}</Heading>
       <Text className="mt-2">{initiallySent ? "Your signup request was accepted. Check for a confirmation email at" : "Request a new link for the email you used to sign up."}</Text>
-      {email && <p className="mt-1 break-all text-sm font-bold text-[#202229]">{email}</p>}
+      {email && <p className="mt-1 break-all text-sm font-bold text-[var(--app-ink)]">{email}</p>}
 
-      <div className="mt-5 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 px-4 py-3 text-left">
-        <p className="text-sm font-semibold text-[#202229]">
+      <div className="mt-5 rounded-2xl border border-[var(--app-sky-border)] bg-[var(--app-sky)] px-4 py-3 text-left">
+        <p className="text-sm font-semibold text-[var(--app-ink)]">
           Confirm your email to finish signing up
         </p>
-        <p className="mt-1 text-sm leading-5 text-[#555b6b]">
+        <p className="mt-1 text-sm leading-5 text-[var(--app-muted)]">
           You are not signed in yet. Open the latest confirmation link in this
           browser and profile to continue. Check your spam folder too.
         </p>
-        <p className="mt-2 text-sm leading-5 text-[#555b6b]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
+        <p className="mt-2 text-sm leading-5 text-[var(--app-muted)]">Opened it on another device, or already confirmed? Go back to sign in with your email and password. If confirmation is still needed, request a new link here.</p>
       </div>
 
-      <div className="mt-5 border-t border-[#1d2230]/10 pt-5 text-left">
-        <p className="text-sm font-semibold text-[#202229]">
+      <div className="mt-5 border-t border-[var(--app-ink)]/10 pt-5 text-left">
+        <p className="text-sm font-semibold text-[var(--app-ink)]">
           Didn’t receive it?
         </p>
-        <p className="mt-1 text-sm leading-5 text-[#555b6b]">
+        <p className="mt-1 text-sm leading-5 text-[var(--app-muted)]">
           If the link expired, request a new one below. Wait at least 60 seconds
           between requests; the email service may apply longer limits.
         </p>
@@ -193,13 +181,13 @@ function EmailConfirmation({
             className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3"
             role="alert"
           >
-            <Text className="text-sm text-red-600!">{resendError}</Text>
+            <Text className="text-sm text-red-600! dark:text-red-300!">{resendError}</Text>
           </div>
         )}
 
         {resent && (
           <div
-            className="mt-3 rounded-lg border border-emerald-600/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800"
+            className="mt-3 rounded-lg border border-emerald-600/25 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-800 dark:text-emerald-200"
             role="status"
             aria-live="polite"
           >
@@ -207,16 +195,11 @@ function EmailConfirmation({
           </div>
         )}
 
-        <CloudflareTurnstile
-          ref={captchaRef}
-          action="resend-signup-confirmation"
-          onVerify={setCaptchaToken}
-        />
         <Button
           type="button"
           outline
           className="mt-3 w-full"
-          disabled={resending || !captchaToken || remainingSeconds > 0}
+          disabled={resending || remainingSeconds > 0}
           onClick={() => void handleResend()}
         >
           <Mail data-slot="icon" aria-hidden="true" />
@@ -227,18 +210,18 @@ function EmailConfirmation({
       <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
         <button
           type="button"
-          className="font-medium text-emerald-700 hover:underline"
+          className="font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
           onClick={onUseDifferentEmail}
           disabled={resending}
         >
           Use a different email
         </button>
-        <span className="text-[#1d2230]/20" aria-hidden="true">
+        <span className="text-[var(--app-ink)]/20" aria-hidden="true">
           •
         </span>
         <button
           type="button"
-          className="font-medium text-emerald-700 hover:underline"
+          className="font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
           onClick={onBackToSignIn}
           disabled={resending}
         >
@@ -253,7 +236,15 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const reconnecting = searchParams.get("reconnect") === "1";
+  const mergingLocalVault = searchParams.get("merge") === "1";
   const requestingConfirmation = searchParams.get("confirmation") === "1";
+  const localFlags = searchParams.getAll("local");
+  const showLocalOption = localFlags.length === 1 && localFlags[0] === "1";
+  const autoStartLocal =
+    localFlags.length === 1 &&
+    localFlags[0] === "auto" &&
+    !reconnecting &&
+    !requestingConfirmation;
   const nextPath = getPostAuthPath(searchParams);
   const emailRedirectTo = getDashboardRedirectUrl(nextPath);
   const [email, setEmail] = useState("");
@@ -263,12 +254,12 @@ export default function AuthPage() {
   const [invalidField, setInvalidField] = useState<"email" | "password" | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(
     null,
   );
   const [confirmationSent, setConfirmationSent] = useState(false);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const emailSubmissionRef = useRef(false);
+  const localAutoStartRef = useRef(false);
 
   useEffect(() => {
     setError(null);
@@ -276,8 +267,6 @@ export default function AuthPage() {
     setInvalidField(null);
     setConfirmationEmail(null);
     setConfirmationSent(false);
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
   }, [emailMode, requestingConfirmation]);
 
   useEffect(() => {
@@ -292,21 +281,20 @@ export default function AuthPage() {
 
   }, [navigate]);
 
-  const resetCaptcha = () => {
-    captchaRef.current?.reset();
-    setCaptchaToken(null);
-  };
-
   const switchEmailMode = (mode: AuthMode) => {
-    if (mode === emailMode || (reconnecting && mode === "sign-up")) return;
-    navigate(buildAuthPath("/login", nextPath, { mode, reconnect: reconnecting }));
+    if (mode === emailMode || (reconnecting && !mergingLocalVault && mode === "sign-up")) return;
+    navigate(buildAuthPath("/login", nextPath, {
+      mode,
+      reconnect: reconnecting,
+      merge: mergingLocalVault,
+    }));
   };
 
   const selectEmailModeFromKeyboard = (
     event: KeyboardEvent<HTMLButtonElement>,
     currentMode: AuthMode,
   ) => {
-    if (reconnecting) return;
+    if (reconnecting && !mergingLocalVault) return;
     if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) {
       return;
     }
@@ -330,7 +318,7 @@ export default function AuthPage() {
 
   const handleEmailSubmit = async (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (loading) return;
+    if (emailSubmissionRef.current) return;
     setError(null);
     setInvalidField(null);
 
@@ -370,67 +358,115 @@ export default function AuthPage() {
       return;
     }
 
-    if (!captchaToken) {
-      setError(
-        emailMode === "sign-up"
-          ? "Complete the security verification before creating an account."
-          : "Complete the security verification before signing in.",
-      );
-      return;
-    }
-
+    emailSubmissionRef.current = true;
     setLoading(true);
 
-    if (emailMode === "sign-in") {
-      const { error: signInError } = await favLockAuth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-        options: { captchaToken },
-      });
-      resetCaptcha();
+    try {
+      if (emailMode === "sign-in") {
+        const { error: signInError } = await favLockAuth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
 
-      if (signInError) {
-        if ("code" in signInError && signInError.code === "email_not_confirmed") {
-          setPassword("");
-          setConfirmationSent(false);
-          setConfirmationEmail(normalizedEmail);
+        if (signInError) {
+          if ("code" in signInError && signInError.code === "email_not_confirmed") {
+            setPassword("");
+            setConfirmationSent(false);
+            setConfirmationEmail(normalizedEmail);
+          }
+          setError(signInError.message);
+          return;
         }
-        setError(signInError.message);
-        setLoading(false);
+
+        navigate(nextPath);
         return;
       }
 
+      const { data, error: signUpError } = await favLockAuth.signUp({
+        email: normalizedEmail,
+        password,
+        options: {
+          emailRedirectTo,
+        },
+      });
+
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+
+      if (data.session) {
+        navigate(nextPath);
+        return;
+      }
+
+      setPassword("");
+      setConfirmationSent(true);
+      setConfirmationEmail(normalizedEmail);
+    } catch {
+      setError("Authentication is temporarily unavailable.");
+    } finally {
+      emailSubmissionRef.current = false;
       setLoading(false);
-      navigate(nextPath);
-      return;
     }
-
-    const { data, error: signUpError } = await favLockAuth.signUp({
-      email: normalizedEmail,
-      password,
-      options: {
-        captchaToken,
-        emailRedirectTo,
-      },
-    });
-    resetCaptcha();
-
-    if (signUpError) {
-      setError(signUpError.message);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(false);
-    if (data.session) {
-      navigate(nextPath);
-      return;
-    }
-
-    setPassword("");
-    setConfirmationSent(true);
-    setConfirmationEmail(normalizedEmail);
   };
+
+  const createLocalVault = useCallback(async (replace = false) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const { error: localError } = await favLockAuth.createLocalAccount();
+      if (localError) {
+        setError(localError.message);
+        setLoading(false);
+        return;
+      }
+      navigate(nextPath, { replace });
+    } catch {
+      setError("Could not create the local vault. Try again.");
+      setLoading(false);
+    }
+  }, [navigate, nextPath]);
+
+  useEffect(() => {
+    if (!autoStartLocal || localAutoStartRef.current) return;
+    localAutoStartRef.current = true;
+    void createLocalVault(true);
+  }, [autoStartLocal, createLocalVault]);
+
+  if (autoStartLocal) {
+    return (
+      <AuthLayout>
+        <div className="w-full text-center" role="status" aria-live="polite">
+          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-700 dark:text-emerald-300">
+            <HardDrive className={loading ? "animate-pulse" : ""} aria-hidden="true" />
+          </span>
+          <Heading className="mt-4">
+            {error ? "Could not start FavLock locally" : "Starting FavLock locally"}
+          </Heading>
+          <Text className="mt-2">
+            {error
+              ? "Your local vault was not created. You can safely try again."
+              : "Creating an encrypted vault in this browser…"}
+          </Text>
+          {error ? (
+            <>
+              <AuthErrorNotice message={error} />
+              <Button
+                type="button"
+                color="emerald"
+                className="mt-5 w-full"
+                disabled={loading}
+                onClick={() => void createLocalVault(true)}
+              >
+                Try again
+              </Button>
+            </>
+          ) : null}
+        </div>
+      </AuthLayout>
+    );
+  }
 
   if (confirmationEmail || requestingConfirmation) {
     return (
@@ -443,15 +479,13 @@ export default function AuthPage() {
             setConfirmationEmail(null);
             setEmail("");
             setError(null);
-            resetCaptcha();
-            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting ? "sign-in" : "sign-up", reconnect: reconnecting }));
+            navigate(buildAuthPath("/login", nextPath, { mode: reconnecting && !mergingLocalVault ? "sign-in" : "sign-up", reconnect: reconnecting, merge: mergingLocalVault }));
           }}
           onBackToSignIn={() => {
             setConfirmationEmail(null);
-            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting }));
+            navigate(buildAuthPath("/login", nextPath, { reconnect: reconnecting, merge: mergingLocalVault }));
             setShowEmailForm(true);
             setError(null);
-            resetCaptcha();
           }}
         />
       </AuthLayout>
@@ -459,12 +493,16 @@ export default function AuthPage() {
   }
 
   const heading = !showEmailForm
-    ? emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
+    ? mergingLocalVault
+      ? "Sync your local vault"
+      : emailMode === "sign-up" ? "Create your account" : "Welcome to FavLock"
     : emailMode === "sign-up"
       ? "Create account"
       : "Sign in with email";
   const description = !showEmailForm
-    ? emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
+    ? mergingLocalVault
+      ? "Create a free account or sign in to an existing one"
+      : emailMode === "sign-up" ? "Choose how you want to create your account" : "Choose how you want to continue"
     : emailMode === "sign-up"
       ? "Create your account using a permanent email address"
       : "Enter your FavLock account details";
@@ -474,7 +512,23 @@ export default function AuthPage() {
       <div className="w-full">
         <Heading>{heading}</Heading>
         <Text className="mt-1">{description}</Text>
-        {reconnecting && <Text className="mt-3">Reconnect to the original account to use cloud services. Your local library stays on this device. <Link className="underline" to="/">Back to local library</Link></Text>}
+        {reconnecting && (
+          <Text className="mt-3">
+            {mergingLocalVault
+              ? "Sign in or create a free account to sync this encrypted local vault. Existing cloud items will be kept."
+              : "Reconnect to the original account to use cloud services. Your local library stays on this device."}{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (mergingLocalVault) clearLocalVaultCloudMerge();
+                navigate("/");
+              }}
+            >
+              Back to local library
+            </button>
+          </Text>
+        )}
 
         {error && !invalidField && <AuthErrorNotice message={error} />}
 
@@ -487,16 +541,15 @@ export default function AuthPage() {
               onClick={() => {
                 setError(null);
                 setInvalidField(null);
-                resetCaptcha();
                 setShowEmailForm(true);
               }}
             >
               Continue with email
             </Button>
             <div className="my-5 flex items-center gap-4 text-sm text-[var(--app-muted)]" aria-hidden="true">
-              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span className="h-px flex-1 bg-[color-mix(in_oklab,var(--app-line)_16%,transparent)]" />
               <span>or</span>
-              <span className="h-px flex-1 bg-[var(--app-border)]" />
+              <span className="h-px flex-1 bg-[color-mix(in_oklab,var(--app-line)_16%,transparent)]" />
             </div>
             <div className="space-y-3">
               <GoogleAuthButton
@@ -508,6 +561,34 @@ export default function AuthPage() {
                 redirectTo={emailRedirectTo}
               />
             </div>
+            {!reconnecting && showLocalOption && (
+              <section
+                aria-labelledby="local-vault-heading"
+                className="mt-6 rounded-2xl border border-[var(--app-butter-border)] bg-[var(--app-butter)] p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[var(--app-butter-border)] bg-[var(--app-reading)] text-[var(--app-primary)]">
+                    <HardDrive className="size-5" aria-hidden="true" />
+                  </span>
+                  <h2 id="local-vault-heading" className="text-sm font-semibold text-[var(--app-ink)]">
+                    Start without an account
+                  </h2>
+                </div>
+                <p id="local-vault-description" className="mt-3 text-sm leading-6 text-[var(--app-muted)]">
+                  Encrypted and stored only in this browser. No account or cloud connection.
+                </p>
+                <Button
+                  type="button"
+                  outline
+                  className="mt-4 min-h-12 w-full rounded-full!"
+                  aria-describedby="local-vault-description"
+                  disabled={loading}
+                  onClick={() => void createLocalVault()}
+                >
+                  {loading ? "Creating local vault..." : "Try FavLock locally"}
+                </Button>
+              </section>
+            )}
           </div>
         ) : (
           <div className="mt-4">
@@ -518,7 +599,6 @@ export default function AuthPage() {
               onClick={() => {
                 setError(null);
                 setInvalidField(null);
-                resetCaptcha();
                 setShowEmailForm(false);
               }}
             >
@@ -529,7 +609,7 @@ export default function AuthPage() {
             <div
               role="tablist"
               aria-label="Email authentication"
-              className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-[#1d2230]/10 bg-[#fffdf5]/70 p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]"
+              className="auth-email-tabs mb-5 grid grid-cols-2 gap-1 rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-reading)] p-1"
             >
               <button
                 id="email-sign-in-tab"
@@ -544,7 +624,7 @@ export default function AuthPage() {
                 }
                 className={`theme-nav-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold ${
                   emailMode === "sign-in"
-                    ? "theme-nav-button-active shadow-sm"
+                    ? "theme-nav-button-active"
                     : ""
                 }`}
               >
@@ -553,7 +633,7 @@ export default function AuthPage() {
               </button>
               <button
                 id="email-sign-up-tab"
-                disabled={reconnecting}
+                disabled={reconnecting && !mergingLocalVault}
                 type="button"
                 role="tab"
                 aria-selected={emailMode === "sign-up"}
@@ -565,7 +645,7 @@ export default function AuthPage() {
                 }
                 className={`theme-nav-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-sm font-semibold ${
                   emailMode === "sign-up"
-                    ? "theme-nav-button-active shadow-sm"
+                    ? "theme-nav-button-active"
                     : ""
                 }`}
               >
@@ -633,17 +713,17 @@ export default function AuthPage() {
                   </Field>
                 </FieldGroup>
 
-                <CloudflareTurnstile
-                  ref={captchaRef}
-                  action={emailMode === "sign-up" ? "register" : "login"}
-                  onVerify={setCaptchaToken}
-                />
-
                 <Button
                   type="submit"
                   color="emerald"
                   className="mt-6 w-full"
-                  disabled={loading || !captchaToken}
+                  disabled={
+                    loading ||
+                    !email.trim() ||
+                    !password ||
+                    (emailMode === "sign-up" &&
+                      password.length < MIN_PASSWORD_LENGTH)
+                  }
                 >
                   {loading
                     ? emailMode === "sign-up"
@@ -659,7 +739,7 @@ export default function AuthPage() {
                 <Text className="mt-4 text-center">
                   <Link
                     to="/reset-password"
-                    className="font-medium text-emerald-600 hover:underline"
+                    className="font-medium text-[var(--app-primary)] hover:underline"
                   >
                     Forgot password?
                   </Link>
@@ -669,12 +749,12 @@ export default function AuthPage() {
           </div>
         )}
 
-        {!reconnecting && (
+        {(!reconnecting || mergingLocalVault) && (
           <Text className="mt-5 text-center">
             {emailMode === "sign-up" ? "Already have an account? " : "New to FavLock? "}
             <Link
-              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up" })}
-              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              to={buildAuthPath("/login", nextPath, { mode: emailMode === "sign-up" ? "sign-in" : "sign-up", reconnect: reconnecting, merge: mergingLocalVault })}
+              className="inline-flex min-h-11 items-center rounded font-medium text-emerald-700 dark:text-emerald-300 underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
             >
               {emailMode === "sign-up" ? "Sign in" : "Create account"}
             </Link>
@@ -684,7 +764,7 @@ export default function AuthPage() {
         {!reconnecting && (
           <p className="mt-2 text-center text-xs leading-5">
             <Link
-              className="inline-flex min-h-11 items-center rounded px-2 text-[#686d78] underline decoration-[#686d78]/30 underline-offset-2 hover:text-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
+              className="inline-flex min-h-11 items-center rounded px-2 text-[var(--app-muted)] underline decoration-[var(--app-muted)]/30 underline-offset-2 hover:text-emerald-700 hover:dark:text-emerald-300 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-emerald-600"
               to={`${buildAuthPath("/login", nextPath)}${nextPath === "/" ? "?" : "&"}confirmation=1`}
             >
               Need another confirmation email?

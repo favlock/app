@@ -3,7 +3,6 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { AuthProvider } from "./context/AuthContext";
-import { ThemeProvider } from "./context/ThemeContext";
 import { EncryptionProvider } from "./context/EncryptionContext";
 import UnlockDialog from "./components/UnlockDialog";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -24,6 +23,7 @@ const Readspace = lazy(() => import("./pages/Readspace"));
 const Lists = lazy(() => import("./pages/Lists"));
 const Trash = lazy(() => import("./pages/Trash"));
 const Settings = lazy(() => import("./pages/Settings"));
+const DataTransfer = lazy(() => import("./pages/DataTransfer"));
 const Support = lazy(() => import("./pages/Support"));
 const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
 
@@ -34,7 +34,7 @@ function RouteFallback() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center bg-[#f7fafc] text-sm font-medium text-[#4f5566]"
+      className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] text-sm font-medium text-[var(--app-muted)]"
       role="status"
       aria-live="polite"
     >
@@ -55,80 +55,79 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <EncryptionProvider>
         <AuthProvider>
-          <ThemeProvider>
-            <BrowserRouter>
-              <Suspense fallback={<RouteFallback />}>
-                <AuthCallbackBoundary>
-                <Routes>
+          <BrowserRouter>
+            <Suspense fallback={<RouteFallback />}>
+              <AuthCallbackBoundary>
+              <Routes>
+                <Route
+                  path="/login"
+                  element={
+                    <PublicOnlyRoute>
+                      <AuthPage />
+                    </PublicOnlyRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={<RegisterRedirect />}
+                />
+                <Route path="/reset-password" element={<ResetPassword />} />
+                <Route
+                  path="/extension/pair"
+                  element={
+                    <ProtectedRoute>
+                      <ExtensionPair />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/checkout"
+                  element={
+                    <ProtectedRoute>
+                      <ProCheckout />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  element={
+                    <ProtectedRoute>
+                      <>
+                        <UnlockDialog />
+                        <EncryptionSetup />
+                        <DashboardLayout />
+                      </>
+                    </ProtectedRoute>
+                  }
+                >
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/c/:collectionSlug" element={<Dashboard />} />
+                  <Route path="/t/:tagSlug" element={<Dashboard />} />
+                  <Route path="/favorites" element={<Dashboard />} />
+                  <Route path="/unsorted" element={<Dashboard />} />
+                  <Route path="/write" element={<Notes />} />
+                  <Route path="/notes" element={<LegacyNotesRedirect />} />
+                  <Route path="/tasks" element={<Tasks />} />
                   <Route
-                    path="/login"
+                    path="/todos"
                     element={
-                      <PublicOnlyRoute>
-                        <AuthPage />
-                      </PublicOnlyRoute>
+                      <Navigate
+                        to={`/tasks${window.location.search}${window.location.hash}`}
+                        replace
+                      />
                     }
                   />
-                  <Route
-                    path="/register"
-                    element={<RegisterRedirect />}
-                  />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route
-                    path="/extension/pair"
-                    element={
-                      <ProtectedRoute>
-                        <ExtensionPair />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/checkout"
-                    element={
-                      <ProtectedRoute>
-                        <ProCheckout />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    element={
-                      <ProtectedRoute>
-                        <>
-                          <UnlockDialog />
-                          <EncryptionSetup />
-                          <DashboardLayout />
-                        </>
-                      </ProtectedRoute>
-                    }
-                  >
-                    <Route path="/" element={<Dashboard />} />
-                    <Route path="/c/:collectionSlug" element={<Dashboard />} />
-                    <Route path="/t/:tagSlug" element={<Dashboard />} />
-                    <Route path="/favorites" element={<Dashboard />} />
-                    <Route path="/unsorted" element={<Dashboard />} />
-                    <Route path="/write" element={<Notes />} />
-                    <Route path="/notes" element={<LegacyNotesRedirect />} />
-                    <Route path="/tasks" element={<Tasks />} />
-                    <Route
-                      path="/todos"
-                      element={
-                        <Navigate
-                          to={`/tasks${window.location.search}${window.location.hash}`}
-                          replace
-                        />
-                      }
-                    />
-                    <Route path="/readspace" element={<Readspace />} />
-                    <Route path="/lists" element={<Lists />} />
-                    <Route path="/trash" element={<Trash />} />
-                    <Route path="/support" element={<Support />} />
-                    <Route path="settings" element={<Settings />} />
-                  </Route>
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </Routes>
-                </AuthCallbackBoundary>
-              </Suspense>
-            </BrowserRouter>
-          </ThemeProvider>
+                  <Route path="/readspace" element={<Readspace />} />
+                  <Route path="/lists" element={<Lists />} />
+                  <Route path="/trash" element={<Trash />} />
+                  <Route path="/support" element={<Support />} />
+                  <Route path="/data-transfer" element={<DataTransfer />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+              </AuthCallbackBoundary>
+            </Suspense>
+          </BrowserRouter>
         </AuthProvider>
       </EncryptionProvider>
     </QueryClientProvider>

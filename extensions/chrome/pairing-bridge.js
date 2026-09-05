@@ -10,12 +10,12 @@ window.addEventListener("message", (event) => {
     request?.type !== PAIR_REQUEST_TYPE ||
     request.extensionId !== chrome.runtime.id ||
     typeof request.requestId !== "string" ||
+    typeof request.userId !== "string" ||
     (request.pairingAttempt !== undefined &&
       typeof request.pairingAttempt !== "string") ||
-    typeof request.userId !== "string" ||
     typeof request.rawKey !== "string" ||
-    (request.sessionTokenHash !== undefined &&
-      typeof request.sessionTokenHash !== "string")
+    typeof request.sessionTokenHash !== "string" ||
+    !request.sessionTokenHash
   ) {
     return;
   }
@@ -28,9 +28,7 @@ window.addEventListener("message", (event) => {
         : {}),
       userId: request.userId,
       rawKey: request.rawKey,
-      ...(request.sessionTokenHash
-        ? { sessionTokenHash: request.sessionTokenHash }
-        : {}),
+      sessionTokenHash: request.sessionTokenHash,
     })
     .then((response) => {
       window.postMessage(

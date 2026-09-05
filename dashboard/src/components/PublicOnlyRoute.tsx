@@ -13,7 +13,7 @@ export default function PublicOnlyRoute({
   if (loading) {
     return (
       <div
-        className="flex min-h-screen items-center justify-center bg-[#f7fafc] text-sm font-medium text-[#4f5566]"
+        className="flex min-h-screen items-center justify-center bg-[var(--app-bg)] text-sm font-medium text-[var(--app-muted)]"
         role="status"
         aria-live="polite"
       >
@@ -22,8 +22,9 @@ export default function PublicOnlyRoute({
     );
   }
 
+  const loginParams = new URLSearchParams(location.search);
   const reconnecting = location.pathname === "/login" &&
-    new URLSearchParams(location.search).get("reconnect") === "1" && cloudStatus !== "available";
+    loginParams.get("reconnect") === "1" && cloudStatus !== "available";
   if (user && !reconnecting) {
     return (
       <Navigate

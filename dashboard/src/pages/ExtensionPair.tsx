@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { KeyRound, Upload } from "lucide-react";
-import { Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
 import { exportRawKey, normalizeRawKey } from "../lib/encryption";
@@ -11,6 +11,7 @@ import {
 } from "../lib/extensionPairing";
 import { buildAuthPath } from "../lib/authNavigation";
 import { createExtensionSessionToken } from "../lib/extensionSession";
+import { startLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 import {
   loadPasskeyEncryptionRecord,
   type PasskeyEncryptionRecord,
@@ -25,7 +26,8 @@ import { AuthLayout } from "../components/ui/auth-layout";
 export default function ExtensionPair() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { session, user } = useAuth();
+  const navigate = useNavigate();
+  const { session, user, isLocalAccount } = useAuth();
   const { cryptoKey, setRawKey } = useEncryption();
   const [rawKeyInput, setRawKeyInput] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -52,14 +54,16 @@ export default function ExtensionPair() {
   );
 
   useEffect(() => {
-    if (!user?.id || !session?.access_token || cryptoKey || connected) {
+    if (!user?.id || isLocalAccount || cryptoKey || connected) {
       setPasskeyRecord(null);
       return;
     }
 
     let active = true;
     setCheckingPasskey(true);
-    void loadPasskeyEncryptionRecord(session.access_token)
+    void (session?.access_token
+      ? loadPasskeyEncryptionRecord(session.access_token)
+      : Promise.resolve(null))
       .then((record) => {
         if (active) setPasskeyRecord(record);
       })
@@ -74,10 +78,10 @@ export default function ExtensionPair() {
     return () => {
       active = false;
     };
-  }, [connected, cryptoKey, session?.access_token, user?.id]);
+  }, [connected, cryptoKey, isLocalAccount, session?.access_token, user?.id]);
 
   const connect = useCallback(async (providedRawKey?: string) => {
-    if (!user || !validExtensionId || connecting) return;
+    if (!user || isLocalAccount || !validExtensionId || connecting) return;
     setConnecting(true);
     setError(null);
     try {
@@ -115,11 +119,12 @@ export default function ExtensionPair() {
     } finally {
       setConnecting(false);
     }
-  }, [connecting, cryptoKey, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
+  }, [connecting, cryptoKey, isLocalAccount, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
 
   useEffect(() => {
     if (
       !pairingAttempt ||
+      isLocalAccount ||
       !cryptoKey ||
       connected ||
       connecting ||
@@ -130,7 +135,7 @@ export default function ExtensionPair() {
     }
     autoConnectAttemptedRef.current = true;
     void connect();
-  }, [connect, connected, connecting, cryptoKey, pairingAttempt, validExtensionId]);
+  }, [connect, connected, connecting, cryptoKey, isLocalAccount, pairingAttempt, validExtensionId]);
 
   const unlockWithPasskey = async () => {
     if (!passkeyRecord || !user || connecting) return;
@@ -164,8 +169,36 @@ export default function ExtensionPair() {
     await connect(fileContent);
   };
 
+  const nextPath = `${location.pathname}${location.search}${location.hash}`;
+
+  if (user && isLocalAccount) {
+    return (
+      <AuthLayout>
+        <div className="w-full">
+          <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300">
+            <KeyRound size={22} aria-hidden="true" />
+          </span>
+          <Heading>Cloud account required</Heading>
+          <Text className="mt-2">
+            The FavLock Chrome extension works only with a cloud account. Connect this local library to a free account, then return to the extension to pair it.
+          </Text>
+          <Button
+            type="button"
+            color="emerald"
+            className="mt-6 w-full justify-center"
+            onClick={() => {
+              startLocalVaultCloudMerge(user.id);
+              navigate(buildAuthPath("/login", nextPath, { reconnect: true, merge: true }));
+            }}
+          >
+            Connect a cloud account
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   if (user && !session?.access_token) {
-    const nextPath = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
         to={buildAuthPath("/login", nextPath, { reconnect: true })}
@@ -177,18 +210,18 @@ export default function ExtensionPair() {
   return (
     <AuthLayout>
       <div className="w-full">
-        <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600">
+        <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300">
           <KeyRound size={22} aria-hidden="true" />
         </span>
         <Heading>{connected ? "Extension connected" : "Unlock the extension"}</Heading>
         <Text className="mt-2">
           {connected
             ? "You can close this page and return to the site you were viewing."
-            : "Your key lets the extension decrypt collection and tag names and encrypt new bookmarks locally."}
+            : "Your key lets the extension decrypt organization names and encrypt protected content before cloud sync."}
         </Text>
 
         {!validExtensionId && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             This extension pairing request is not configured or is invalid.
           </div>
         )}
@@ -208,7 +241,7 @@ export default function ExtensionPair() {
               </Button>
             )}
             {checkingPasskey && (
-              <Text className="text-center text-sm text-zinc-500">
+              <Text className="text-center text-sm text-zinc-500 dark:text-[var(--app-muted)]">
                 Checking for a saved passkey...
               </Text>
             )}
@@ -229,12 +262,12 @@ export default function ExtensionPair() {
               className="hidden"
               onChange={(event) => void handleFileUpload(event)}
             />
-            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400">
-              <span className="h-px flex-1 bg-zinc-200" />
+            <div className="flex items-center gap-3 text-xs uppercase tracking-wide text-zinc-400 dark:text-[var(--app-muted)]">
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-[var(--app-card)]" />
               Or enter your key
-              <span className="h-px flex-1 bg-zinc-200" />
+              <span className="h-px flex-1 bg-zinc-200 dark:bg-[var(--app-card)]" />
             </div>
-            <label className="block text-sm font-medium text-zinc-800" htmlFor="extension-encryption-key">
+            <label className="block text-sm font-medium text-zinc-800 dark:text-[var(--app-ink)]" htmlFor="extension-encryption-key">
               FavLock encryption key
             </label>
             <Input
@@ -245,7 +278,7 @@ export default function ExtensionPair() {
               autoComplete="off"
               spellCheck={false}
             />
-            <label className="flex items-start gap-2 text-sm text-zinc-600">
+            <label className="flex items-start gap-2 text-sm text-zinc-600 dark:text-[var(--app-muted)]">
               <input
                 type="checkbox"
                 className="mt-1"
@@ -258,13 +291,13 @@ export default function ExtensionPair() {
         )}
 
         {cryptoKey && !connected && validExtensionId && (
-          <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-zinc-700">
+          <div className="mt-5 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-4 text-sm text-zinc-700 dark:text-[var(--app-ink)]">
             FavLock is already unlocked on this device. Confirm to pair the same key with the extension.
           </div>
         )}
 
         {error && (
-          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             {error}
           </div>
         )}

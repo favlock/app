@@ -91,7 +91,7 @@ export default function ProUpgradeDialog({
   return (
     <Dialog open={open} onClose={onClose} size="2xl">
       <div className="flex items-start gap-4">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-[var(--app-primary)] text-white shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_22%,transparent)]">
+        <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] text-[var(--app-primary)]">
           <Sparkles className="size-5" aria-hidden="true" />
         </span>
         <div>
@@ -106,11 +106,11 @@ export default function ProUpgradeDialog({
       </div>
 
       <DialogBody>
-        <div className="overflow-hidden rounded-2xl border border-[color-mix(in_oklab,var(--app-line)_18%,transparent)]">
+        <div className="overflow-hidden rounded-3xl border border-[var(--app-mint-border)]">
           <table className="w-full table-fixed border-collapse text-left">
             <caption className="sr-only">Free and Pro plan comparison</caption>
             <thead>
-              <tr className="bg-[color-mix(in_oklab,var(--app-card-strong)_45%,white)]">
+              <tr className="bg-[var(--app-lavender)]">
                 <th
                   scope="col"
                   className="w-[40%] px-3 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--app-muted)] sm:px-4"
@@ -125,7 +125,7 @@ export default function ProUpgradeDialog({
                 </th>
                 <th
                   scope="col"
-                  className="w-[35%] bg-[color-mix(in_oklab,var(--app-primary)_10%,var(--app-card))] px-2 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--app-primary)] sm:px-4"
+                  className="w-[35%] bg-[var(--app-mint)] px-2 py-3 text-xs font-semibold uppercase tracking-wide text-[var(--app-primary)] sm:px-4"
                 >
                   <span className="flex items-center gap-1.5">
                     <Sparkles className="size-3.5" aria-hidden="true" />
@@ -155,7 +155,7 @@ export default function ProUpgradeDialog({
                   <td className="px-2 py-3 text-xs leading-5 text-[var(--app-muted)] sm:px-4 sm:text-sm">
                     {free}
                   </td>
-                  <td className="bg-[color-mix(in_oklab,var(--app-primary)_5%,var(--app-card))] px-2 py-3 text-xs font-semibold leading-5 text-[var(--app-ink)] sm:px-4 sm:text-sm">
+                  <td className="bg-[var(--app-mint)] px-2 py-3 text-xs font-semibold leading-5 text-[var(--app-ink)] sm:px-4 sm:text-sm">
                     {pro}
                   </td>
                 </tr>
@@ -164,7 +164,7 @@ export default function ProUpgradeDialog({
           </table>
         </div>
 
-        <div className="mt-3 flex items-start gap-2.5 rounded-xl bg-[color-mix(in_oklab,var(--app-primary)_7%,var(--app-card))] px-3.5 py-3 text-sm leading-5 text-[var(--app-muted)]">
+        <div className="mt-3 flex items-start gap-2.5 rounded-2xl border border-[var(--app-sky-border)] bg-[var(--app-sky)] px-3.5 py-3 text-sm leading-5 text-[var(--app-muted)]">
           <Search
             className="mt-0.5 size-4 shrink-0 text-[var(--app-primary)]"
             aria-hidden="true"
@@ -179,7 +179,7 @@ export default function ProUpgradeDialog({
           </p>
         </div>
 
-        <div className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] px-3.5 py-3">
+        <div className="mt-4 rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] px-3.5 py-3">
           <h3 className="text-sm font-semibold text-[var(--app-ink)]">
             Everything in Free stays included
           </h3>
@@ -200,7 +200,7 @@ export default function ProUpgradeDialog({
       </DialogBody>
 
       <DialogActions>
-        <Button type="button" plain onClick={onClose}>
+        <Button type="button" outline onClick={onClose}>
           Not now
         </Button>
         <Button href="/checkout" color="emerald">

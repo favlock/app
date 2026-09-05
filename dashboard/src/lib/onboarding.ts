@@ -284,6 +284,67 @@ export function saveOnboardingPreference(userId: string, hidden: boolean) {
   }));
 }
 
+export function carryLocalOnboardingProgress(
+  sourceUserId: string,
+  destinationUserId: string,
+) {
+  if (!sourceUserId || !destinationUserId || sourceUserId === destinationUserId) {
+    return readOnboardingState(destinationUserId);
+  }
+
+  const source = readOnboardingState(sourceUserId);
+  return saveOnboardingState(destinationUserId, (destination) => {
+    const completedSteps = new Set<OnboardingCloudStep>(
+      destination.cloudSync.pendingCompletedSteps,
+    );
+    if (source.protection.status === "confirmed") {
+      completedSteps.add("library_protected");
+    }
+    if (source.libraryPopulated === "populated") {
+      completedSteps.add("first_save_or_import");
+    }
+    if (source.firstRetrieval === "completed") {
+      completedSteps.add("first_deliberate_retrieval");
+    }
+
+    const sourceDismissal =
+      source.cloudSync.pendingDismissal ?? source.dismissals.welcomeTour;
+    const destinationDismissal = destination.dismissals.welcomeTour;
+
+    return {
+      ...destination,
+      accountReadiness: "ready",
+      protection:
+        destination.protection.status === "confirmed"
+          ? destination.protection
+          : source.protection.status === "confirmed"
+            ? { status: "confirmed", method: "recovery-key" }
+            : destination.protection,
+      libraryPopulated:
+        destination.libraryPopulated === "populated" ||
+        source.libraryPopulated === "populated"
+          ? "populated"
+          : destination.libraryPopulated,
+      firstRetrieval:
+        destination.firstRetrieval === "completed" ||
+        source.firstRetrieval === "completed"
+          ? "completed"
+          : destination.firstRetrieval,
+      dismissals: {
+        ...destination.dismissals,
+        welcomeTour: destinationDismissal ?? source.dismissals.welcomeTour,
+      },
+      cloudSync: {
+        ...destination.cloudSync,
+        pendingCompletedSteps: Array.from(completedSteps),
+        pendingDismissal:
+          destination.cloudSync.pendingDismissal ??
+          (destinationDismissal === null ? sourceDismissal : null),
+      },
+    };
+  });
+}
+
 function stateWithCompletedSteps(
   current: OnboardingStateV1,
   completedSteps: readonly OnboardingCloudStep[],

@@ -16,7 +16,7 @@ export function FolderSidebarSkeleton() {
       {/* Skeleton for Favorites */}
       <FolderItemSkeleton />
       {/* Divider */}
-      <div className="h-px bg-[#1d2230]/10  my-4" />
+      <div className="h-px bg-[var(--app-ink)]/10  my-4" />
       {/* Folder items skeleton */}
       {Array.from({ length: 6 }).map((_, i) => (
         <FolderItemSkeleton key={i} />

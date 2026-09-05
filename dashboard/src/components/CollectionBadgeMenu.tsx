@@ -140,7 +140,7 @@ export default function CollectionBadgeMenu({
                     : (currentIndex - 1 + items.length) % items.length;
             items[nextIndex]?.focus();
           }}
-          className="absolute bottom-full left-0 z-50 mb-1.5 w-52 rounded-xl border border-[#1d2230]/20 bg-[#fff8e9] py-1.5 shadow-[0_8px_18px_-12px_rgba(29,34,48,0.42)]"
+          className="absolute bottom-full left-0 z-50 mb-1.5 w-64 app-popup-surface app-collection-menu p-1"
         >
           <Button
             type="button"
@@ -151,13 +151,13 @@ export default function CollectionBadgeMenu({
             aria-checked={folderId === null}
             className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
               folderId === null
-                ? "bg-[#ffefcb] font-medium text-[#0f766e]"
-                : "text-[#4f5566] hover:bg-[#ffefcb]/70"
+                ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]"
+                : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]"
             }`}
           >
             No collection
           </Button>
-          <div className="my-1 border-t border-[#1d2230]/10" />
+          <div className="my-1 border-t border-[var(--app-ink)]/10" />
           {folders.map((candidate) => (
             <Button
               key={candidate.id}
@@ -167,10 +167,11 @@ export default function CollectionBadgeMenu({
               plain
               role="menuitemradio"
               aria-checked={folderId === candidate.id}
+              data-child={Boolean(candidate.parent_id)}
               className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                 folderId === candidate.id
-                  ? "bg-[#ffefcb] font-medium text-[#0f766e]"
-                  : "text-[#4f5566] hover:bg-[#ffefcb]/70"
+                  ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]"
+                  : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]"
               }`}
             >
               <span
@@ -184,18 +185,18 @@ export default function CollectionBadgeMenu({
             </Button>
           ))}
           {isLoading ? (
-            <p className="px-3 py-2 text-sm text-[#4f5566]">
+            <p className="px-3 py-2 text-sm text-[var(--app-muted)]">
               Loading collections…
             </p>
           ) : folders.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-[#4f5566]">
+            <p className="px-3 py-2 text-sm text-[var(--app-muted)]">
               No collections created
             </p>
           ) : null}
           {error ? (
             <p
               role="alert"
-              className="mx-2 mt-1 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-700"
+              className="mx-2 mt-1 rounded-lg bg-red-50 dark:bg-[var(--app-rose)] px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
             >
               {error}
             </p>

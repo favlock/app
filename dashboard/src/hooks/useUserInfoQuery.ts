@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useAuth } from "../context/useAuth";
-import type { ThemeVariant } from "../constants/themes";
 import {
   fetchUserInfo,
   USER_INFO_STALE_TIME,
@@ -114,33 +113,5 @@ export const useUpdateBookmarkSearchShortcuts = () => {
       queryClient.invalidateQueries({
         queryKey,
       }),
-  });
-};
-
-export const useUpdateThemeVariant = () => {
-  const { session, user } = useAuth();
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    scope: { id: "theme-variant" },
-    mutationFn: async (themeVariant: ThemeVariant) => {
-      if (!user || !session?.access_token) throw new Error("Not authenticated");
-      await updateAccountPreferences(session.access_token, {
-        themeVariant,
-      });
-      return themeVariant;
-    },
-    onMutate: async () => {
-      await queryClient.cancelQueries({
-        queryKey: userInfoQueryKey(user?.id),
-      });
-    },
-    onSuccess: (themeVariant) => {
-      queryClient.setQueryData(
-        userInfoQueryKey(user?.id),
-        (old: UserInfo | null) =>
-          old ? { ...old, theme_variant: themeVariant } : old,
-      );
-    },
   });
 };

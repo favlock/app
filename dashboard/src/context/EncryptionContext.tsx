@@ -19,7 +19,7 @@ import {
   loadKeyFromIDB,
   deleteKeyFromIDB,
 } from "../lib/encryption";
-import { favLockAuth } from "../lib/favLockAuth";
+import { favLockAuth, isLocalOnlyUser } from "../lib/favLockAuth";
 import {
   fetchEncryptionVerifier,
   saveEncryptionVerifier,
@@ -29,6 +29,7 @@ import {
   probeEncryptedData,
 } from "../lib/encryptionDataProbe";
 import { createLocalKeyVerifier, matchesLocalKey, readLocalKeyVerifier, saveLocalKeyVerifier } from "../lib/localKeyVerifier";
+import { hasLocalVaultContent } from "../lib/localVault";
 
 interface EncryptionContextType {
   cryptoKey: CryptoKey | null;
@@ -40,6 +41,7 @@ interface EncryptionContextType {
     raw: string,
     options?: { rememberDevice?: boolean },
   ) => Promise<void>;
+  initializeLocalKey: (raw: string) => Promise<void>;
   setKeyRemembered: (rememberDevice: boolean) => Promise<void>;
   lockKey: () => void;
   clearKey: () => Promise<void>;
@@ -127,7 +129,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       }
 
       if (savedVerifier) {
-        let verifierMatches = false;
+        let verifierMatches: boolean;
 
         try {
           verifierMatches =
@@ -224,6 +226,34 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
     setKeyRememberedState(rememberDevice);
   }, [cryptoKey]);
 
+  const initializeLocalKey = useCallback(async (raw: string) => {
+    const generation = keyGeneration.current;
+    const user = favLockAuth.getLocalUser();
+    if (!user || !isLocalOnlyUser(user)) {
+      throw new Error("Open a local vault before creating its encryption key.");
+    }
+    if (readLocalKeyVerifier(user.id) || await hasLocalVaultContent(user.id)) {
+      throw new Error("This local vault is already protected. Unlock it instead.");
+    }
+    const key = await importRawKey(normalizeRawKey(raw));
+    const assertCurrent = () => {
+      if (
+        generation !== keyGeneration.current ||
+        favLockAuth.getLocalUser()?.id !== user.id
+      ) {
+        throw new Error("The local vault changed. Start again.");
+      }
+    };
+    const verifier = await createLocalKeyVerifier(key);
+    assertCurrent();
+    await saveKeyToIDB(key, assertCurrent);
+    assertCurrent();
+    saveLocalKeyVerifier(user.id, verifier);
+    setCryptoKey(key);
+    setKeyRememberedState(true);
+    setNeedsUnlock(false);
+  }, []);
+
   const lockKey = useCallback(() => {
     keyGeneration.current += 1;
     setCryptoKey(null);
@@ -291,6 +321,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       needsUnlock,
       triggerUnlock,
       setRawKey,
+      initializeLocalKey,
       setKeyRemembered,
       lockKey,
       clearKey,
@@ -305,6 +336,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
       needsUnlock,
       triggerUnlock,
       setRawKey,
+      initializeLocalKey,
       setKeyRemembered,
       lockKey,
       clearKey,

@@ -18,7 +18,7 @@ export default function ProtectedRoute({
 
     return (
       <div
-        className="flex justify-center items-center h-screen bg-gray-50  text-gray-600 "
+        className="flex justify-center items-center h-screen bg-gray-50 dark:bg-[var(--app-card)]  text-gray-600 dark:text-[var(--app-muted)] "
         role="status"
         aria-live="polite"
       >

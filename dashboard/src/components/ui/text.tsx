@@ -6,7 +6,7 @@ export function Text({ className, ...props }: React.ComponentPropsWithoutRef<'p'
     <p
       data-slot="text"
       {...props}
-      className={clsx(className, 'text-base/6 text-zinc-500 sm:text-sm/6 ')}
+      className={clsx(className, 'text-base/6 text-zinc-500 dark:text-[var(--app-muted)] sm:text-sm/6 ')}
     />
   )
 }
@@ -17,14 +17,14 @@ export function TextLink({ className, ...props }: React.ComponentPropsWithoutRef
       {...props}
       className={clsx(
         className,
-        'text-zinc-950 underline decoration-zinc-950/50 data-hover:decoration-zinc-950   '
+        'text-zinc-950 dark:text-[var(--app-ink)] underline decoration-zinc-950/50 data-hover:decoration-zinc-950   '
       )}
     />
   )
 }
 
 export function Strong({ className, ...props }: React.ComponentPropsWithoutRef<'strong'>) {
-  return <strong {...props} className={clsx(className, 'font-medium text-zinc-950 ')} />
+  return <strong {...props} className={clsx(className, 'font-medium text-zinc-950 dark:text-[var(--app-ink)] ')} />
 }
 
 export function Code({ className, ...props }: React.ComponentPropsWithoutRef<'code'>) {
@@ -33,7 +33,7 @@ export function Code({ className, ...props }: React.ComponentPropsWithoutRef<'co
       {...props}
       className={clsx(
         className,
-        'rounded-sm border border-zinc-950/10 bg-zinc-950/2.5 px-0.5 text-sm font-medium text-zinc-950 sm:text-sm   '
+        'rounded-sm border border-zinc-950/10 dark:border-[var(--app-line)]/10 bg-zinc-950/2.5 dark:bg-[var(--app-line)]/2.5 px-0.5 text-sm font-medium text-zinc-950 dark:text-[var(--app-ink)] sm:text-sm   '
       )}
     />
   )

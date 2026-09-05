@@ -42,8 +42,8 @@ async function loadConnection() {
 
   const identity = response.email ? `Connected as ${response.email}. ` : "";
   const availability = response.cloudStatus === "available"
-    ? "Cloud access is available."
-    : "The local connection is saved, but cloud access needs to be reconnected from the popup.";
+      ? "Cloud access is available."
+      : "The extension is paired, but cloud access needs to be reconnected from the popup.";
   description.textContent = `${identity}${availability}`;
   disconnectButton.hidden = false;
 }

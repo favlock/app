@@ -1,3 +1,4 @@
+import { useFolders } from "../hooks/useFoldersQuery";
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   CheckCircle2,
@@ -30,6 +31,7 @@ interface EntryCardProps<TEntry extends Entry> {
   movePending: boolean;
   onToggle?: (completed: boolean) => Promise<unknown>;
   togglePending?: boolean;
+  deletePermanently?: boolean;
 }
 
 const entryDateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -49,11 +51,14 @@ export default function EntryCard<TEntry extends Entry>({
   movePending,
   onToggle,
   togglePending = false,
+  deletePermanently = false,
 }: EntryCardProps<TEntry>) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const { data: folders = [] } = useFolders();
+  const currentFolder = folders.find((folder) => folder.id === entry.folder?.id) ?? entry.folder;
   const isTodo = kind === "todo";
   const singular = isTodo ? "task" : "document";
   const previewHtml = sanitizeEntryHtml(entry.content);
@@ -99,6 +104,7 @@ export default function EntryCard<TEntry extends Entry>({
     <>
       <LibraryCard
         kind={kind}
+        collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={collectionMenuOpen}
         meta={
@@ -116,7 +122,7 @@ export default function EntryCard<TEntry extends Entry>({
             type="button"
             onClick={() => onEdit(entry)}
             title={entry.title}
-            className={`block max-w-full truncate rounded-sm text-left decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35 ${
+            className={`block max-w-full truncate rounded-sm text-left decoration-[var(--app-primary)] underline-offset-4 transition-colors hover:text-[var(--app-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35 ${
               completed ? "line-through opacity-60" : ""
             }`}
           >
@@ -142,7 +148,7 @@ export default function EntryCard<TEntry extends Entry>({
                   <Badge
                     key={tag.id}
                     color="violet"
-                    className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                    className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600! dark:text-violet-300!"
                   >
                     <span className="truncate" title={`#${tag.name}`}>
                       #{tag.name}
@@ -152,7 +158,7 @@ export default function EntryCard<TEntry extends Entry>({
               </div>
             ) : null}
             {toggleError ? (
-              <p className="text-xs text-red-600" role="alert">
+              <p className="text-xs text-red-600 dark:text-red-300" role="alert">
                 {toggleError}
               </p>
             ) : null}
@@ -184,8 +190,8 @@ export default function EntryCard<TEntry extends Entry>({
               type="button"
               onClick={() => setShowDeleteDialog(true)}
               plain
-              className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-              aria-label={`Move ${entry.title} to Trash`}
+              className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]!"
+              aria-label={deletePermanently ? `Delete ${entry.title} permanently` : `Move ${entry.title} to Trash`}
             >
               <span className="flex size-10 items-center justify-center rounded-full">
                 <Trash2 size={14} aria-hidden="true" />
@@ -219,13 +225,14 @@ export default function EntryCard<TEntry extends Entry>({
         onClose={deletePending ? () => {} : () => setShowDeleteDialog(false)}
         size="sm"
       >
-        <DialogTitle>Move {singular} to Trash?</DialogTitle>
+        <DialogTitle>{deletePermanently ? `Delete ${singular} permanently?` : `Move ${singular} to Trash?`}</DialogTitle>
         <DialogDescription>
-          “{entry.title}” can be restored from Trash before its recovery period
-          expires.
+          {deletePermanently
+            ? `“${entry.title}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${entry.title}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteError ? (
-          <p className="mt-3 text-sm text-red-600" role="alert">
+          <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">
             {deleteError}
           </p>
         ) : null}
@@ -244,7 +251,7 @@ export default function EntryCard<TEntry extends Entry>({
             onClick={() => void confirmDelete()}
             disabled={deletePending}
           >
-            {deletePending ? "Moving..." : "Move to Trash"}
+            {deletePending ? "Deleting..." : deletePermanently ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

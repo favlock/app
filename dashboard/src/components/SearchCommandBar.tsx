@@ -143,7 +143,7 @@ export default function SearchCommandBar({
           className="relative z-50 w-full min-w-0"
         >
           <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
-            <div className="relative flex min-h-12 min-w-0 flex-1 items-center rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)] transition-[border-color,box-shadow] focus-within:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_11%,transparent)]">
+            <div className="relative flex min-h-12 min-w-0 flex-1 items-center rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))] px-3 shadow-[inset_0_1px_0_var(--app-glint)] transition-[border-color,box-shadow] focus-within:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_11%,transparent)]">
               <Search
                 size={19}
                 className="flex-none text-[var(--app-muted)]"
@@ -192,14 +192,14 @@ export default function SearchCommandBar({
                   <X size={17} aria-hidden="true" />
                 </button>
               ) : (
-                <span className="hidden shrink-0 rounded-md border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/55 px-2 py-1 text-xs font-medium text-[var(--app-muted)] md:inline-flex">
+                <span className="hidden shrink-0 rounded-md border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/55 px-2 py-1 text-xs font-medium text-[var(--app-muted)] md:inline-flex">
                   /
                 </span>
               )}
             </div>
 
             <div className="flex min-w-0 items-stretch gap-2">
-              <label className="relative flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 text-sm font-medium text-[var(--app-ink)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_11%,transparent)] sm:flex-none">
+              <label className="relative flex min-h-12 min-w-0 flex-1 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))] px-3 text-sm font-medium text-[var(--app-ink)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_11%,transparent)] sm:flex-none">
                 <span className="sr-only">Web search engine</span>
                 <img src={selectedEngine.logo} alt="" className="size-5 flex-none" />
                 <select
@@ -228,7 +228,7 @@ export default function SearchCommandBar({
                 type="button"
                 onClick={() => submitWebSearch(searchQuery)}
                 disabled={!searchQuery.trim()}
-                className="theme-button-primary relative inline-flex min-h-12 flex-none cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent bg-[var(--app-primary)] px-4 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+                className="theme-button-primary relative inline-flex min-h-12 flex-none cursor-pointer items-center justify-center gap-2 rounded-xl border border-transparent bg-[var(--app-primary)] px-4 text-sm font-semibold text-[var(--app-on-primary)] disabled:cursor-not-allowed disabled:opacity-45"
                 aria-label={`Search the web with ${selectedEngine.name}`}
               >
                 <ExternalLink size={17} aria-hidden="true" />
@@ -242,7 +242,7 @@ export default function SearchCommandBar({
               id="search-history-suggestions"
               role="listbox"
               aria-label="Recent searches"
-              className="absolute top-[calc(100%+0.4rem)] right-0 left-0 z-50 overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_94%,white)] p-1.5 shadow-[0_18px_45px_-22px_rgba(29,34,48,0.36)] backdrop-blur-xl"
+              className="absolute top-[calc(100%+0.4rem)] right-0 left-0 z-50 app-popup-surface [--popup-inset:0.375rem] p-1.5"
             >
               <div className="px-2.5 py-1.5 text-xs font-semibold tracking-wide text-[var(--app-muted)] uppercase">
                 Recent searches
@@ -292,7 +292,7 @@ export default function SearchCommandBar({
 
           {bookmarkSearchError ? (
             <div
-              className="mt-2 flex items-start justify-between gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700"
+              className="mt-2 flex items-start justify-between gap-3 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
               role="alert"
             >
               <span>{bookmarkSearchError}</span>

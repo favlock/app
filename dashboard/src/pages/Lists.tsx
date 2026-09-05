@@ -11,7 +11,7 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Youtube,
+  Video,
 } from "lucide-react";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ProUpgradeDialog from "../components/ProUpgradeDialog";
@@ -197,7 +197,7 @@ export default function Lists() {
   };
 
   return (
-    <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
+    <div className="lists-page w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
       <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
         <div className="flex items-start justify-between gap-4 py-1 sm:py-2">
           <div className="flex min-w-0 items-center gap-2.5">
@@ -236,7 +236,7 @@ export default function Lists() {
       </header>
 
       {error ? (
-        <p className="mx-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 lg:mx-1" role="alert">
+        <p className="mx-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300 lg:mx-1" role="alert">
           {error}
         </p>
       ) : null}
@@ -249,7 +249,7 @@ export default function Lists() {
             placeholder="List name"
             maxLength={80}
             autoFocus
-            className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+            className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
           />
           <Button type="button" outline onClick={() => setCreating(false)}>Cancel</Button>
           <Button type="submit" color="emerald" disabled={createList.isPending}>Create</Button>
@@ -261,7 +261,7 @@ export default function Lists() {
           {listsQuery.isLoading ? (
             <p className="px-3 py-4 text-sm text-[var(--app-muted)]">Loading Lists…</p>
           ) : listsQuery.error ? (
-            <button type="button" className="w-full rounded-xl px-3 py-4 text-left text-sm text-red-600" onClick={() => void listsQuery.refetch()}>
+            <button type="button" className="w-full rounded-xl px-3 py-4 text-left text-sm text-red-600 dark:text-red-300" onClick={() => void listsQuery.refetch()}>
               Could not load Lists. Try again.
             </button>
           ) : lists.length ? (
@@ -277,10 +277,11 @@ export default function Lists() {
                         setEditingName(false);
                         setError(null);
                       }}
-                      className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selectedListId === list.id ? "bg-[var(--app-primary)] text-white shadow-sm" : "hover:bg-[var(--app-card-strong)]"}`}
+                      aria-current={selectedListId === list.id ? "true" : undefined}
+                      className={`w-full rounded-xl px-3 py-2.5 text-left transition ${selectedListId === list.id ? "bg-[var(--app-mint)] text-[var(--app-primary)] ring-1 ring-inset ring-[var(--app-mint-border)]" : "hover:bg-[var(--app-card-strong)]"}`}
                     >
                       <span className="block truncate text-sm font-semibold">{list.name}</span>
-                      <span className={`mt-1 block text-xs ${selectedListId === list.id ? "text-white/75" : "text-[var(--app-muted)]"}`}>
+                      <span className={`mt-1 block text-xs ${selectedListId === list.id ? "text-[var(--app-primary)]" : "text-[var(--app-muted)]"}`}>
                         {listProgress.completed} of {listProgress.total} completed
                       </span>
                     </button>
@@ -309,7 +310,7 @@ export default function Lists() {
                         onChange={(event) => setNameDraft(event.target.value)}
                         maxLength={80}
                         autoFocus
-                        className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+                        className="min-h-10 min-w-0 flex-1 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
                       />
                       <Button type="submit" color="emerald" disabled={renameList.isPending}>Save</Button>
                     </form>
@@ -318,7 +319,7 @@ export default function Lists() {
                       <h2 className="truncate text-xl font-semibold text-[var(--app-ink)]">{selectedList.name}</h2>
                       <button
                         type="button"
-                        className="theme-button-icon inline-flex size-9"
+                        className="theme-button-icon list-icon-action inline-flex size-11"
                         aria-label="Rename List"
                         onClick={() => {
                           setNameDraft(selectedList.name);
@@ -345,7 +346,7 @@ export default function Lists() {
                   </Button>
                   <button
                     type="button"
-                    className="theme-button-icon inline-flex size-10 text-red-600"
+                    className="theme-button-icon list-icon-action list-action-danger inline-flex size-11"
                     aria-label="Delete List"
                     onClick={() => setDeleteTarget(selectedList)}
                   >
@@ -361,13 +362,14 @@ export default function Lists() {
               {addingItem ? (
                 <form
                   onSubmit={addItem}
-                  className="mt-4 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_6%,var(--app-card))] p-3"
+                  className="mt-4 rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] p-4"
                 >
-                  <label className="text-sm font-semibold text-[var(--app-ink)]">
+                  <p className="text-sm font-semibold text-[var(--app-ink)]">
                     Add an existing bookmark
-                  </label>
+                  </p>
                   <div className="mt-2 flex flex-col gap-2 sm:flex-row">
                     <Combobox<Bookmark>
+                      aria-label="Search bookmarks"
                       value={selectedBookmark ?? undefined}
                       onChange={setSelectedBookmark}
                       options={availableBookmarks}
@@ -424,18 +426,18 @@ export default function Lists() {
                 <ol className="mt-5 space-y-2">
                   {selectedList.items.map((item, index) => {
                     const completed = !!item.completed_at;
-                    const VideoIcon = isYouTubeUrl(item.bookmark.url) ? Youtube : FileText;
+                    const VideoIcon = isYouTubeUrl(item.bookmark.url) ? Video : FileText;
                     return (
-                      <li key={item.bookmark.id} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/55 p-3">
+                      <li key={item.bookmark.id} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/55 p-3">
                         <button
                           type="button"
                           onClick={() => void toggleItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id, completed: !completed }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not update progress."))}
-                          className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition ${completed ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-white" : "border-[color-mix(in_oklab,var(--app-line)_25%,transparent)] text-transparent hover:border-[var(--app-primary)]"}`}
+                          className={`flex size-7 shrink-0 items-center justify-center rounded-full border-2 transition ${completed ? "border-[var(--app-primary)] bg-[var(--app-primary)] text-[var(--app-on-primary)]" : "border-[color-mix(in_oklab,var(--app-line)_25%,transparent)] text-transparent hover:border-[var(--app-primary)]"}`}
                           aria-label={completed ? `Mark ${item.bookmark.title} incomplete` : `Mark ${item.bookmark.title} complete`}
                         >
                           <CheckCircle2 size={16} aria-hidden="true" />
                         </button>
-                        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isYouTubeUrl(item.bookmark.url) ? "bg-red-500/10 text-red-600" : "bg-sky-500/10 text-sky-700"}`}>
+                        <span className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${isYouTubeUrl(item.bookmark.url) ? "bg-red-500/10 text-red-600 dark:text-red-300" : "bg-sky-500/10 text-sky-700 dark:text-sky-300"}`}>
                           <VideoIcon size={17} aria-hidden="true" />
                         </span>
                         <div className="min-w-0 flex-1">
@@ -444,7 +446,7 @@ export default function Lists() {
                           </a>
                           <span className="mt-0.5 block truncate text-xs text-[var(--app-muted)]">{getMainDomain(item.bookmark.url)}</span>
                         </div>
-                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" className="theme-button-icon inline-flex size-9" aria-label={`Open ${item.bookmark.title}`}>
+                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" className="theme-button-icon list-icon-action inline-flex size-11" aria-label={`Open ${item.bookmark.title}`}>
                           <ExternalLink size={15} aria-hidden="true" />
                         </a>
                         <div className="flex">
@@ -454,7 +456,7 @@ export default function Lists() {
                           <button type="button" className="theme-button-icon inline-flex size-8" disabled={index === selectedList.items.length - 1 || reorderItems.isPending} aria-label={`Move ${item.bookmark.title} down`} onClick={() => void move(item.bookmark.id, "down")}>
                             <ChevronDown size={15} aria-hidden="true" />
                           </button>
-                          <button type="button" className="theme-button-icon inline-flex size-8 text-red-600" aria-label={`Remove ${item.bookmark.title} from List`} onClick={() => void removeItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not remove the item."))}>
+                          <button type="button" className="theme-button-icon list-action-danger inline-flex size-8" aria-label={`Remove ${item.bookmark.title} from List`} onClick={() => void removeItem.mutateAsync({ listId: selectedList.id, bookmarkId: item.bookmark.id }).catch((caughtError) => setError(caughtError instanceof Error ? caughtError.message : "Could not remove the item."))}>
                             <Trash2 size={14} aria-hidden="true" />
                           </button>
                         </div>

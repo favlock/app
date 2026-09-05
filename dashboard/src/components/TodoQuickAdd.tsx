@@ -67,7 +67,7 @@ export default function TodoQuickAdd() {
           Capture a task; add details later.
         </p>
       </div>
-      <div className="flex flex-col gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_20%,transparent)] bg-white/82 p-2 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_45%,transparent)] focus-within:ring-2 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)] sm:flex-row sm:items-center">
+      <div className="flex flex-col gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_20%,transparent)] bg-[var(--app-highlight)]/82 p-2 shadow-sm focus-within:border-[color-mix(in_oklab,var(--app-primary)_45%,transparent)] focus-within:ring-2 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)] sm:flex-row sm:items-center">
         <div className="flex min-h-11 min-w-0 flex-1 items-center gap-2 px-2">
           <Plus
             size={18}
@@ -85,7 +85,7 @@ export default function TodoQuickAdd() {
         </div>
 
         {showDueDate ? (
-          <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_13%,transparent)] bg-white/70 px-3 text-xs font-medium text-[var(--app-muted)] sm:flex-none">
+          <label className="flex min-h-10 items-center gap-2 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_13%,transparent)] bg-[var(--app-highlight)]/70 px-3 text-xs font-medium text-[var(--app-muted)] sm:flex-none">
             <CalendarDays size={15} aria-hidden="true" />
             <span className="sr-only">Due date</span>
             <input
@@ -112,7 +112,7 @@ export default function TodoQuickAdd() {
           <button
             type="button"
             onClick={() => setShowDueDate(true)}
-            className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_13%,transparent)] bg-white/70 px-3 text-sm font-medium text-[var(--app-muted)] transition-colors hover:text-[var(--app-ink)] sm:flex-none"
+            className="flex min-h-10 items-center justify-center gap-2 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_13%,transparent)] bg-[var(--app-highlight)]/70 px-3 text-sm font-medium text-[var(--app-muted)] transition-colors hover:text-[var(--app-ink)] sm:flex-none"
           >
             <CalendarDays size={15} aria-hidden="true" />
             Add due date
@@ -134,7 +134,7 @@ export default function TodoQuickAdd() {
         </Button>
       </div>
       {error ? (
-        <p className="mt-2 text-sm text-red-600" role="alert">
+        <p className="mt-2 text-sm text-red-600 dark:text-red-300" role="alert">
           {error}
         </p>
       ) : null}

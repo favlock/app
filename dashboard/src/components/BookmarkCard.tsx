@@ -30,6 +30,8 @@ import { getMainDomain } from "../lib/domains";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
 import LibraryCard from "./LibraryCard";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useAuth } from "../context/useAuth";
+import { PLANS } from "@favlock/shared";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -46,6 +48,7 @@ export default function BookmarkCard({
 }: BookmarkCardProps) {
   const { data: folders = [] } = useFolders();
   const { data: tags = [] } = useTags();
+  const { isLocalAccount } = useAuth();
   const deleteBookmarkMutation = useDeleteBookmark();
   const moveBookmarkMutation = useMoveBookmark();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -238,6 +241,7 @@ export default function BookmarkCard({
     <>
       <LibraryCard
         kind="bookmark"
+        collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={showFolderMenu}
         meta={
@@ -260,7 +264,7 @@ export default function BookmarkCard({
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}
-            className="relative block max-w-full truncate rounded-sm decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35"
+            className="relative block max-w-full truncate rounded-sm decoration-[var(--app-primary)] underline-offset-4 transition-colors hover:text-[var(--app-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35"
           >
             {bookmark.title}
             <span className="sr-only"> (opens in a new tab)</span>
@@ -299,7 +303,7 @@ export default function BookmarkCard({
                   const tagBadge = (
                     <Badge
                       color="violet"
-                      className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                      className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600! dark:text-violet-300!"
                     >
                       <span className="truncate" title={`#${tag.name}`}>
                         #{tag.name}
@@ -346,11 +350,7 @@ export default function BookmarkCard({
                 aria-haspopup="menu"
                 aria-expanded={showFolderMenu}
                 aria-controls={`folder-menu-${bookmark.id}`}
-                color={
-                  currentFolder
-                    ? getCollectionBadgeColor(currentFolder.color)
-                    : "zinc"
-                }
+                color={getCollectionBadgeColor(currentFolder?.color)}
                 className="max-w-full cursor-pointer text-sm transition-opacity hover:opacity-85"
                 title={currentFolder ? currentFolder.name : "No collection"}
               >
@@ -400,7 +400,7 @@ export default function BookmarkCard({
                             : (currentIndex - 1 + items.length) % items.length;
                     items[nextIndex]?.focus();
                   }}
-                  className="absolute left-0 top-full z-50 mt-1.5 w-52 rounded-xl border border-[#1d2230]/20 bg-[#fff8e9] py-1.5 shadow-[0_8px_18px_-12px_rgba(29,34,48,0.42)]"
+                  className="absolute left-0 top-full z-50 mt-1.5 w-64 app-popup-surface app-collection-menu p-1"
                 >
                   <Button
                     onClick={() => moveToFolder(null)}
@@ -408,15 +408,15 @@ export default function BookmarkCard({
                     plain
                     role="menuitemradio"
                     aria-checked={currentFolderId === null}
-                    className={`w-full px-3 py-1.5 text-left text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                    className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                       currentFolderId === null
-                        ? "bg-[#ffefcb] font-medium text-[#0f766e]  "
-                        : "text-[#4f5566] hover:bg-[#ffefcb]/70  "
+                        ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]  "
+                        : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]  "
                     }`}
                   >
                     No collection
                   </Button>
-                  <div className="my-1 border-t border-[#1d2230]/10 " />
+                  <div className="my-1 border-t border-[var(--app-ink)]/10 " />
                   {folders.map((folder) => (
                     <Button
                       key={folder.id}
@@ -425,10 +425,11 @@ export default function BookmarkCard({
                       plain
                       role="menuitemradio"
                       aria-checked={currentFolderId === folder.id}
-                      className={`w-full px-3 py-1.5 text-left text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+              data-child={Boolean(folder.parent_id)}
+                      className={`w-full px-3 py-1.5 text-left text-sm transition-colors ${
                         currentFolderId === folder.id
-                          ? "bg-[#ffefcb] font-medium text-[#0f766e]  "
-                          : "text-[#4f5566] hover:bg-[#ffefcb]/70  "
+                          ? "bg-[var(--app-mint)] font-medium text-[var(--app-primary)]  "
+                          : "text-[var(--app-muted)] hover:bg-[var(--app-mint)]  "
                       }`}
                     >
                       <span className="truncate" title={folder.name}>
@@ -437,14 +438,14 @@ export default function BookmarkCard({
                     </Button>
                   ))}
                   {folders.length === 0 && (
-                    <p className="px-4 py-2 text-sm text-gray-400 ">
+                    <p className="px-4 py-2 text-sm text-gray-400 dark:text-[var(--app-muted)] ">
                       No collections created
                     </p>
                   )}
                   {moveError && (
                     <p
                       role="alert"
-                      className="mx-2 mt-1 rounded-lg bg-red-50 px-2 py-1.5 text-xs text-red-700"
+                      className="mx-2 mt-1 rounded-lg bg-red-50 dark:bg-[var(--app-rose)] px-2 py-1.5 text-xs text-red-700 dark:text-red-300"
                     >
                       {moveError}
                     </p>
@@ -458,7 +459,7 @@ export default function BookmarkCard({
               <Button
                 onClick={handleToggleFavorite}
                 plain
-                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50! data-active:bg-red-100!"
+                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]! data-active:bg-red-100! data-active:dark:bg-[var(--app-rose)]!"
                 title={favorite ? "Remove from favorites" : "Add to favorites"}
                 aria-label={favorite ? "Remove from favorites" : "Add to favorites"}
                 aria-pressed={favorite}
@@ -467,7 +468,7 @@ export default function BookmarkCard({
                   <Heart
                     size={15}
                     aria-hidden="true"
-                    className={favorite ? "fill-red-500 text-red-500" : "text-current"}
+                    className={favorite ? "fill-red-500 text-red-500 dark:fill-[var(--app-danger)] dark:text-[var(--app-danger)]" : "text-current"}
                   />
                 </span>
               </Button>
@@ -489,9 +490,9 @@ export default function BookmarkCard({
                 }}
                 disabled={deleting}
                 plain
-                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-                title="Move to Trash"
-                aria-label="Move bookmark to Trash"
+                className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]!"
+                title={isLocalAccount ? "Delete permanently" : "Move to Trash"}
+                aria-label={isLocalAccount ? "Delete bookmark permanently" : "Move bookmark to Trash"}
               >
                 <span className="flex size-10 items-center justify-center rounded-full">
                   <TrashIcon size={14} aria-hidden="true" />
@@ -503,7 +504,7 @@ export default function BookmarkCard({
 
       {favoriteError ? (
         <div
-          className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700"
+          className="mt-2 flex items-start justify-between gap-2 rounded-lg bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300"
           role="alert"
         >
           <span>{favoriteError}</span>
@@ -522,14 +523,17 @@ export default function BookmarkCard({
         open={showDeleteDialog}
         onClose={deleting ? () => {} : setShowDeleteDialog}
       >
-        <DialogTitle>Move bookmark to Trash?</DialogTitle>
+        <DialogTitle>
+          {isLocalAccount ? "Delete bookmark permanently?" : "Move bookmark to Trash?"}
+        </DialogTitle>
         <DialogDescription>
-          You can restore this bookmark from Trash before its recovery period
-          expires.
+          {isLocalAccount
+            ? `This bookmark will be immediately deleted from this device and cannot be restored. A free cloud account keeps deleted items in Trash for ${PLANS.free.trashRecoveryDays} days.`
+            : "You can restore this bookmark from Trash before its recovery period expires."}
         </DialogDescription>
         {deleteError ? (
           <p
-            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600"
+            className="mt-4 rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             {deleteError}
@@ -544,7 +548,9 @@ export default function BookmarkCard({
             Cancel
           </Button>
           <Button onClick={confirmDelete} disabled={deleting} color="red">
-            {deleting ? "Moving..." : "Move to Trash"}
+            {deleting
+              ? (isLocalAccount ? "Deleting..." : "Moving...")
+              : (isLocalAccount ? "Delete permanently" : "Move to Trash")}
           </Button>
         </DialogActions>
       </Dialog>

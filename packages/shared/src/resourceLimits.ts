@@ -97,6 +97,33 @@ export const PLANS = {
   },
 } as const satisfies Record<PlanId, PlanDefinition>;
 
+export const LOCAL_PLAN = {
+  id: "local",
+  name: "Local",
+  trashRecoveryDays: 0,
+  limits: {
+    bookmarks: 250,
+    entries: 25,
+    readspace: 10,
+    highlights: 0,
+    collections: 0,
+    tags: 0,
+    lists: 3,
+  },
+  bookmarkAccess: {
+    mode: "normal",
+    count: 0,
+    limit: 250,
+    graceEndsAt: null,
+    cleanupAt: null,
+  },
+  highlightAccess: {
+    count: 0,
+    limit: 0,
+    cleanupAt: null,
+  },
+} as const satisfies PlanDefinition;
+
 export const DEFAULT_PLAN_ID: PlanId = "free";
 export const DEFAULT_PLAN = PLANS[DEFAULT_PLAN_ID];
 

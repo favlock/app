@@ -1,7 +1,10 @@
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { BookOpen, Bookmark, ListTodo, StickyNote } from "lucide-react";
 
+import { COLOR_MAP, COLLECTION_SURFACE_MAP, type ColorConstant } from "../constants/colors";
+
 interface LibraryCardProps {
+  collectionColor?: ColorConstant | null;
   kind: "bookmark" | "note" | "read" | "todo";
   meta?: ReactNode;
   title: ReactNode;
@@ -14,6 +17,7 @@ interface LibraryCardProps {
 
 export default function LibraryCard({
   kind,
+  collectionColor,
   meta,
   title,
   details,
@@ -33,29 +37,32 @@ export default function LibraryCard({
         ? BookOpen
         : Bookmark;
 
+  const color = collectionColor ?? "NONE";
+  const cardStyle: CSSProperties & { "--card-fill": string; "--card-border": string } = {
+    "--card-fill": color !== "NONE" && COLLECTION_SURFACE_MAP[color]
+      ? `color-mix(in oklab, ${COLLECTION_SURFACE_MAP[color]} 55%, var(--app-reading))`
+      : "var(--app-reading)",
+    "--card-border": color !== "NONE" && COLOR_MAP[color]
+      ? `color-mix(in oklab, ${COLOR_MAP[color]} 65%, var(--app-reading))`
+      : "color-mix(in oklab, var(--app-line) 14%, transparent)",
+  };
+
   return (
     <article
+      style={cardStyle}
       onClick={onClick}
-      className={`group relative isolate h-full min-w-0 w-full ${kind === "bookmark" ? "min-h-40 p-3" : "min-h-44 p-3"} cursor-pointer rounded-[1.05rem] border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_84%,white)] shadow-[0_1px_2px_color-mix(in_oklab,var(--app-line)_6%,transparent),0_14px_30px_-28px_color-mix(in_oklab,var(--app-line)_38%,transparent)] transition-[border-color,box-shadow,background-color] duration-200 hover:border-[color-mix(in_oklab,var(--app-primary)_28%,transparent)] hover:bg-[color-mix(in_oklab,var(--app-card)_72%,white)] hover:shadow-[0_2px_5px_color-mix(in_oklab,var(--app-line)_8%,transparent),0_18px_36px_-28px_color-mix(in_oklab,var(--app-line)_44%,transparent)] focus-within:border-[color-mix(in_oklab,var(--app-primary)_44%,transparent)] focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)] ${raised ? "z-40" : "z-0"}`}
+      className={`library-card group relative isolate h-full min-w-0 w-full ${kind === "bookmark" ? "min-h-40" : "min-h-44"} cursor-pointer p-4 ${raised ? "z-40" : "z-0"}`}
     >
       <div className="grid h-full min-w-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           <span
-            className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-semibold ${
-              isNote
-                ? "border-[color-mix(in_oklab,var(--app-accent)_28%,transparent)] bg-[color-mix(in_oklab,var(--app-accent)_13%,white)] text-[color-mix(in_oklab,var(--app-accent)_70%,var(--app-ink))]"
-                : isTodo
-                  ? "border-emerald-600/25 bg-emerald-500/10 text-emerald-700"
-                  : isRead
-                    ? "border-teal-700/25 bg-teal-600/10 text-teal-800"
-                    : "border-[color-mix(in_oklab,var(--app-secondary)_20%,transparent)] bg-[color-mix(in_oklab,var(--app-secondary)_10%,white)] text-[var(--app-secondary)]"
-            }`}
+            className="library-card-badge inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-semibold"
           >
             <TypeIcon size={12} aria-hidden="true" />
             {isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}
           </span>
           {meta ? (
-            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md bg-[#ffefcb] px-1.5 py-0.5 text-xs font-medium text-[#4f5566]">
+            <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-[var(--app-highlight)]/60 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)]">
               {meta}
             </div>
           ) : null}

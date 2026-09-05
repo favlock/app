@@ -187,23 +187,50 @@ export function buildHighlightsHtml(
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
   <title>FavLock highlights</title>
   <style>
-    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1d2230; background: #f7f1df; }
-    body { max-width: 760px; margin: 0 auto; padding: 40px 20px 80px; line-height: 1.6; }
-    h1 { margin-bottom: 0; } h2 { margin: 42px 0 0; } a { color: #0f766e; }
-    .meta, .source { color: #64748b; overflow-wrap: anywhere; }
-    article { margin-top: 20px; padding-top: 20px; border-top: 1px solid #d9d2c1; }
-    blockquote { margin: 0; padding: 14px 16px; border-left: 4px solid; border-radius: 8px; white-space: pre-wrap; }
-    blockquote.yellow { border-color: #f59e0b; background: #fde68a; }
-    blockquote.green { border-color: #10b981; background: #bbf7d0; }
-    blockquote.blue { border-color: #0ea5e9; background: #bfdbfe; }
-    blockquote.pink { border-color: #ec4899; background: #fbcfe8; }
-    .annotation { margin: 12px 0 0 16px; color: #475569; }
+    :root { color-scheme: light; font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif; color: #1d2230; background: #fffaf0; }
+    * { box-sizing: border-box; }
+    body { max-width: 840px; margin: 0 auto; padding: 40px 24px 80px; line-height: 1.65; overflow-wrap: anywhere; }
+    header { padding: 28px; border: 1px solid #a6d6cb; border-radius: 28px; background: #eef8f4; }
+    h1 { margin: 0; font-size: clamp(1.75rem, 5vw, 2.5rem); line-height: 1.2; letter-spacing: -0.035em; }
+    h2 { margin: 0; font-size: 1.3rem; line-height: 1.4; }
+    a { color: #0f766e; text-decoration-thickness: 1px; text-underline-offset: 4px; }
+    a:hover { text-decoration-thickness: 2px; }
+    a:focus-visible { outline: 3px solid #0f766e; outline-offset: 4px; border-radius: 4px; }
+    .meta, .source { color: #545b6d; font-size: 0.875rem; }
+    .meta { margin: 12px 0 0; }
+    .source { margin: 6px 0 0; }
+    section { margin-top: 24px; padding: 24px; border: 1px solid #deded9; border-radius: 24px; background: #fffdf7; }
+    article { margin-top: 20px; }
+    article + article { padding-top: 20px; border-top: 1px solid #deded9; }
+    blockquote { margin: 0; padding: 16px 20px; border: 1px solid #e8c88e; border-left-width: 4px; border-radius: 16px; background: #fff2da; white-space: pre-wrap; }
+    blockquote.yellow { border-color: #e8c88e; background: #fff2da; }
+    blockquote.green { border-color: #a6d6cb; background: #eef8f4; }
+    blockquote.blue { border-color: #bad4e5; background: #edf6fb; }
+    blockquote.pink { border-color: #eac0d7; background: #fbeef5; }
+    .annotation { margin-top: 12px; padding: 16px 20px; border: 1px solid #cdbce2; border-radius: 16px; background: #f3edf9; }
+    .annotation strong { color: #65477e; font-size: 0.875rem; }
     .annotation p { margin: 4px 0 0; }
+    @media (max-width: 480px) {
+      body { padding: 16px 12px 40px; }
+      header, section { padding: 20px; }
+      blockquote, .annotation { padding: 12px 14px; }
+    }
+    @media print {
+      :root { background: white; }
+      body { max-width: none; padding: 0; }
+      header, section { border-color: #bbb; }
+      article { break-inside: avoid; }
+      h2 { break-after: avoid; }
+    }
   </style>
 </head>
 <body>
-  <h1>FavLock highlights</h1>
-  <p class="meta">Exported ${escapeHtml(document.exportedAt)}</p>${sources}
+  <header>
+    <h1>FavLock highlights</h1>
+    <p class="meta">Exported ${escapeHtml(document.exportedAt)}</p>
+  </header>
+  <main>${sources}
+  </main>
 </body>
 </html>
 `;

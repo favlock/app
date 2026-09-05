@@ -40,7 +40,7 @@ function UsageMeter({
       <div className="mb-2 flex items-center justify-between gap-4">
         <div
           className={`flex items-center gap-2 text-sm font-medium ${
-            isLimitReached ? "text-red-600" : "liquid-ink"
+            isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-ink"
           }`}
         >
           <Icon className="size-4" aria-hidden="true" />
@@ -48,12 +48,12 @@ function UsageMeter({
         </div>
         <span
           className={`text-sm tabular-nums ${
-            isLimitReached ? "text-red-600" : "liquid-muted"
+            isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-muted"
           }`}
         >
           <span
             className={`font-semibold ${
-              isLimitReached ? "text-red-600" : "liquid-ink"
+              isLimitReached ? "text-red-600 dark:text-red-300" : "liquid-ink"
             }`}
           >
             {used.toLocaleString("en-US")}
@@ -86,7 +86,7 @@ function UsageMeter({
       </div>
       <p
         className={`mt-1.5 text-xs ${
-          isLimitReached ? "font-medium text-red-600" : "liquid-muted"
+          isLimitReached ? "font-medium text-red-600 dark:text-red-300" : "liquid-muted"
         }`}
       >
         {remaining === null
@@ -101,7 +101,7 @@ function UsageMeter({
   );
 }
 
-export default function ResourceUsageSection() {
+export default function ResourceUsageSection({ localOnly = false }: { localOnly?: boolean }) {
   const { data, isLoading, isError, isFetching, refetch } = useResourceUsage();
   const {
     data: accountPlan = DEFAULT_PLAN,
@@ -115,7 +115,9 @@ export default function ResourceUsageSection() {
       <div>
         <h3 className="text-sm font-semibold liquid-ink">Resource usage</h3>
         <p className="mt-1 text-sm liquid-muted">
-          See how much of each account resource you are using.
+          {localOnly
+            ? "See how much of each resource is stored in this local vault."
+            : "See how much of each account resource you are using."}
         </p>
       </div>
 
@@ -131,7 +133,7 @@ export default function ResourceUsageSection() {
       ) : isError || isPlanError || !data ? (
         <div
           role="alert"
-          className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600"
+          className="mt-5 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300"
         >
           <p>Could not load account usage.</p>
           <Button
@@ -150,10 +152,12 @@ export default function ResourceUsageSection() {
       ) : (
         <div className="mt-5 space-y-5">
           <p className="text-sm liquid-muted">
-            Plan: <span className="font-semibold liquid-ink">{accountPlan.name}</span>
+            {localOnly ? "Storage" : "Plan"}: <span className="font-semibold liquid-ink">{accountPlan.name}</span>
           </p>
           <p className="text-sm liquid-muted">
-            Trash recovery: {accountPlan.trashRecoveryDays} days
+            {localOnly
+              ? "Deleted items are removed immediately"
+              : `Trash recovery: ${accountPlan.trashRecoveryDays} days`}
           </p>
           <UsageMeter
             label="Bookmarks"
@@ -169,20 +173,24 @@ export default function ResourceUsageSection() {
             icon={NotebookTabs}
             barClassName="bg-emerald-500"
           />
-          <UsageMeter
-            label="Saved articles"
-            used={data.readspace}
-            limit={accountPlan.limits.readspace}
-            icon={BookOpen}
-            barClassName="bg-amber-500"
-          />
-          <UsageMeter
-            label="Highlights"
-            used={data.highlights}
-            limit={accountPlan.limits.highlights}
-            icon={Highlighter}
-            barClassName="bg-yellow-500"
-          />
+          {!localOnly ? (
+            <UsageMeter
+              label="Saved articles"
+              used={data.readspace}
+              limit={accountPlan.limits.readspace}
+              icon={BookOpen}
+              barClassName="bg-amber-500"
+            />
+          ) : null}
+          {!localOnly ? (
+            <UsageMeter
+              label="Highlights"
+              used={data.highlights}
+              limit={accountPlan.limits.highlights}
+              icon={Highlighter}
+              barClassName="bg-yellow-500"
+            />
+          ) : null}
           <UsageMeter
             label="Collections"
             used={data.collections}

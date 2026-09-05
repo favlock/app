@@ -91,7 +91,7 @@ export default function Todos() {
 
       {undoNotice ? (
         <div
-          className="fixed inset-x-3 bottom-4 z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[var(--app-ink)] px-4 py-3 text-sm text-white shadow-2xl"
+          className="fixed inset-x-3 bottom-4 z-50 mx-auto flex max-w-md items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[var(--app-ink)] dark:text-[var(--app-bg)] px-4 py-3 text-sm text-white shadow-2xl"
           role="status"
         >
           <span className="min-w-0 flex-1 truncate">
@@ -100,7 +100,7 @@ export default function Todos() {
           <button
             type="button"
             onClick={() => void undoCompletion()}
-            className="min-h-9 rounded-lg px-2 font-bold text-emerald-300 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
+            className="min-h-9 rounded-lg px-2 font-bold text-emerald-300 hover:bg-[var(--app-highlight)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300"
           >
             Undo
           </button>

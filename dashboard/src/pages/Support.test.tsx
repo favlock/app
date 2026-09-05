@@ -28,16 +28,10 @@ describe("Support contact form", () => {
   let container: HTMLDivElement;
   let root: Root;
 
-  beforeEach(async () => {
-    vi.mocked(submitSupportRequest).mockReset();
-    vi.mocked(submitSupportRequest).mockResolvedValue(undefined);
-    container = document.createElement("div");
-    document.body.appendChild(container);
-    root = createRoot(container);
-
+  const renderSupport = async (initialEntry = "/support") => {
     await act(async () => {
       root.render(
-        <MemoryRouter initialEntries={["/support"]}>
+        <MemoryRouter initialEntries={[initialEntry]}>
           <Routes>
             <Route
               element={
@@ -55,6 +49,16 @@ describe("Support contact form", () => {
         </MemoryRouter>,
       );
     });
+  };
+
+  beforeEach(async () => {
+    vi.mocked(submitSupportRequest).mockReset();
+    vi.mocked(submitSupportRequest).mockResolvedValue(undefined);
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await renderSupport();
   });
 
   afterEach(() => {
@@ -126,6 +130,20 @@ describe("Support contact form", () => {
     expect(container.textContent).toContain(
       "bookmarks, notes, tasks, and saved articles",
     );
+  });
+
+  it("opens the changelog tab from its direct link", async () => {
+    act(() => root.unmount());
+    root = createRoot(container);
+    await renderSupport("/support#changelog");
+
+    expect(
+      container
+        .querySelector("#changelog-tab")
+        ?.getAttribute("aria-selected"),
+    ).toBe("true");
+    expect(container.querySelectorAll("form")).toHaveLength(0);
+    expect(container.textContent).toContain("v1.10.0");
   });
 
   it("moves between tabs with arrow keys", async () => {

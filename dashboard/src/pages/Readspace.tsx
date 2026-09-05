@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BookOpen,
+  Cloud,
   LoaderCircle,
   Menu,
   Search,
@@ -62,6 +63,7 @@ import {
   saveReadspaceView,
   type ReadspaceView,
 } from "../lib/readspaceViewPreference";
+import { startLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const EXTENSION_READY = "FAVLOCK_CHROME_EXTENSION_READY";
@@ -109,7 +111,64 @@ function getCaptureParams(search: string) {
   };
 }
 
-export default function Readspace() {
+function LocalReadspaceCloudOnly() {
+  const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
+      <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
+        <div className="flex items-start gap-3 py-1 sm:py-2">
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="theme-button-icon -ml-2 inline-flex size-11 lg:hidden"
+            aria-label="Open navigation"
+          >
+            <Menu size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[var(--app-ink)] sm:text-[2rem] sm:leading-tight">
+              Readspace
+            </h1>
+            <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
+              Save articles and web highlights to your encrypted cloud vault
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section className="px-3 lg:px-0">
+        <div className="app-surface rounded-[1.15rem] px-5 py-12 text-center sm:px-8 sm:py-16">
+          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--app-primary)_10%,transparent)] text-[var(--app-primary)]">
+            <Cloud size={24} aria-hidden="true" />
+          </span>
+          <h2 className="mt-4 text-xl font-bold text-[var(--app-ink)]">
+            Readspace is a cloud-only feature
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--app-muted)]">
+            Connect this local library to a free account to save encrypted
+            articles and highlights from the FavLock browser extension.
+          </p>
+          <Button
+            type="button"
+            color="emerald"
+            className="mt-6"
+            onClick={() => {
+              if (user?.id) startLocalVaultCloudMerge(user.id);
+              navigate("/login?mode=sign-in&reconnect=1&merge=1");
+            }}
+          >
+            Connect a cloud account
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CloudReadspace() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { user } = useAuth();
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
@@ -497,7 +556,7 @@ export default function Readspace() {
               </button>
             ))}
           </div>
-          <div className="mt-3 flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,white)] px-3 shadow-sm focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
+          <div className="mt-3 flex min-h-12 items-center gap-2 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))] px-3 shadow-sm focus-within:ring-3 focus-within:ring-[color-mix(in_oklab,var(--app-primary)_12%,transparent)]">
             <Search size={18} className="text-[var(--app-muted)]" />
             <input
               type="search"
@@ -520,16 +579,16 @@ export default function Readspace() {
       {view === "highlights" && highlightCleanupAt && highlightExcess > 0 ? (
         <section className="px-3 lg:px-0" aria-label="Highlight retention notice">
           <div
-            className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-950 sm:flex-row sm:items-center sm:justify-between"
+            className="flex flex-col gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-950 dark:text-amber-200 sm:flex-row sm:items-center sm:justify-between"
             role="alert"
           >
             <div className="flex min-w-0 items-start gap-2.5">
-              <AlertTriangle className="mt-0.5 size-5 flex-none text-amber-600" aria-hidden="true" />
+              <AlertTriangle className="mt-0.5 size-5 flex-none text-amber-600 dark:text-amber-300" aria-hidden="true" />
               <div>
                 <p className="font-semibold">
                   {highlightExcess.toLocaleString()} newer {highlightExcess === 1 ? "highlight" : "highlights"} will be deleted on {dateFormatter.format(new Date(highlightCleanupAt))}.
                 </p>
-                <p className="mt-1 text-sm leading-5 text-amber-900/80">
+                <p className="mt-1 text-sm leading-5 text-amber-900/80 dark:text-amber-200">
                   Free keeps your oldest {highlightLimit.toLocaleString()} highlights. Export or delete the excess, or upgrade to keep everything.
                 </p>
               </div>
@@ -598,7 +657,7 @@ export default function Readspace() {
               </div>
             ) : captureError ? (
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm text-red-700" role="alert">
+                <p className="text-sm text-red-700 dark:text-red-300" role="alert">
                   {captureError}
                 </p>
                 <Button type="button" outline onClick={clearCaptureQuery}>
@@ -620,7 +679,7 @@ export default function Readspace() {
 
       <section className="px-3 lg:px-0">
         {view === "highlights" && highlightColorError ? (
-          <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700" role="alert">
+          <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
             {highlightColorError}
           </p>
         ) : null}
@@ -659,13 +718,13 @@ export default function Readspace() {
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className="h-56 animate-pulse rounded-xl bg-white/50"
+                className="h-56 animate-pulse rounded-xl bg-[var(--app-highlight)]/50"
               />
             ))}
           </div>
         ) : error ? (
           <div
-            className="rounded-xl bg-red-500/10 p-5 text-sm text-red-700"
+            className="rounded-xl bg-red-500/10 p-5 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             <p>Could not load Readspace.</p>
@@ -679,7 +738,7 @@ export default function Readspace() {
             </Button>
           </div>
         ) : parsedEntries.length === 0 ? (
-          <div className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,white)] px-5 py-14 text-center shadow-[0_6px_0_color-mix(in_oklab,var(--app-line)_9%,transparent)]">
+          <div className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-14 text-center shadow-[0_6px_0_color-mix(in_oklab,var(--app-line)_9%,transparent)]">
             <BookOpen size={42} className="mx-auto text-[var(--app-primary)]" />
             <h3 className="mt-4 text-xl font-bold">Your Readspace is quiet</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--app-muted)]">
@@ -689,7 +748,7 @@ export default function Readspace() {
           </div>
         ) : debouncedQuery && readspaceSearchQuery.isLoading ? (
           <div
-            className="flex items-center justify-center gap-2 rounded-xl bg-white/55 px-5 py-10 text-sm text-[var(--app-muted)]"
+            className="flex items-center justify-center gap-2 rounded-xl bg-[var(--app-highlight)]/55 px-5 py-10 text-sm text-[var(--app-muted)]"
             role="status"
           >
             <LoaderCircle className="size-4 animate-spin" /> Searching
@@ -697,7 +756,7 @@ export default function Readspace() {
           </div>
         ) : debouncedQuery && readspaceSearchQuery.error ? (
           <div
-            className="rounded-xl bg-red-500/10 p-5 text-sm text-red-700"
+            className="rounded-xl bg-red-500/10 p-5 text-sm text-red-700 dark:text-red-300"
             role="alert"
           >
             <p>Could not search Readspace.</p>
@@ -711,7 +770,7 @@ export default function Readspace() {
             </Button>
           </div>
         ) : visibleEntries.length === 0 ? (
-          <div className="rounded-xl bg-white/55 px-5 py-10 text-center text-sm text-[var(--app-muted)]">
+          <div className="rounded-xl bg-[var(--app-highlight)]/55 px-5 py-10 text-center text-sm text-[var(--app-muted)]">
             No saved articles match “{debouncedQuery}”.
           </div>
         ) : (
@@ -750,11 +809,11 @@ export default function Readspace() {
       >
         <DialogTitle>Move saved article to Trash?</DialogTitle>
         <DialogDescription>
-          “{deleteTarget?.title}” can be restored from Trash before its recovery
-          period expires.
+          “{deleteTarget?.title ?? "This article"}” can be restored from Trash
+          before its recovery period expires.
         </DialogDescription>
         {deleteError ? (
-          <p className="mt-3 text-sm text-red-600" role="alert">
+          <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">
             {deleteError}
           </p>
         ) : null}
@@ -768,7 +827,7 @@ export default function Readspace() {
             disabled={deleteEntry.isPending}
             onClick={() => void confirmDelete()}
           >
-            {deleteEntry.isPending ? "Moving…" : "Move to Trash"}
+            {deleteEntry.isPending ? "Deleting…" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -783,7 +842,7 @@ export default function Readspace() {
           You can restore the encrypted highlight during your plan’s recovery period. The source bookmark remains saved.
         </DialogDescription>
         {highlightDeleteError ? (
-          <p className="mt-3 text-sm text-red-600" role="alert">{highlightDeleteError}</p>
+          <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">{highlightDeleteError}</p>
         ) : null}
         <DialogActions>
           <Button type="button" plain onClick={() => setHighlightDeleteTarget(null)}>Cancel</Button>
@@ -801,7 +860,7 @@ export default function Readspace() {
           setAnnotationError(null);
         }}
         size="sm"
-        className="bg-[color-mix(in_oklab,var(--app-card)_94%,white)]! [--gutter:0.5rem]!"
+        className="[--gutter:0.5rem]!"
       >
         <HighlightAnnotationEditor
           value={annotationText}
@@ -854,4 +913,9 @@ export default function Readspace() {
       />
     </div>
   );
+}
+
+export default function Readspace() {
+  const { isLocalAccount } = useAuth();
+  return isLocalAccount ? <LocalReadspaceCloudOnly /> : <CloudReadspace />;
 }

@@ -19,10 +19,10 @@ export function DataTransferSectionHeader({
 }) {
   return (
     <div>
-      <h3 id={id} className="text-base font-semibold text-gray-900">
+      <h3 id={id} className="text-base font-semibold text-gray-900 dark:text-[var(--app-ink)]">
         {title}
       </h3>
-      <Text className="mt-1 text-sm text-gray-600">{description}</Text>
+      <Text className="mt-1 text-sm text-gray-600 dark:text-[var(--app-muted)]">{description}</Text>
     </div>
   );
 }
@@ -89,15 +89,15 @@ export function DataTransferFileControl({
       >
         <div
           className={clsx(
-            "flex min-h-11 min-w-0 items-center rounded-lg border border-zinc-950/15 bg-white px-3.5 py-2.5 text-base/6 shadow-sm sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-sm/6",
-            disabled ? "opacity-50" : "text-zinc-950",
+            "flex min-h-11 min-w-0 items-center rounded-lg border border-zinc-950/15 dark:border-[var(--app-line)]/15 bg-[var(--app-highlight)] px-3.5 py-2.5 text-base/6 shadow-sm sm:min-h-9 sm:px-3 sm:py-1.5 sm:text-sm/6",
+            disabled ? "opacity-50" : "text-zinc-950 dark:text-[var(--app-ink)]",
           )}
           aria-live="polite"
         >
           <span
             className={clsx(
               "truncate",
-              fileName ? "text-zinc-950" : "text-zinc-500",
+              fileName ? "text-zinc-950 dark:text-[var(--app-ink)]" : "text-zinc-500 dark:text-[var(--app-muted)]",
             )}
             title={fileName ?? undefined}
           >

@@ -6,10 +6,10 @@ type AppLogoProps = ComponentProps<typeof Logo>;
 export function AppLogo({ className, ...props }: AppLogoProps) {
   return (
     <span className="inline-flex items-center gap-2">
-      <Logo className={className} {...props} />
+      <Logo className={["app-logo", className].filter(Boolean).join(" ")} {...props} />
       {import.meta.env.DEV ? (
         <span
-          className="inline-flex rounded-md border border-amber-600/30 bg-amber-400/15 px-1.5 py-1 text-[0.625rem] font-extrabold leading-none tracking-[0.08em] text-amber-800"
+          className="inline-flex rounded-md border border-amber-600/30 bg-amber-400/15 px-1.5 py-1 text-[0.625rem] font-extrabold leading-none tracking-[0.08em] text-amber-800 dark:text-amber-200"
           aria-label="Development build"
           title="Development build"
         >

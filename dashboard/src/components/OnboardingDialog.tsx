@@ -42,6 +42,7 @@ import {
 interface OnboardingDialogProps {
   open: boolean;
   userId: string;
+  localOnly: boolean;
   bookmarkWritesAllowed: boolean;
   onClose: () => void;
   onProtectLibrary: () => void;
@@ -70,8 +71,8 @@ function ChecklistItem({
       aria-current={active ? "step" : undefined}
       className={`flex gap-3 px-4 py-3 sm:px-5 ${
         active
-          ? "bg-[color-mix(in_oklab,var(--app-primary)_5%,white)]"
-          : "bg-[color-mix(in_oklab,var(--app-card)_72%,white)]"
+          ? "bg-[color-mix(in_oklab,var(--app-primary)_5%,var(--app-highlight))]"
+          : "bg-[color-mix(in_oklab,var(--app-card)_72%,var(--app-highlight))]"
       }`}
     >
       <span
@@ -79,8 +80,8 @@ function ChecklistItem({
           complete
             ? "bg-emerald-500 text-white"
             : active
-              ? "bg-[var(--app-primary)] text-white"
-              : "bg-[color-mix(in_oklab,var(--app-line)_9%,white)] text-[var(--app-muted)]"
+              ? "bg-[var(--app-primary)] text-[var(--app-on-primary)]"
+              : "bg-[color-mix(in_oklab,var(--app-line)_9%,var(--app-highlight))] text-[var(--app-muted)]"
         }`}
       >
         {complete ? (
@@ -105,7 +106,9 @@ function ChecklistItem({
   );
 }
 
-function extensionStatusCopy(status: ChromeExtensionOnboardingStatus) {
+function extensionStatusCopy(
+  status: ChromeExtensionOnboardingStatus,
+) {
   switch (status) {
     case "checking":
       return "Checking whether the FavLock extension is available…";
@@ -116,15 +119,16 @@ function extensionStatusCopy(status: ChromeExtensionOnboardingStatus) {
     case "installed-wrong-account":
       return "The extension is paired to a different account. Disconnect it explicitly before pairing this account.";
     case "installed-locked":
-      return "The extension is paired to this account, but its local library is locked. Unlock it separately in the extension.";
+      return "The extension is paired to this account, but it is locked. Unlock it separately in the extension.";
     case "paired":
-      return "The extension is installed, paired to this account, and its local library is unlocked.";
+      return "The extension is installed, paired to this account, and unlocked.";
   }
 }
 
 export default function OnboardingDialog({
   open,
   userId,
+  localOnly,
   bookmarkWritesAllowed,
   onClose,
   onProtectLibrary,
@@ -140,9 +144,10 @@ export default function OnboardingDialog({
   const extensionStatusRequestRef = useRef(0);
   const extensionSupported = useMemo(
     () =>
+      !localOnly &&
       typeof navigator !== "undefined" &&
       supportsFavLockChromeExtension(navigator.userAgent, navigator.vendor),
-    [],
+    [localOnly],
   );
   const exportGuide = useMemo(
     () =>
@@ -251,6 +256,11 @@ export default function OnboardingDialog({
           <p className="mb-1 text-xs font-bold uppercase tracking-[0.15em] text-[var(--app-primary)]">
             Getting started · {completedCount} of 3 complete
           </p>
+          {localOnly ? (
+            <p className="mb-2 inline-flex rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-semibold text-amber-800 dark:text-amber-200">
+              Stored on this device
+            </p>
+          ) : null}
           <DialogTitle className="text-xl/7! sm:text-xl/7!">
             {firstValueComplete
               ? "Your library is ready"
@@ -329,7 +339,7 @@ export default function OnboardingDialog({
                   </div>
 
                   {!bookmarkWritesAllowed ? (
-                    <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800" role="status">
+                    <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm text-amber-800 dark:text-amber-200" role="status">
                       Your current allowance does not permit another bookmark. Free supported space or upgrade, then try again.
                     </p>
                   ) : null}

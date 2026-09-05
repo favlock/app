@@ -8,9 +8,6 @@ import { Heading } from "../components/ui/heading";
 import { Text } from "../components/ui/text";
 import { AuthLayout } from "../components/ui/auth-layout";
 import { DASHBOARD_RESET_PASSWORD_URL } from "../lib/appUrls";
-import CloudflareTurnstile, {
-  type CloudflareTurnstileHandle,
-} from "../components/CloudflareTurnstile";
 import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import PasswordInput from "../components/PasswordInput";
 import {
@@ -29,8 +26,7 @@ export default function ResetPassword() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
-  const captchaRef = useRef<CloudflareTurnstileHandle>(null);
+  const resetRequestPendingRef = useRef(false);
   const recoveryRedirectRef = useRef(hasPasswordRecoveryRedirect());
 
   useEffect(() => {
@@ -63,6 +59,7 @@ export default function ResetPassword() {
 
   const handleReset = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (resetRequestPendingRef.current) return;
     setError(null);
     setSuccess(null);
 
@@ -71,32 +68,32 @@ export default function ResetPassword() {
       return;
     }
 
-    if (!captchaToken) {
-      setError("Complete the security verification before requesting a reset link.");
-      return;
-    }
-
+    resetRequestPendingRef.current = true;
     setLoading(true);
 
-    const { error } = await favLockAuth.resetPasswordForEmail(email, {
-      redirectTo: DASHBOARD_RESET_PASSWORD_URL,
-      captchaToken,
-    });
-    captchaRef.current?.reset();
+    try {
+      const { error } = await favLockAuth.resetPasswordForEmail(email, {
+        redirectTo: DASHBOARD_RESET_PASSWORD_URL,
+      });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setSuccess(
-        "Check your email for a password reset link. Follow the instructions in the message.",
-      );
+      if (error) {
+        setError(error.message);
+      } else {
+        setSuccess(
+          "Check your email for a password reset link. Follow the instructions in the message.",
+        );
+      }
+    } catch {
+      setError("The password reset request could not be completed. Try again.");
+    } finally {
+      setLoading(false);
+      resetRequestPendingRef.current = false;
     }
-
-    setLoading(false);
   };
 
   const handleUpdatePassword = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (resetRequestPendingRef.current) return;
     setError(null);
     setSuccess(null);
 
@@ -117,24 +114,29 @@ export default function ResetPassword() {
       return;
     }
 
+    resetRequestPendingRef.current = true;
     setLoading(true);
 
-    const { error } = await favLockAuth.updateUser({
-      password: newPassword,
-    });
+    try {
+      const { error } = await favLockAuth.updateUser({
+        password: newPassword,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (error) {
+        setError(error.message);
+        return;
+      }
+
+      setSuccess("Password updated. Redirecting you to sign in...");
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 1200);
+    } catch {
+      setError("The password could not be updated. Try again.");
+    } finally {
+      resetRequestPendingRef.current = false;
       setLoading(false);
-      return;
     }
-
-    setSuccess("Password updated. Redirecting you to sign in...");
-    setLoading(false);
-
-    setTimeout(() => {
-      navigate("/login", { replace: true });
-    }, 1200);
   };
 
   if (initializingRecovery) {
@@ -165,7 +167,7 @@ export default function ResetPassword() {
             className="mt-4 rounded-lg bg-red-500/10 border border-red-500/30 px-4 py-3"
             role="alert"
           >
-            <Text className="!text-red-600  text-sm">
+            <Text className="!text-red-600 dark:text-red-300  text-sm">
               {error}
             </Text>
           </div>
@@ -177,7 +179,7 @@ export default function ResetPassword() {
             role="status"
             aria-live="polite"
           >
-            <Text className="!text-green-600  text-sm">
+            <Text className="!text-green-600 dark:text-green-300  text-sm">
               {success}
             </Text>
           </div>
@@ -237,17 +239,11 @@ export default function ResetPassword() {
                 </Field>
               </FieldGroup>
 
-              <CloudflareTurnstile
-                ref={captchaRef}
-                action="reset_password"
-                onVerify={setCaptchaToken}
-              />
-
               <Button
                 type="submit"
                 color="emerald"
                 className="mt-8 w-full"
-                disabled={loading || !captchaToken}
+                disabled={loading || !email.trim()}
               >
                 {loading ? "Sending..." : "Send reset link"}
               </Button>

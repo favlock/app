@@ -1,3 +1,4 @@
+import { useFolders } from "../hooks/useFoldersQuery";
 import { useState, type MouseEvent as ReactMouseEvent } from "react";
 import {
   CalendarDays,
@@ -26,15 +27,19 @@ export default function ReadspaceCard({
   onOpen,
   onOrganize,
   onDelete,
+  deletePermanently = false,
 }: {
   entry: ReadspaceEntry;
   content: ReadspaceContent;
   onOpen: () => void;
   onOrganize: () => void;
   onDelete: () => void;
+  deletePermanently?: boolean;
 }) {
   const updateFolder = useUpdateEntryFolder();
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const { data: folders = [] } = useFolders();
+  const currentFolder = folders.find((folder) => folder.id === entry.folder?.id) ?? entry.folder;
   const hasPreview = Boolean(getEntryText(content.html).trim());
   const published = content.publishedAt
     ? dateFormatter.format(new Date(content.publishedAt))
@@ -63,6 +68,7 @@ export default function ReadspaceCard({
   return (
     <LibraryCard
       kind="read"
+      collectionColor={currentFolder?.color}
       onClick={handleCardClick}
       raised={collectionMenuOpen}
       meta={
@@ -78,7 +84,7 @@ export default function ReadspaceCard({
           type="button"
           onClick={onOpen}
           title={entry.title}
-          className="block max-w-full truncate rounded-sm text-left decoration-[#0f766e] underline-offset-4 transition-colors hover:text-[#0f766e] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0f766e]/35"
+          className="block max-w-full truncate rounded-sm text-left decoration-[var(--app-primary)] underline-offset-4 transition-colors hover:text-[var(--app-primary)] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35"
         >
           {entry.title}
         </button>
@@ -105,7 +111,7 @@ export default function ReadspaceCard({
                 <Badge
                   key={tag.id}
                   color="violet"
-                  className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600!"
+                  className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! font-medium! text-violet-600! dark:text-violet-300!"
                 >
                   <span className="truncate" title={`#${tag.name}`}>
                     #{tag.name}
@@ -157,8 +163,8 @@ export default function ReadspaceCard({
             type="button"
             onClick={onDelete}
             plain
-            className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! data-hover:bg-red-50!"
-            aria-label={`Move ${entry.title} to Trash`}
+            className="cursor-pointer rounded-full! p-0! text-[var(--app-muted)]! transition-colors hover:text-red-500! dark:hover:text-[var(--app-danger)]! dark:data-hover:text-[var(--app-danger)]! dark:data-focus:text-[var(--app-danger)]! dark:focus-visible:text-[var(--app-danger)]! data-hover:bg-red-50! data-hover:dark:bg-[var(--app-rose)]!"
+            aria-label={deletePermanently ? `Delete ${entry.title} permanently` : `Move ${entry.title} to Trash`}
           >
             <span className="flex size-10 items-center justify-center rounded-full">
               <Trash2 size={14} aria-hidden="true" />

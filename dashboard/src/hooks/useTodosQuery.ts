@@ -10,16 +10,27 @@ import type { Todo } from "../types/bookmark";
 import { invalidateEntryQueries } from "./useEntriesQuery";
 import { useAuth } from "../context/useAuth";
 import { getCachedEntriesForUser } from "../lib/bookmarkCache";
+import { useEncryption } from "../context/useEncryption";
+import {
+  createLocalEntry,
+  deleteLocalEntry,
+  readLocalEntries,
+  setLocalTodoCompleted,
+  updateLocalEntry,
+} from "../lib/localVault";
 
 const TODOS_QUERY_KEY = ["todos"];
 
 export function useTodos(options?: { enabled?: boolean }) {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery({
     queryKey: [...TODOS_QUERY_KEY, user?.id],
-    enabled: (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt,
+    enabled: (options?.enabled ?? true) && !!user && !!bookmarkCacheSyncedAt && (!isLocalAccount || !!cryptoKey),
     queryFn: async () => {
-      const entries = await getCachedEntriesForUser(user!.id);
+      const entries = isLocalAccount
+        ? await readLocalEntries(user!.id, cryptoKey!)
+        : await getCachedEntriesForUser(user!.id);
       return entries
         .filter((entry): entry is Todo => entry.kind === "todo")
         .sort((left, right) => right.created_at.localeCompare(left.created_at));
@@ -30,12 +41,15 @@ export function useTodos(options?: { enabled?: boolean }) {
 }
 
 export function useTodoCount() {
-  const { user, bookmarkCacheSyncedAt } = useAuth();
+  const { user, bookmarkCacheSyncedAt, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
   return useQuery({
     queryKey: [...TODOS_QUERY_KEY, "count", user?.id],
-    enabled: !!user && !!bookmarkCacheSyncedAt,
+    enabled: !!user && !!bookmarkCacheSyncedAt && (!isLocalAccount || !!cryptoKey),
     queryFn: async () =>
-      (await getCachedEntriesForUser(user!.id)).filter(
+      (isLocalAccount
+        ? await readLocalEntries(user!.id, cryptoKey!)
+        : await getCachedEntriesForUser(user!.id)).filter(
         (entry) => entry.kind === "todo",
       ).length,
     staleTime: Number.POSITIVE_INFINITY,
@@ -45,10 +59,11 @@ export function useTodoCount() {
 
 export function useCreateTodo() {
   const queryClient = useQueryClient();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
   return useMutation({
-    mutationFn: (values: EntryWriteValues) =>
-      createEntry(session?.access_token ?? "", "todo", values),
+    mutationFn: (values: EntryWriteValues) => isLocalAccount
+      ? createLocalEntry(user!.id, "todo", values)
+      : createEntry(session?.access_token ?? "", "todo", values),
     onSuccess: () => {
       retryBookmarkCacheSync();
       invalidateEntryQueries(queryClient);
@@ -58,10 +73,11 @@ export function useCreateTodo() {
 
 export function useUpdateTodo() {
   const queryClient = useQueryClient();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
   return useMutation({
-    mutationFn: ({ todoId, ...values }: EntryWriteValues & { todoId: string }) =>
-      updateTodo(session?.access_token ?? "", todoId, values),
+    mutationFn: ({ todoId, ...values }: EntryWriteValues & { todoId: string }) => isLocalAccount
+      ? updateLocalEntry(user!.id, todoId, values)
+      : updateTodo(session?.access_token ?? "", todoId, values),
     onSuccess: () => {
       retryBookmarkCacheSync();
       invalidateEntryQueries(queryClient);
@@ -71,10 +87,11 @@ export function useUpdateTodo() {
 
 export function useToggleTodo() {
   const queryClient = useQueryClient();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
   return useMutation({
-    mutationFn: ({ todoId, isCompleted }: { todoId: string; isCompleted: boolean }) =>
-      setTodoCompleted(session?.access_token ?? "", todoId, isCompleted),
+    mutationFn: ({ todoId, isCompleted }: { todoId: string; isCompleted: boolean }) => isLocalAccount
+      ? setLocalTodoCompleted(user!.id, todoId, isCompleted)
+      : setTodoCompleted(session?.access_token ?? "", todoId, isCompleted),
     onMutate: async ({ todoId, isCompleted }) => {
       await queryClient.cancelQueries({ queryKey: TODOS_QUERY_KEY });
       const previousQueries = queryClient.getQueriesData({
@@ -113,10 +130,11 @@ export function useToggleTodo() {
 
 export function useDeleteTodo() {
   const queryClient = useQueryClient();
-  const { retryBookmarkCacheSync, session } = useAuth();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
   return useMutation({
-    mutationFn: (todoId: string) =>
-      deleteEntry(session?.access_token ?? "", "todo", todoId),
+    mutationFn: (todoId: string) => isLocalAccount
+      ? deleteLocalEntry(user!.id, todoId)
+      : deleteEntry(session?.access_token ?? "", "todo", todoId),
     onSuccess: () => {
       retryBookmarkCacheSync();
       invalidateEntryQueries(queryClient);

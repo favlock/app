@@ -26,7 +26,7 @@ export default function SocialAuthButton({
       type="button"
       aria-label={label}
       aria-busy={loading}
-      className="relative flex h-11 w-full items-center justify-center rounded-lg border border-[#747775] bg-white text-sm/5 font-medium text-[#1f1f1f] transition-[background-color,box-shadow] hover:bg-[#f8fafd] hover:shadow-sm active:bg-[#eef2f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
+      className="relative flex h-11 w-full items-center justify-center rounded-full border border-[#747775] bg-white text-sm/5 font-medium text-[#1f1f1f] transition-[background-color,box-shadow] hover:bg-[#f8fafd] hover:shadow-sm active:bg-[#eef2f7] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 disabled:cursor-not-allowed disabled:opacity-60"
       disabled={disabled}
       onClick={onClick}
     >

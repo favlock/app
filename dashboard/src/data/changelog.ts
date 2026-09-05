@@ -4,12 +4,33 @@ export interface Release {
   version: string;
   date: string;
   changes: string[];
+  announcementHighlights?: string[];
 }
 
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
     date: "September 5, 2026",
+    announcementHighlights: [
+      "Try FavLock before signing up with an encrypted vault stored in this browser.",
+      "Choose a refreshed light or dark appearance that stays with you.",
+      "Move around your library and transfer data with clearer navigation.",
+    ],
+    changes: [
+      "Try FavLock without an account by importing bookmarks into an encrypted local vault stored in this browser.",
+      "Connect a local vault to a new or existing account with a guided, encrypted merge and explicit recovery-key handling.",
+      "Use the refreshed pastel design across the dashboard and Chrome extension, with a saved light or dark appearance for the dashboard.",
+      "Navigate the sidebar and Import & export tools more clearly, including more reliable direct links to individual transfer options.",
+    ],
+  },
+  {
+    version: "1.9.0",
+    date: "September 5, 2026",
+    announcementHighlights: [
+      "Save highlights with the Chrome extension and revisit them in Readspace.",
+      "Sign in with Apple, Google, or email.",
+      "Safer library imports and a smoother Readspace experience.",
+    ],
     changes: [
       "Highlight text on saved web pages from Chrome, then review, annotate, search, and export those highlights in Readspace.",
       "Sign up or sign in with Apple alongside Google and email.",

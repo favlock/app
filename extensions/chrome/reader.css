@@ -1,14 +1,14 @@
 :root {
   color-scheme: light;
-  --page: #fbfdfc;
-  --toolbar: rgba(248, 252, 250, 0.86);
+  --page: #fffdf7;
+  --toolbar: #eef8f4;
   --control: rgba(15, 118, 110, 0.08);
   --control-hover: rgba(15, 118, 110, 0.14);
-  --ink: #202229;
+  --ink: #1d2230;
   --muted: #5f6672;
   --line: rgba(29, 34, 48, 0.14);
   --accent: #0f766e;
-  --secondary: #2563eb;
+  --secondary: #0f766e;
   --measure: 42rem;
   --reader-size: 19px;
   font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino,
@@ -137,7 +137,7 @@ body {
 
 .control-group {
   overflow: hidden;
-  border-radius: 8px;
+  border-radius: 12px;
   background: var(--control);
 }
 
@@ -149,7 +149,7 @@ button {
   justify-content: center;
   gap: 6px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 6px 9px;
   color: var(--ink);
   background: var(--control);
@@ -196,7 +196,7 @@ a:focus-visible {
   align-items: center;
   gap: 2px;
   padding: 2px;
-  border-radius: 9px;
+  border-radius: 16px;
   background: var(--control);
 }
 
@@ -413,3 +413,6 @@ a:focus-visible {
     padding: 0;
   }
 }
+
+.save-button { border-radius: 999px; box-shadow: none; }
+.reader-toolbar { font-family: "Avenir Next", "Segoe UI", sans-serif; }

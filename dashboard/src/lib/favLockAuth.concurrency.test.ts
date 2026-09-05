@@ -254,7 +254,6 @@ describe("FavLockAuthClient refresh concurrency", () => {
     const login = await client.signInWithPassword({
       email: signedIn.user.email,
       password: "fake-test-password",
-      options: { captchaToken: "fake-test-captcha" },
     });
     expect(login.error).toBeNull();
     locks.releaseHolder();

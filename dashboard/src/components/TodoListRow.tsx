@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
+import { useAuth } from "../context/useAuth";
 
 interface TodoListRowProps {
   todo: Todo;
@@ -58,6 +59,7 @@ export default function TodoListRow({
   onEdit,
   onToggle,
 }: TodoListRowProps) {
+  const { isLocalAccount } = useAuth();
   const deleteTodo = useDeleteTodo();
   const updateFolder = useUpdateEntryFolder();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -97,7 +99,7 @@ export default function TodoListRow({
   return (
     <>
       <article
-        className={`relative rounded-xl border bg-[color-mix(in_oklab,var(--app-card)_90%,white)] shadow-[0_3px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] transition-colors hover:border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)] ${
+        className={`relative rounded-xl border bg-[color-mix(in_oklab,var(--app-card)_90%,var(--app-highlight))] shadow-[0_3px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] transition-colors hover:border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)] ${
           collectionMenuOpen
             ? "z-40 border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)]"
             : "z-0 border-[color-mix(in_oklab,var(--app-line)_14%,transparent)]"
@@ -110,8 +112,8 @@ export default function TodoListRow({
             disabled={togglePending}
             className={`flex size-11 flex-none items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35 disabled:opacity-50 ${
               todo.is_completed
-                ? "bg-[color-mix(in_oklab,var(--app-primary)_14%,white)] text-[var(--app-primary)]"
-                : "text-[var(--app-muted)] hover:bg-[color-mix(in_oklab,var(--app-primary)_9%,white)] hover:text-[var(--app-primary)]"
+                ? "bg-[color-mix(in_oklab,var(--app-primary)_14%,var(--app-highlight))] text-[var(--app-primary)]"
+                : "text-[var(--app-muted)] hover:bg-[color-mix(in_oklab,var(--app-primary)_9%,var(--app-highlight))] hover:text-[var(--app-primary)]"
             }`}
             aria-label={
               todo.is_completed
@@ -120,7 +122,7 @@ export default function TodoListRow({
             }
           >
             {todo.is_completed ? (
-              <span className="flex size-6 items-center justify-center rounded-full bg-[var(--app-primary)] text-white">
+              <span className="flex size-6 items-center justify-center rounded-full bg-[var(--app-primary)] text-[var(--app-on-primary)]">
                 <Check size={15} strokeWidth={3} aria-hidden="true" />
               </span>
             ) : (
@@ -156,10 +158,10 @@ export default function TodoListRow({
               <span
                 className={`hidden items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold sm:inline-flex ${
                   due.tone === "overdue"
-                    ? "border-red-500/25 bg-red-500/10 text-red-700"
+                    ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300"
                     : due.tone === "today"
-                      ? "border-amber-500/30 bg-amber-400/12 text-amber-700"
-                      : "border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white/72 text-[var(--app-muted)]"
+                      ? "border-amber-500/30 bg-amber-400/12 text-amber-700 dark:text-amber-300"
+                      : "border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/72 text-[var(--app-muted)]"
                 }`}
               >
                 <CalendarDays size={13} aria-hidden="true" />
@@ -197,7 +199,7 @@ export default function TodoListRow({
               plain
               onClick={() => setShowDeleteDialog(true)}
               className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-red-500!"
-              aria-label={`Move ${todo.title} to Trash`}
+              aria-label={isLocalAccount ? `Delete ${todo.title} permanently` : `Move ${todo.title} to Trash`}
             >
               <Trash2 size={16} aria-hidden="true" />
             </Button>
@@ -210,9 +212,9 @@ export default function TodoListRow({
               <span
                 className={`inline-flex items-center gap-1 text-xs font-semibold ${
                   due.tone === "overdue"
-                    ? "text-red-700"
+                    ? "text-red-700 dark:text-red-300"
                     : due.tone === "today"
-                      ? "text-amber-700"
+                      ? "text-amber-700 dark:text-amber-300"
                       : "text-[var(--app-muted)]"
                 }`}
               >
@@ -224,7 +226,7 @@ export default function TodoListRow({
               <Badge
                 key={tag.id}
                 color="violet"
-                className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600!"
+                className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600! dark:text-violet-300!"
               >
                 <span className="truncate" title={`#${tag.name}`}>
                   #{tag.name}
@@ -237,7 +239,7 @@ export default function TodoListRow({
               </span>
             ) : null}
             {toggleError ? (
-              <p className="w-full text-xs text-red-600" role="alert">
+              <p className="w-full text-xs text-red-600 dark:text-red-300" role="alert">
                 {toggleError}
               </p>
             ) : null}
@@ -245,7 +247,7 @@ export default function TodoListRow({
         )}
         {toggleError ? (
           <p
-            className="hidden border-t border-red-500/15 px-4 py-2 text-xs text-red-600 sm:block"
+            className="hidden border-t border-red-500/15 px-4 py-2 text-xs text-red-600 dark:text-red-300 sm:block"
             role="alert"
           >
             {toggleError}
@@ -260,13 +262,14 @@ export default function TodoListRow({
         }
         size="sm"
       >
-        <DialogTitle>Move task to Trash?</DialogTitle>
+        <DialogTitle>{isLocalAccount ? "Delete task permanently?" : "Move task to Trash?"}</DialogTitle>
         <DialogDescription>
-          “{todo.title}” can be restored from Trash before its recovery period
-          expires.
+          {isLocalAccount
+            ? `“${todo.title}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${todo.title}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteError ? (
-          <p className="mt-3 text-sm text-red-600" role="alert">
+          <p className="mt-3 text-sm text-red-600 dark:text-red-300" role="alert">
             {deleteError}
           </p>
         ) : null}
@@ -285,7 +288,7 @@ export default function TodoListRow({
             onClick={() => void confirmDelete()}
             disabled={deleteTodo.isPending}
           >
-            {deleteTodo.isPending ? "Moving..." : "Move to Trash"}
+            {deleteTodo.isPending ? "Deleting..." : isLocalAccount ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

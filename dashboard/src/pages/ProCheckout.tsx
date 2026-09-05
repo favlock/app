@@ -39,7 +39,7 @@ export default function ProCheckout() {
         {error ? (
           <Link
             to="/settings"
-            className="mt-5 inline-block font-medium text-emerald-700 hover:underline"
+            className="mt-5 inline-block font-medium text-emerald-700 dark:text-emerald-300 hover:underline"
           >
             Back to settings
           </Link>

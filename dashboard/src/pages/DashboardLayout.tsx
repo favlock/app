@@ -36,6 +36,9 @@ import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/B
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
+import LocalVaultBanner from "../components/LocalVaultBanner";
+import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
+import ReleaseAnnouncementDialog from "../components/ReleaseAnnouncementDialog";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -75,7 +78,7 @@ export default function DashboardLayout() {
     isLoading: loadingTags,
   } = useTags();
   const { data: userInfo, isSuccess: userInfoLoaded } = useUserInfo();
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const { cryptoKey, needsUnlock } = useEncryption();
   const { data: accountPlan } = useAccountPlan();
   const { data: bookmarkCounts, isSuccess: bookmarkCountsLoaded } =
@@ -103,7 +106,9 @@ export default function DashboardLayout() {
     ? (tagSlugIndex.idBySlug.get(tagSlug) ?? null)
     : null;
   const dataTransferHashView: DataTransferView | null =
-    location.hash === "#import-bookmarks"
+    location.pathname === "/data-transfer"
+      ? null
+      : location.hash === "#import-bookmarks"
       ? "import"
       : location.hash === "#export-data"
         ? "export"
@@ -436,10 +441,12 @@ export default function DashboardLayout() {
 
   return (
     <div className="text-[var(--app-ink)] font-sans antialiased min-h-screen">
+      <LocalVaultCloudMergeDialog />
       <SearchEnginePreferenceDialog enabled={hasFinishedInitialOnboarding} />
       <OnboardingDialog
         open={isOnboardingOpen}
         userId={user?.id ?? ""}
+        localOnly={isLocalAccount}
         bookmarkWritesAllowed={bookmarkWritesAllowed}
         onProtectLibrary={openOnboardingProtection}
         onImportBookmarks={openOnboardingImport}
@@ -455,8 +462,20 @@ export default function DashboardLayout() {
         onViewChange={changeDataTransferView}
         onClose={closeDataTransfer}
       />
+      <ReleaseAnnouncementDialog
+        enabled={
+          (hasFinishedInitialOnboarding || isLocalAccount) &&
+          !isOnboardingOpen &&
+          !isAddBookmarkOpen &&
+          !needsUnlock &&
+          Boolean(cryptoKey) &&
+          (Boolean(userInfo?.default_search_engine) || isLocalAccount) &&
+          activeDataTransferView === null
+        }
+      />
       <ChromeExtensionPrompt
         enabled={
+          !isLocalAccount &&
           hasFinishedInitialOnboarding &&
           !isOnboardingOpen &&
           !isAddBookmarkOpen &&
@@ -468,7 +487,7 @@ export default function DashboardLayout() {
 
       <a
         href="#main-content"
-        className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-[var(--app-ink)] px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] focus:ring-offset-2"
+        className="fixed left-4 top-4 z-[60] -translate-y-24 rounded-lg bg-[var(--app-ink)] dark:text-[var(--app-bg)] px-4 py-2 text-sm font-semibold text-white shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] focus:ring-offset-2"
       >
         Skip to main content
       </a>
@@ -528,10 +547,6 @@ export default function DashboardLayout() {
                     setIsMobileSidebarOpen(false);
                     setIsOnboardingOpen(true);
                   }}
-                  onOpenDataTransfer={() => {
-                    setIsMobileSidebarOpen(false);
-                    setDataTransferView("chooser");
-                  }}
                 />
               </div>
             </Headless.DialogPanel>
@@ -547,7 +562,6 @@ export default function DashboardLayout() {
               onStartOnboarding={() => {
                 setIsOnboardingOpen(true);
               }}
-              onOpenDataTransfer={() => setDataTransferView("chooser")}
             />
           </aside>
 
@@ -557,7 +571,14 @@ export default function DashboardLayout() {
             tabIndex={-1}
             className="w-full min-w-0 pb-[env(safe-area-inset-bottom)] focus:outline-none"
           >
-            <CloudConnectionNotice />
+            {isLocalAccount ? (
+              <LocalVaultBanner
+                bookmarkCount={bookmarkCounts?.bookmarkCount ?? 0}
+                vaultId={user?.id ?? ""}
+              />
+            ) : (
+              <CloudConnectionNotice />
+            )}
             {bookmarkAccess?.mode === "grace" ? (
               <BookmarkLimitGraceNotice access={bookmarkAccess} />
             ) : null}

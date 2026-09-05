@@ -215,7 +215,7 @@ export default function BookmarkList({
     if (isSearchMode) {
       return (
         <div
-          className="rounded-xl border border-[#1d2230]/12 bg-white/80 px-5 py-9 text-center shadow-sm"
+          className="rounded-xl border border-[var(--app-ink)]/12 bg-[var(--app-highlight)]/80 px-5 py-9 text-center shadow-sm"
           role="status"
         >
           <BookmarkIcon
@@ -223,10 +223,10 @@ export default function BookmarkList({
             size={36}
             aria-hidden="true"
           />
-          <p className="text-sm font-medium text-[#1d2230]">
+          <p className="text-sm font-medium text-[var(--app-ink)]">
             No bookmarks match "{normalizedSearch}"
           </p>
-          <p className="mt-1 text-sm text-[#4f5566]">
+          <p className="mt-1 text-sm text-[var(--app-muted)]">
             Try fewer keywords or search by domain, tag, or collection name.
           </p>
         </div>
@@ -234,7 +234,7 @@ export default function BookmarkList({
     }
 
     return (
-      <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,white)] px-5 py-10 text-center shadow-[0_6px_0_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-12">
+      <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-10 text-center shadow-[0_6px_0_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-12">
         <div
           className="absolute -left-12 -top-16 -z-10 size-40 rounded-full bg-[color-mix(in_oklab,var(--app-accent)_18%,transparent)] blur-2xl"
           aria-hidden="true"
@@ -343,7 +343,7 @@ export default function BookmarkList({
         <div ref={loadMoreRef} className="flex justify-center py-5">
           {hasNextPage && (
             <div
-              className="flex items-center gap-2 text-gray-500 "
+              className="flex items-center gap-2 text-gray-500 dark:text-[var(--app-muted)] "
               role="status"
               aria-live="polite"
             >

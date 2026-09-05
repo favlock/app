@@ -28,7 +28,7 @@ import { Input } from "./ui/input";
 import { Combobox, ComboboxLabel, ComboboxOption } from "./ui/combobox";
 import {
   Dropdown,
-  DropdownButton,
+  DropdownFieldButton,
   DropdownItem,
   DropdownMenu,
 } from "./ui/dropdown";
@@ -368,7 +368,7 @@ function EntryEditorSession({
       onClose={() => (focused ? setFocused(false) : void requestClose())}
       size={isTodo ? "3xl" : "5xl"}
       fullScreen={focused}
-      className={`entry-writing-dialog ${isTodo ? "entry-writing-dialog-compact" : ""} ${fullWidth ? "entry-writing-dialog-wide" : ""} overflow-hidden bg-[var(--app-card)]! p-0! ring-0!`}
+      className={`entry-writing-dialog ${isTodo ? "entry-writing-dialog-compact" : ""} ${fullWidth ? "entry-writing-dialog-wide" : ""} overflow-hidden p-0!`}
     >
       <form
         onSubmit={handleSubmit}
@@ -520,10 +520,8 @@ function EntryEditorSession({
                   <Label className="text-[var(--app-ink)]!">Collection</Label>
                   <div data-slot="control">
                     <Dropdown>
-                      <DropdownButton
-                        outline
+                      <DropdownFieldButton
                         disabled={foldersLoading}
-                        className="w-full justify-between text-left"
                       >
                         {foldersLoading
                           ? "Loading collections..."
@@ -532,7 +530,7 @@ function EntryEditorSession({
                                 (folder) => folder.id === selectedFolderId,
                               )?.name || "Select collection"
                             : "No collection"}
-                      </DropdownButton>
+                      </DropdownFieldButton>
                       <DropdownMenu
                         anchor="bottom start"
                         className="min-w-[var(--button-width)]"
@@ -624,7 +622,7 @@ function EntryEditorSession({
               {words.toLocaleString()} {words === 1 ? "word" : "words"}{" "}
               <span
                 className={
-                  contentLength > ENTRY_CONTENT_MAX_LENGTH ? "text-red-600" : ""
+                  contentLength > ENTRY_CONTENT_MAX_LENGTH ? "text-red-600 dark:text-red-300" : ""
                 }
               >
                 · {contentLength.toLocaleString()}/
@@ -664,7 +662,7 @@ function EntryEditorSession({
             </p>
           )}
           {contentLength > ENTRY_CONTENT_MAX_LENGTH && (
-            <p role="alert" className="mt-2 text-sm text-red-600">
+            <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-300">
               {plural} can contain up to{" "}
               {ENTRY_CONTENT_MAX_LENGTH.toLocaleString()} characters. Your text
               is still here; shorten it before saving.
@@ -675,7 +673,7 @@ function EntryEditorSession({
               <ErrorMessage className="mt-3">{error}</ErrorMessage>
             </div>
           )}
-          {draft.error && <p role="alert" className="mt-3 text-sm text-red-600">{draft.error}</p>}
+          {draft.error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-300">{draft.error}</p>}
           {!unlocked && <p role="status" className="mt-3 text-sm">Unlock your vault to continue writing.</p>}
           {changedElsewhere && <p role="alert" className="mt-3 text-sm text-[var(--app-muted)]">This document changed elsewhere. Autosave is paused; review your writing before replacing the account version.</p>}
           {dirty && !online && <p role="status" className="mt-3 text-sm text-[var(--app-muted)]">Offline · account save is waiting for a connection.</p>}

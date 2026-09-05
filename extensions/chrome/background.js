@@ -3,6 +3,7 @@ import {
   disconnectExtension,
   getExternalOnboardingStatus,
   getConnectionState,
+  removeLegacyLocalVaultConnection,
   receivePairedKey,
 } from "./extension-auth.js";
 import { FAVLOCK_CONFIG } from "./config.js";
@@ -59,6 +60,7 @@ async function restoreBuildBadge(tabId) {
 }
 
 async function initializeSettings() {
+  await removeLegacyLocalVaultConnection();
   const stored = await chrome.storage.sync.get([
     "showHighlightsOnWebpages",
     "useFavLockNewTab",

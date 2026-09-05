@@ -84,7 +84,7 @@ export default function TagHeaderActions({
           setIsDeleteDialogOpen(true);
         }}
         disabled={deleteTag.isPending}
-        className="inline-flex size-8! p-0! items-center justify-center rounded-lg text-red-500! hover:bg-red-50! hover:text-red-600! cursor-pointer"
+        className="inline-flex size-8! p-0! items-center justify-center rounded-lg text-red-500! dark:text-[var(--app-danger)]! hover:bg-red-50! hover:dark:bg-[var(--app-rose)]! hover:text-red-600! hover:dark:text-[var(--app-danger)]! cursor-pointer"
         aria-label="Delete tag"
       >
         <Trash2 className="size-4" />

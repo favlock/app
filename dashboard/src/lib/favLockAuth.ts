@@ -1,4 +1,5 @@
 import { API_URL, DASHBOARD_URL } from "./appUrls";
+import { readLocalVaultCloudMerge } from "./localVaultCloudMerge";
 import { captureInitialPasswordRecoveryRedirect } from "./authRecovery";
 import { readAuthUrl } from "./authUrl";
 import { hasAuthCallback, readAuthCallbackFailure, withoutAuthCallback, type AuthCallbackFailure } from "./authCallback";
@@ -33,6 +34,8 @@ export interface AuthUser {
   user_metadata: Record<string, unknown>;
   app_metadata: Record<string, unknown>;
   identities?: AuthIdentity[];
+  /** Local vault identity only. It never authorizes a cloud request. */
+  local_only?: boolean;
 }
 
 export interface AuthSession {
@@ -65,7 +68,8 @@ export type AuthChangeEvent =
   | "SESSION_STALE"
   | "TOKEN_REFRESHED"
   | "USER_UPDATED"
-  | "PASSWORD_RECOVERY";
+  | "PASSWORD_RECOVERY"
+  | "LOCAL_ACCOUNT_CREATED";
 
 interface StoredPkce {
   verifier: string;
@@ -222,12 +226,13 @@ function mapApiSession(value: unknown, passwordFallback = false): AuthSession | 
 function mapStoredUser(value: unknown): AuthUser | null {
   if (!isRecord(value)) return null;
   const id = readString(value.id, 64);
-  const email = readString(value.email, 254);
+  const localOnly = value.local_only === true;
+  const email = localOnly && value.email === "" ? "" : readString(value.email, 254);
   const createdAt = readString(value.created_at, 64);
   if (
     !id ||
     !UUID_PATTERN.test(id) ||
-    !email ||
+    email === null ||
     !createdAt ||
     !Number.isFinite(Date.parse(createdAt))
   ) {
@@ -247,7 +252,12 @@ function mapStoredUser(value: unknown): AuthUser | null {
           )
           .map((identity) => ({ provider: identity.provider as string }))
       : undefined,
+    ...(localOnly ? { local_only: true } : {}),
   };
+}
+
+export function isLocalOnlyUser(user: AuthUser | null | undefined): boolean {
+  return user?.local_only === true;
 }
 
 function mapStoredSession(value: unknown): AuthSession | null {
@@ -558,7 +568,11 @@ export class FavLockAuthClient {
   #saveSession(session: AuthSession, event: AuthChangeEvent): void {
     if (this.#disposed || this.#localAccountState === "invalidated") throw new Error(LOCAL_ACCOUNT_CHANGED_MESSAGE);
     const localUser = this.getLocalUser();
-    if (localUser && localUser.id !== session.user.id) {
+    const mergeIntent = readLocalVaultCloudMerge();
+    const allowsLocalMerge = !!localUser?.local_only &&
+      localUser.id !== session.user.id &&
+      mergeIntent?.sourceVaultId === localUser.id;
+    if (localUser && localUser.id !== session.user.id && !allowsLocalMerge) {
       throw new Error("This is a different account. Your local vault was not changed. Export it before explicitly signing out, or use a separate browser profile.");
     }
     try {
@@ -569,7 +583,7 @@ export class FavLockAuthClient {
         this.#invalidateLocalAccount();
         throw new Error(LOCAL_ACCOUNT_CHANGED_MESSAGE);
       }
-      if (profile && profile.user.id !== session.user.id) {
+      if (profile && profile.user.id !== session.user.id && !allowsLocalMerge) {
         throw new Error("This is a different account. Your local vault was not changed. Export it before explicitly signing out, or use a separate browser profile.");
       }
       const nextEpoch = epoch ?? this.#localAccountEpoch ?? crypto.randomUUID();
@@ -625,7 +639,8 @@ export class FavLockAuthClient {
     const user = this.#localUser;
     writeStorageItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify({
       version: 1,
-      user: { id: user.id, email: user.email, created_at: user.created_at, user_metadata: {
+      user: { id: user.id, email: user.email, created_at: user.created_at,
+        ...(user.local_only ? { local_only: true } : {}), user_metadata: {
         first_name: readString(user.user_metadata.first_name, 256) ?? "",
         last_name: readString(user.user_metadata.last_name, 256) ?? "",
         password_sign_in_enabled: user.user_metadata.password_sign_in_enabled === true,
@@ -761,6 +776,53 @@ export class FavLockAuthClient {
     if (!this.#session) return "reconnect_required";
     if (this.#cloudStatus === "available" && this.#session.expires_at * 1000 <= Date.now()) return "unavailable";
     return this.#cloudStatus;
+  }
+
+  async createLocalAccount(): Promise<AuthResult<{ user: AuthUser | null }>> {
+    try {
+      await this.initialize();
+      if (this.getLocalUser()) {
+        return {
+          data: { user: null },
+          error: new Error("A FavLock vault is already open in this browser profile."),
+        };
+      }
+      if (this.#disposed || this.#localAccountState === "invalidated") {
+        throw new Error(LOCAL_ACCOUNT_CHANGED_MESSAGE);
+      }
+      const user: AuthUser = {
+        id: crypto.randomUUID(),
+        email: "",
+        created_at: new Date().toISOString(),
+        user_metadata: {},
+        app_metadata: { provider: "local", providers: [] },
+        identities: [],
+        local_only: true,
+      };
+      const epoch = crypto.randomUUID();
+      this.#advanceGeneration();
+      this.#localAccountState = "active";
+      this.#localAccountEpoch = epoch;
+      this.#localUser = user;
+      this.#session = null;
+      this.#cloudStatus = "reconnect_required";
+      this.#refreshRejected = true;
+      writeStorageItem(
+        LOCAL_ACCOUNT_EPOCH_STORAGE_KEY,
+        JSON.stringify({ id: epoch, signedOut: false } satisfies LocalAccountMarker),
+      );
+      this.#persistLocalProfile();
+      this.#notify("LOCAL_ACCOUNT_CREATED", null);
+      return { data: { user }, error: null };
+    } catch (error) {
+      if (error instanceof AuthStorageError) this.#recordStorageFailure(error);
+      return {
+        data: { user: null },
+        error: error instanceof Error
+          ? error
+          : new Error("Could not create the local vault."),
+      };
+    }
   }
 
   markCloudFailure(accessToken: string, status: "reconnect_required" | "restricted" | "unavailable"): void {
@@ -1280,18 +1342,15 @@ export class FavLockAuthClient {
   async signInWithPassword({
     email,
     password,
-    options,
   }: {
     email: string;
     password: string;
-    options: { captchaToken: string };
   }): Promise<AuthResult<{ user: AuthUser | null; session: AuthSession | null }>> {
     const generation = this.#generation;
     try {
       const value = await this.#request("/v1/auth/sign-in/password", "POST", {
         email,
         password,
-        captchaToken: options.captchaToken,
       });
       const session =
         isRecord(value) && isRecord(value.data)
@@ -1317,7 +1376,6 @@ export class FavLockAuthClient {
     email: string;
     password: string;
     options: {
-      captchaToken: string;
       emailRedirectTo: string;
       data?: { first_name?: string; last_name?: string };
     };
@@ -1325,7 +1383,14 @@ export class FavLockAuthClient {
     const generation = this.#generation;
     let attemptVerifier: string | null = null;
     try {
-      if (this.getLocalUser()) throw new Error("Reconnect to your existing account. To create another account, use a separate browser profile or explicitly sign out first.");
+      const localUser = this.getLocalUser();
+      const mergeIntent = readLocalVaultCloudMerge();
+      if (
+        localUser &&
+        (!localUser.local_only || mergeIntent?.sourceVaultId !== localUser.id)
+      ) {
+        throw new Error("Reconnect to your existing account. To create another account, use a separate browser profile or explicitly sign out first.");
+      }
       const redirectTarget = readRedirectTarget(
         options.emailRedirectTo,
         this.#dashboardUrl,
@@ -1340,7 +1405,6 @@ export class FavLockAuthClient {
         password,
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
         redirectTarget,
@@ -1379,7 +1443,7 @@ export class FavLockAuthClient {
   }: {
     type: "signup";
     email: string;
-    options: { captchaToken: string; emailRedirectTo: string };
+    options: { emailRedirectTo: string };
   }): Promise<AuthResult<Record<string, never>>> {
     let attemptVerifier: string | null = null;
     let previousPkce: StoredPkce | null = null;
@@ -1395,7 +1459,6 @@ export class FavLockAuthClient {
       attemptVerifier = verifier;
       await this.#request("/v1/auth/sign-up/resend", "POST", {
         email,
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
         redirectTarget,
@@ -1421,7 +1484,7 @@ export class FavLockAuthClient {
 
   async resetPasswordForEmail(
     email: string,
-    options: { redirectTo: string; captchaToken: string },
+    options: { redirectTo: string },
   ): Promise<AuthResult<Record<string, never>>> {
     let pkceStored = false;
     try {
@@ -1435,7 +1498,6 @@ export class FavLockAuthClient {
       pkceStored = true;
       await this.#request("/v1/auth/password/reset", "POST", {
         email,
-        captchaToken: options.captchaToken,
         pkceCodeChallenge: challenge,
         pkceCodeChallengeMethod: "s256",
       });

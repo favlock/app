@@ -9,7 +9,6 @@ import {
 import { PRODUCT_VERSION } from "@favlock/shared";
 import { AppLogo } from "./AppLogo";
 import { useAuth } from "../context/useAuth";
-import { useTheme } from "../context/useTheme";
 import {
   useFolders,
   useAddFolder,
@@ -35,10 +34,8 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useTags, useTagBookmarkCounts } from "../hooks/useTagsQuery";
 import {
-  Check,
   Archive,
   LogOutIcon,
-  Palette,
   PlusIcon,
   Heart,
   House,
@@ -69,14 +66,8 @@ import {
   COLOR_NONE,
   type ColorConstant,
 } from "../constants/colors";
-import { THEME_VARIANT_OPTIONS } from "../constants/themes";
 import { FolderSidebarSkeleton } from "./FolderSidebarSkeleton";
-import {
-  Dropdown,
-  DropdownButton,
-  DropdownItem,
-  DropdownMenu,
-} from "./ui/dropdown";
+
 import { Button } from "./ui/button";
 import { changelog } from "../data/changelog";
 import type { Folder } from "../types/bookmark";
@@ -93,6 +84,7 @@ import { useReadspaceCount } from "../hooks/useReadspaceQuery";
 import { useTrashCount } from "../hooks/useTrashQuery";
 import { useListCount } from "../hooks/useListsQuery";
 import ProUpgradeDialog from "./ProUpgradeDialog";
+import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 
 const folderCollisionDetection: CollisionDetection = ({
   active,
@@ -125,7 +117,6 @@ interface FolderSidebarProps {
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
   onStartOnboarding?: () => void;
-  onOpenDataTransfer?: () => void;
 }
 
 interface SortableCollectionProps {
@@ -165,14 +156,14 @@ function SortableCollection({
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`relative flex items-center rounded-lg transition-[margin,box-shadow,background-color] duration-150 ${
         displayAsChild ? "ml-4" : "ml-0"
-      } ${isDragging ? "relative z-10 bg-white opacity-80 shadow-md" : ""} ${
-        isNestTarget ? "bg-emerald-50/40 ring-1 ring-emerald-300/60" : ""
-      } ${isBlocked ? "bg-red-50 ring-2 ring-red-400" : ""}`}
+      } ${isDragging ? "relative z-10 bg-[var(--app-highlight)] opacity-80 shadow-md" : ""} ${
+        isNestTarget ? "bg-emerald-50/40 dark:bg-[var(--app-mint)] ring-1 ring-emerald-300/60" : ""
+      } ${isBlocked ? "bg-red-50 dark:bg-[var(--app-rose)] ring-2 ring-red-400" : ""}`}
     >
       {displayAsChild && (
         <CornerDownRight
           className={`size-3 flex-none ${
-            previewDepth === 1 ? "text-emerald-500" : "text-gray-300"
+            previewDepth === 1 ? "text-emerald-500" : "text-gray-300 dark:text-[var(--app-muted)]"
           }`}
         />
       )}
@@ -197,9 +188,9 @@ function SortableCollection({
         }`}
       >
         <span
-          className={`h-2 w-2 flex-none rounded-full ${
+          className={`h-3 w-3 flex-none rounded-full ring-1 ring-inset ring-black/10 ${
             folder.color && folder.color !== COLOR_NONE
-              ? ""
+              ? "saturate-175 brightness-95"
               : "bg-[var(--app-line)]"
           }`}
           style={{
@@ -235,22 +226,17 @@ export default function FolderSidebar({
   selectedTagId,
   onSelectTag,
   onStartOnboarding,
-  onOpenDataTransfer,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
-  const { user, signOut } = useAuth();
-  const {
-    themeVariant,
-    themeSaveError,
-    setThemeVariant,
-    retryThemeSave,
-    dismissThemeSaveError,
-  } = useTheme();
+  const { user, signOut, isLocalAccount } = useAuth();
+
   const { data: userInfo } = useUserInfo();
   const accountDisplayName = getAccountDisplayName(userInfo, user?.email);
   const { data: accountPlan } = useAccountPlan();
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const {
     data: folders = [],
@@ -275,6 +261,19 @@ export default function FolderSidebar({
     }),
   );
 
+  const performSignOut = async () => {
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error) {
+      setSignOutError(
+        error instanceof Error ? error.message : "Could not sign out. Try again.",
+      );
+      setSigningOut(false);
+    }
+  };
+
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -292,9 +291,7 @@ export default function FolderSidebar({
     readspaceArticleCount + (accountPlan?.highlightAccess.count ?? 0);
   const { data: listCount = 0 } = useListCount();
   const { data: trashCount = 0 } = useTrashCount();
-  const currentTheme =
-    THEME_VARIANT_OPTIONS.find((option) => option.value === themeVariant) ??
-    THEME_VARIANT_OPTIONS[0];
+
 
   const handleCreate = async (e: SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -426,7 +423,7 @@ export default function FolderSidebar({
             Library
           </h3>
         </div>
-        <ul className="mt-2 space-y-1">
+        <ul className="app-library-nav mt-2 space-y-1">
           <li>
             <button
               type="button"
@@ -507,27 +504,45 @@ export default function FolderSidebar({
             </Link>
           </li>
           <li>
-            <Link
-              to="/readspace"
-              aria-current={location.pathname === "/readspace" ? "page" : undefined}
-              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/readspace" ? "theme-nav-button-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen size={16} aria-hidden="true" />
-                Readspace
-              </span>
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/readspace"
-                    ? "theme-nav-count-active"
-                    : "text-[var(--app-muted)]"
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Readspace is available with a cloud account."
+                aria-label="Readspace, cloud only"
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Cloud
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/readspace"
+                aria-current={location.pathname === "/readspace" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/readspace" ? "theme-nav-button-active" : ""
                 }`}
               >
-                {readspaceItemCount}
-              </span>
-            </Link>
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname === "/readspace"
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                >
+                  {readspaceItemCount}
+                </span>
+              </Link>
+            )}
           </li>
           <li>
             <Link
@@ -613,27 +628,45 @@ export default function FolderSidebar({
             </button>
           </li>
           <li>
-            <Link
-              to="/trash"
-              aria-current={location.pathname === "/trash" ? "page" : undefined}
-              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/trash" ? "theme-nav-button-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <Trash2 size={16} aria-hidden="true" />
-                Trash
-              </span>
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/trash"
-                    ? "theme-nav-count-active"
-                    : "text-[var(--app-muted)]"
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Trash is available with a cloud account. Local deletions are immediate."
+                aria-label="Trash, cloud only. Local deletions are immediate."
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <Trash2 size={16} aria-hidden="true" />
+                  Trash
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Cloud
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/trash"
+                aria-current={location.pathname === "/trash" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/trash" ? "theme-nav-button-active" : ""
                 }`}
               >
-                {trashCount}
-              </span>
-            </Link>
+                <span className="flex items-center gap-2">
+                  <Trash2 size={16} aria-hidden="true" />
+                  Trash
+                </span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname === "/trash"
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                >
+                  {trashCount}
+                </span>
+              </Link>
+            )}
           </li>
         </ul>
         <div
@@ -647,7 +680,7 @@ export default function FolderSidebar({
           <button
             type="button"
             onClick={() => setCreating(!creating)}
-            className="theme-button-icon inline-flex size-10"
+            className="theme-button-icon collection-create-toggle inline-flex size-10"
             aria-label="Create collection"
             aria-expanded={creating}
           >
@@ -656,7 +689,7 @@ export default function FolderSidebar({
         </div>
 
         {creating && (
-          <form onSubmit={handleCreate} className="mt-2 space-y-2">
+          <form onSubmit={handleCreate} className="collection-create-form mt-2 space-y-3">
             <input
               type="text"
               aria-label="Collection name"
@@ -666,7 +699,7 @@ export default function FolderSidebar({
                 setNewName(e.target.value)
               }
               autoFocus
-              className="min-h-11 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-3 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+              className="min-h-11 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-3 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
               onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                 if (e.key === "Escape") {
                   setCreating(false);
@@ -676,7 +709,7 @@ export default function FolderSidebar({
                 }
               }}
             />
-            <details className="rounded-lg border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/45 px-2.5 py-2 text-sm text-[var(--app-muted)]">
+            <details className="rounded-2xl border border-[var(--app-mint-border)] bg-[var(--app-mint)] px-3 py-3 text-sm text-[var(--app-muted)]">
               <summary className="cursor-pointer select-none font-medium text-[var(--app-ink)]">
                 More options
               </summary>
@@ -686,7 +719,7 @@ export default function FolderSidebar({
                     value={newParentId}
                     onChange={(event) => setNewParentId(event.target.value)}
                     aria-label="Parent collection"
-                    className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-white px-2.5 text-sm text-[var(--app-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
+                    className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] px-2.5 text-sm text-[var(--app-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)]"
                   >
                     <option value="">Top-level collection</option>
                     {folders
@@ -710,9 +743,9 @@ export default function FolderSidebar({
                         onClick={() => setNewColor(c)}
                         className={`size-8 cursor-pointer rounded-full border-2 transition-all ${
                           newColor === c
-                            ? "scale-110 border-[var(--app-ink)]"
+                            ? "border-[var(--app-primary)] ring-2 ring-[var(--app-reading)] outline-2 outline-offset-2 outline-[var(--app-primary)]"
                             : "border-[color-mix(in_oklab,var(--app-line)_24%,transparent)] hover:border-[var(--app-primary)]"
-                        } ${c === COLOR_NONE ? "bg-[var(--app-line)]" : ""}`}
+                        } ${c === COLOR_NONE ? "bg-[var(--app-reading)]" : ""}`}
                         style={{
                           backgroundColor:
                             c === COLOR_NONE ? undefined : getDisplayColor(c),
@@ -760,7 +793,7 @@ export default function FolderSidebar({
           <FolderSidebarSkeleton />
         ) : foldersError ? (
           <div
-            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600"
+            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             <p>Could not load collections.</p>
@@ -835,12 +868,12 @@ export default function FolderSidebar({
           <p
             className={`mt-2 min-h-4 px-1 text-xs font-medium transition-colors ${
               dragIntent?.action === "nest"
-                ? "text-emerald-600"
+                ? "text-emerald-600 dark:text-emerald-300"
                 : dragIntent?.action === "unnest"
-                  ? "text-sky-600"
+                  ? "text-sky-600 dark:text-sky-300"
                   : dragIntent?.action === "blocked"
-                    ? "text-red-600"
-                    : "text-gray-400"
+                    ? "text-red-600 dark:text-red-300"
+                    : "text-gray-400 dark:text-[var(--app-muted)]"
             }`}
             role="status"
             aria-live="polite"
@@ -871,7 +904,7 @@ export default function FolderSidebar({
           </div>
         ) : tagsError ? (
           <div
-            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600"
+            className="mt-2 rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-600 dark:text-red-300"
             role="alert"
           >
             <p>Could not load tags.</p>
@@ -922,10 +955,10 @@ export default function FolderSidebar({
           <button
             type="button"
             onClick={() => setUpgradeDialogOpen(true)}
-            className="group flex w-full items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-primary)_28%,transparent)] bg-gradient-to-r from-[color-mix(in_oklab,var(--app-primary)_13%,var(--app-card))] to-[color-mix(in_oklab,var(--app-card-strong)_55%,var(--app-card))] px-3 py-2.5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-[color-mix(in_oklab,var(--app-primary)_42%,transparent)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
+            className="group flex min-h-12 w-full items-center gap-3 rounded-full border border-[var(--app-lavender-border)] bg-[var(--app-lavender)] px-3 py-2 text-left transition-colors hover:bg-[color-mix(in_oklab,var(--app-lavender)_75%,var(--app-highlight))] focus-visible:outline-3 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]"
             aria-label="Upgrade to FavLock Pro"
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--app-primary)] text-white shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[var(--app-reading)] text-[var(--app-primary)]">
               <Sparkles size={15} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[var(--app-ink)]">
@@ -946,7 +979,7 @@ export default function FolderSidebar({
         <summary className="cursor-pointer list-none p-3 [&::-webkit-details-marker]:hidden">
           <div className="flex items-center gap-3">
             <div className="relative">
-              <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-white font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
+              <div className="size-8 rounded-xl bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-on-primary)] font-semibold text-sm shadow-md shadow-[color-mix(in_oklab,var(--app-primary)_20%,transparent)]">
                 {accountDisplayName[0]?.toUpperCase() ?? "U"}
               </div>
             </div>
@@ -980,85 +1013,40 @@ export default function FolderSidebar({
 
         {/* Actions */}
         <div className="p-2">
-          <Dropdown>
-            <DropdownButton
-              plain
-              className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
-            >
-              <Palette size={16} />
-              <span className="text-sm flex-1 text-left">
-                {currentTheme.label}
-              </span>
-            </DropdownButton>
-            <DropdownMenu anchor="bottom start" className="min-w-64">
-              {THEME_VARIANT_OPTIONS.map((option) => (
-                <DropdownItem
-                  key={option.value}
-                  className="gap-2"
-                  onClick={() => setThemeVariant(option.value)}
-                >
-                  <span className="min-w-0 flex-1 text-left text-sm font-medium text-zinc-950">
-                    {option.label}
-                  </span>
-                  {themeVariant === option.value && (
-                    <Check className="size-4 text-[var(--app-primary)]" />
-                  )}
-                </DropdownItem>
-              ))}
-            </DropdownMenu>
-          </Dropdown>
-
-          {themeSaveError ? (
-            <div
-              className="mx-1 mt-1 rounded-lg bg-red-500/10 px-2.5 py-2 text-xs text-red-600"
-              role="alert"
-            >
-              <p>{themeSaveError}</p>
-              <div className="mt-1 flex gap-3 font-semibold">
-                <button
-                  type="button"
-                  className="underline underline-offset-2"
-                  onClick={retryThemeSave}
-                >
-                  Try again
-                </button>
-                <button
-                  type="button"
-                  className="underline underline-offset-2"
-                  onClick={dismissThemeSaveError}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           <Link
             to="/settings"
             aria-current={location.pathname === "/settings" ? "page" : undefined}
-            className={`mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
+            className={`theme-nav-button mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
               location.pathname === "/settings"
                 ? "theme-nav-button-active"
-                : "theme-nav-button"
+                : ""
             }`}
           >
             <SettingsIcon size={16} />
             <span className="text-sm flex-1 text-left">Settings</span>
           </Link>
 
-          <button
-            type="button"
-            onClick={onOpenDataTransfer}
-            className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+          <Link
+            to="/data-transfer"
+            aria-current={location.pathname === "/data-transfer" ? "page" : undefined}
+            className={`theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+              location.pathname === "/data-transfer"
+                ? "theme-nav-button-active"
+                : ""
+            }`}
           >
             <ArrowDownUp size={16} aria-hidden="true" />
             <span className="text-sm flex-1 text-left">Data transfer</span>
-          </button>
+          </Link>
 
           <Link
             to="/support"
             aria-current={location.pathname === "/support" ? "page" : undefined}
-            className="theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+            className={`theme-nav-button w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg ${
+              location.pathname === "/support"
+                ? "theme-nav-button-active"
+                : ""
+            }`}
           >
             <LifeBuoy size={16} />
             <span className="text-sm flex-1 text-left">Support</span>
@@ -1079,14 +1067,18 @@ export default function FolderSidebar({
         {/* Sign Out */}
         <div className="p-2">
           <button
-            onClick={async () => {
-              setSigningOut(true);
-              await signOut();
+            onClick={() => {
+              if (isLocalAccount) {
+                setSignOutError(null);
+                setConfirmingSignOut(true);
+                return;
+              }
+              void performSignOut();
             }}
             disabled={signingOut}
             className="theme-nav-button theme-danger-button w-full group flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200"
           >
-            <div className="size-7 rounded-lg bg-[color-mix(in_oklab,var(--app-line)_7%,var(--app-card))] group-hover:bg-red-100 flex items-center justify-center transition-all duration-200">
+            <div className="size-7 rounded-lg bg-[color-mix(in_oklab,var(--app-line)_7%,var(--app-card))] group-hover:bg-red-100 group-hover:dark:bg-[var(--app-rose)] flex items-center justify-center transition-all duration-200">
               <LogOutIcon
                 size={16}
                 className={`transition-all duration-200 ${signingOut ? "animate-pulse" : "group-hover:translate-x-0.5"}`}
@@ -1106,6 +1098,16 @@ export default function FolderSidebar({
       <ProUpgradeDialog
         open={upgradeDialogOpen}
         onClose={() => setUpgradeDialogOpen(false)}
+      />
+      <LocalVaultSignOutDialog
+        open={confirmingSignOut}
+        busy={signingOut}
+        error={signOutError}
+        onClose={() => {
+          setConfirmingSignOut(false);
+          setSignOutError(null);
+        }}
+        onConfirm={() => void performSignOut()}
       />
     </>
   );

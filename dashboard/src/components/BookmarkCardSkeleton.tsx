@@ -14,7 +14,7 @@ export function BookmarkCardSkeleton() {
         <Skeleton className="size-10 rounded-full" />
       </div>
 
-      <div className="rounded-lg border border-[#1d2230]/10 p-1.5 space-y-1.5">
+      <div className="rounded-lg border border-[var(--app-ink)]/10 p-1.5 space-y-1.5">
         <Skeleton className="h-4 w-20 rounded-full" />
         <Skeleton className="h-4 w-16 rounded-full" />
       </div>

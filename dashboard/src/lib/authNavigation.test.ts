@@ -19,6 +19,7 @@ describe("authentication navigation", () => {
     ["mode=unknown", "sign-in"], ["mode=SIGN-UP", "sign-in"],
     ["mode=sign-up&mode=sign-in", "sign-in"],
     ["mode=sign-up&reconnect=1", "sign-in"],
+    ["mode=sign-up&reconnect=1&merge=1", "sign-up"],
   ])("normalizes auth intent %s to %s", (search, mode) => {
     expect(getAuthMode(new URLSearchParams(search))).toBe(mode);
   });
@@ -49,6 +50,12 @@ describe("authentication navigation", () => {
     expect(buildAuthPath("/login", "/checkout", { mode: "sign-up", reconnect: true }))
       .toBe("/login?next=%2Fcheckout&reconnect=1");
     expect(getPostAuthPath(new URLSearchParams("next=/checkout&next=/write"))).toBe("/");
+  });
+
+  it("preserves local-vault merge intent across sign-in and sign-up", () => {
+    expect(buildAuthPath("/login", "/", {
+      mode: "sign-up", reconnect: true, merge: true,
+    })).toBe("/login?mode=sign-up&reconnect=1&merge=1");
   });
 
   it("preserves same-origin extension destinations", () => {

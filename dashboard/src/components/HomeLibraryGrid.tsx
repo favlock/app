@@ -93,7 +93,7 @@ export default function HomeLibraryGrid({
 
       {error ? (
         <div
-          className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700"
+          className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700 dark:text-red-300"
           role="alert"
         >
           <p>{error}</p>
@@ -112,13 +112,13 @@ export default function HomeLibraryGrid({
           {[0, 1, 2, 3].map((item) => (
             <div
               key={item}
-              className="min-h-48 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-white/50"
+              className="min-h-48 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50"
             />
           ))}
         </div>
       ) : items.length === 0 && !error ? (
-        <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_78%,white)] px-5 py-10 text-center">
-          <span className="mx-auto inline-flex size-14 items-center justify-center rounded-2xl bg-[color-mix(in_oklab,var(--app-primary)_11%,white)] text-[var(--app-primary)]">
+        <div className="rounded-xl border border-dashed border-[color-mix(in_oklab,var(--app-line)_18%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_78%,var(--app-highlight))] px-5 py-10 text-center">
+          <span className="mx-auto inline-flex size-14 items-center justify-center rounded-2xl bg-[color-mix(in_oklab,var(--app-primary)_11%,var(--app-highlight))] text-[var(--app-primary)]">
             <Library size={26} aria-hidden="true" />
           </span>
           <h3 className="mt-4 text-lg font-bold text-[var(--app-ink)]">
@@ -172,6 +172,7 @@ export default function HomeLibraryGrid({
               <Button
                 type="button"
                 outline
+                className="library-show-more"
                 onClick={() =>
                   setVisibleCount((current) => current + LOAD_MORE_ITEMS)
                 }
