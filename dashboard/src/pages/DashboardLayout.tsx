@@ -36,6 +36,8 @@ import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/B
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
+import LocalVaultBanner from "../components/LocalVaultBanner";
+import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -75,7 +77,7 @@ export default function DashboardLayout() {
     isLoading: loadingTags,
   } = useTags();
   const { data: userInfo, isSuccess: userInfoLoaded } = useUserInfo();
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const { cryptoKey, needsUnlock } = useEncryption();
   const { data: accountPlan } = useAccountPlan();
   const { data: bookmarkCounts, isSuccess: bookmarkCountsLoaded } =
@@ -436,10 +438,12 @@ export default function DashboardLayout() {
 
   return (
     <div className="text-[var(--app-ink)] font-sans antialiased min-h-screen">
+      <LocalVaultCloudMergeDialog />
       <SearchEnginePreferenceDialog enabled={hasFinishedInitialOnboarding} />
       <OnboardingDialog
         open={isOnboardingOpen}
         userId={user?.id ?? ""}
+        localOnly={isLocalAccount}
         bookmarkWritesAllowed={bookmarkWritesAllowed}
         onProtectLibrary={openOnboardingProtection}
         onImportBookmarks={openOnboardingImport}
@@ -457,6 +461,7 @@ export default function DashboardLayout() {
       />
       <ChromeExtensionPrompt
         enabled={
+          !isLocalAccount &&
           hasFinishedInitialOnboarding &&
           !isOnboardingOpen &&
           !isAddBookmarkOpen &&
@@ -557,7 +562,14 @@ export default function DashboardLayout() {
             tabIndex={-1}
             className="w-full min-w-0 pb-[env(safe-area-inset-bottom)] focus:outline-none"
           >
-            <CloudConnectionNotice />
+            {isLocalAccount ? (
+              <LocalVaultBanner
+                bookmarkCount={bookmarkCounts?.bookmarkCount ?? 0}
+                vaultId={user?.id ?? ""}
+              />
+            ) : (
+              <CloudConnectionNotice />
+            )}
             {bookmarkAccess?.mode === "grace" ? (
               <BookmarkLimitGraceNotice access={bookmarkAccess} />
             ) : null}

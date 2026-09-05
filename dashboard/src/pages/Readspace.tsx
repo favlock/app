@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   BookOpen,
+  Cloud,
   LoaderCircle,
   Menu,
   Search,
@@ -62,6 +63,7 @@ import {
   saveReadspaceView,
   type ReadspaceView,
 } from "../lib/readspaceViewPreference";
+import { startLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 
 const EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const EXTENSION_READY = "FAVLOCK_CHROME_EXTENSION_READY";
@@ -109,7 +111,64 @@ function getCaptureParams(search: string) {
   };
 }
 
-export default function Readspace() {
+function LocalReadspaceCloudOnly() {
+  const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
+      <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
+        <div className="flex items-start gap-3 py-1 sm:py-2">
+          <button
+            type="button"
+            onClick={() => setIsMobileSidebarOpen(true)}
+            className="theme-button-icon -ml-2 inline-flex size-11 lg:hidden"
+            aria-label="Open navigation"
+          >
+            <Menu size={20} />
+          </button>
+          <div>
+            <h1 className="text-2xl font-semibold tracking-[-0.025em] text-[var(--app-ink)] sm:text-[2rem] sm:leading-tight">
+              Readspace
+            </h1>
+            <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
+              Save articles and web highlights to your encrypted cloud vault
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <section className="px-3 lg:px-0">
+        <div className="app-surface rounded-[1.15rem] px-5 py-12 text-center sm:px-8 sm:py-16">
+          <span className="mx-auto inline-flex size-12 items-center justify-center rounded-xl bg-[color-mix(in_oklab,var(--app-primary)_10%,transparent)] text-[var(--app-primary)]">
+            <Cloud size={24} aria-hidden="true" />
+          </span>
+          <h2 className="mt-4 text-xl font-bold text-[var(--app-ink)]">
+            Readspace is a cloud-only feature
+          </h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--app-muted)]">
+            Connect this local library to a free account to save encrypted
+            articles and highlights from the FavLock browser extension.
+          </p>
+          <Button
+            type="button"
+            color="emerald"
+            className="mt-6"
+            onClick={() => {
+              if (user?.id) startLocalVaultCloudMerge(user.id);
+              navigate("/login?mode=sign-in&reconnect=1&merge=1");
+            }}
+          >
+            Connect a cloud account
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function CloudReadspace() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { user } = useAuth();
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
@@ -750,8 +809,8 @@ export default function Readspace() {
       >
         <DialogTitle>Move saved article to Trash?</DialogTitle>
         <DialogDescription>
-          “{deleteTarget?.title}” can be restored from Trash before its recovery
-          period expires.
+          “{deleteTarget?.title ?? "This article"}” can be restored from Trash
+          before its recovery period expires.
         </DialogDescription>
         {deleteError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -768,7 +827,7 @@ export default function Readspace() {
             disabled={deleteEntry.isPending}
             onClick={() => void confirmDelete()}
           >
-            {deleteEntry.isPending ? "Moving…" : "Move to Trash"}
+            {deleteEntry.isPending ? "Deleting…" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -854,4 +913,9 @@ export default function Readspace() {
       />
     </div>
   );
+}
+
+export default function Readspace() {
+  const { isLocalAccount } = useAuth();
+  return isLocalAccount ? <LocalReadspaceCloudOnly /> : <CloudReadspace />;
 }

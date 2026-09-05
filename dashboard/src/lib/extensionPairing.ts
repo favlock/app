@@ -44,7 +44,7 @@ function sendEncryptionKeyThroughPageBridge({
   pairingAttempt?: string;
   userId: string;
   rawKey: string;
-  sessionTokenHash?: string;
+  sessionTokenHash: string;
 }): Promise<void> {
   const requestId = globalThis.crypto.randomUUID();
 
@@ -86,7 +86,7 @@ function sendEncryptionKeyThroughPageBridge({
         ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
-        ...(sessionTokenHash ? { sessionTokenHash } : {}),
+        sessionTokenHash,
       },
       window.location.origin,
     );
@@ -112,7 +112,7 @@ export async function sendEncryptionKeyToExtension({
   pairingAttempt?: string;
   userId: string;
   rawKey: string;
-  sessionTokenHash?: string;
+  sessionTokenHash: string;
 }): Promise<void> {
   if (!isChromeExtensionId(extensionId)) {
     throw new Error("The Chrome extension ID is invalid.");
@@ -138,7 +138,7 @@ export async function sendEncryptionKeyToExtension({
         ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
-        ...(sessionTokenHash ? { sessionTokenHash } : {}),
+        sessionTokenHash,
       },
       (response) => {
         const runtimeError = runtime.lastError?.message;

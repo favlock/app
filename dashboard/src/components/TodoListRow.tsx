@@ -19,6 +19,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "./ui/dialog";
+import { useAuth } from "../context/useAuth";
 
 interface TodoListRowProps {
   todo: Todo;
@@ -58,6 +59,7 @@ export default function TodoListRow({
   onEdit,
   onToggle,
 }: TodoListRowProps) {
+  const { isLocalAccount } = useAuth();
   const deleteTodo = useDeleteTodo();
   const updateFolder = useUpdateEntryFolder();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -197,7 +199,7 @@ export default function TodoListRow({
               plain
               onClick={() => setShowDeleteDialog(true)}
               className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-red-500!"
-              aria-label={`Move ${todo.title} to Trash`}
+              aria-label={isLocalAccount ? `Delete ${todo.title} permanently` : `Move ${todo.title} to Trash`}
             >
               <Trash2 size={16} aria-hidden="true" />
             </Button>
@@ -260,10 +262,11 @@ export default function TodoListRow({
         }
         size="sm"
       >
-        <DialogTitle>Move task to Trash?</DialogTitle>
+        <DialogTitle>{isLocalAccount ? "Delete task permanently?" : "Move task to Trash?"}</DialogTitle>
         <DialogDescription>
-          “{todo.title}” can be restored from Trash before its recovery period
-          expires.
+          {isLocalAccount
+            ? `“${todo.title}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
+            : `“${todo.title}” can be restored from Trash before its recovery period expires.`}
         </DialogDescription>
         {deleteError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -285,7 +288,7 @@ export default function TodoListRow({
             onClick={() => void confirmDelete()}
             disabled={deleteTodo.isPending}
           >
-            {deleteTodo.isPending ? "Moving..." : "Move to Trash"}
+            {deleteTodo.isPending ? "Deleting..." : isLocalAccount ? "Delete permanently" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

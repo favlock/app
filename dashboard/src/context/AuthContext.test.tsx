@@ -15,12 +15,16 @@ const mocks = vi.hoisted(() => ({
   clearKey: vi.fn(), lockKey: vi.fn(), triggerUnlock: vi.fn(), clearBookmarks: vi.fn(), clearContent: vi.fn(), hydrate: vi.fn(), clearQueries: vi.fn(),
   fetchQuery: vi.fn(), clearDrafts: vi.fn(), clearImportRecovery: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
 }));
-vi.mock("../lib/favLockAuth", () => ({ favLockAuth: {
+vi.mock("../lib/favLockAuth", () => ({
+  isLocalOnlyUser: (user: { local_only?: boolean } | null) => user?.local_only === true,
+  favLockAuth: {
   getSession: mocks.getSession, getLocalUser: mocks.getLocalUser, getCloudStatus: mocks.getCloudStatus,
   getConnectionError: mocks.getConnectionError,
   isLocalAccountInvalidated: mocks.isLocalAccountInvalidated, signOut: mocks.signOut,
   onAuthStateChange: mocks.onAuthStateChange, startCrossTabSynchronization: () => () => {},
-} }));
+  },
+}));
+vi.mock("../lib/localVault", () => ({ clearLocalVault: vi.fn() }));
 vi.mock("./useEncryption", () => ({ useEncryption: () => ({ clearKey: mocks.clearKey, lockKey: mocks.lockKey, cryptoKey: null, keyLoading: false, triggerUnlock: mocks.triggerUnlock, decryptField: async (value: string) => value }) }));
 vi.mock("../lib/bookmarkCache", () => ({
   getBookmarkCacheMeta: async () => ({ lastSyncedAt: "2026-08-27T00:00:00.000Z" }),
@@ -78,6 +82,7 @@ describe("local routing through cloud failure", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.clearDrafts.mockReset().mockResolvedValue(undefined);
+    mocks.clearKey.mockReset().mockResolvedValue(undefined);
     mocks.clearImportRecovery.mockReset();
     mocks.updateAccountProfile.mockReset().mockResolvedValue({});
     localStorage.clear();
@@ -166,6 +171,20 @@ describe("local routing through cloud failure", () => {
     expect(container.querySelector("span")?.dataset.connectionError).toBe("");
     expect(mocks.clearKey).not.toHaveBeenCalled();
     expect(mocks.clearBookmarks).not.toHaveBeenCalled();
+  });
+
+  it("locks the source key when an explicit merge signs into a different account", async () => {
+    await act(async () => root.render(<AuthProvider><Probe /></AuthProvider>));
+    const cloudSession = createSession("cloud-access-token");
+    cloudSession.user.id = "cloud-user";
+    mocks.getLocalUser.mockReturnValue(cloudSession.user);
+    mocks.getCloudStatus.mockReturnValue("available");
+
+    await act(async () => callback("SIGNED_IN", cloudSession));
+
+    expect(mocks.clearKey).toHaveBeenCalledOnce();
+    expect(mocks.clearQueries).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain("cloud-user|cloud|available");
   });
 
   it.each<AuthChangeEvent>(["INITIAL_SESSION", "SESSION_STALE"])("preserves a genuine initialization error after %s", async (event) => {

@@ -7,6 +7,7 @@ import {
 } from "./extension-crypto.js";
 
 const keyAccounts = new WeakMap();
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const READSPACE_CONTENT_VERSION = 5;
 const READSPACE_TITLE_MAX_LENGTH = 120;
 const READSPACE_SERIALIZED_MAX_BYTES = 180_000;
@@ -422,8 +423,8 @@ async function setBookmarkListMemberships(bookmarkId, listIds, key) {
 }
 
 export async function saveOpenTabsSession({ tabs, sessionTagName, tags }) {
-  const session = await getValidSession();
   const key = await getKey();
+  const session = await getValidSession();
   if (!session) throw new Error("Connect the extension to FavLock first.");
 
   const pages = normalizeOpenTabs(tabs);
@@ -515,8 +516,8 @@ export async function saveCurrentPage({
   folders,
   tags,
 }) {
-  const session = await getValidSession();
   const key = await getKey();
+  const session = await getValidSession();
   if (!session) throw new Error("Connect the extension to FavLock first.");
   const normalizedUrl = normalizeBookmarkUrl(url);
   if (!normalizedUrl) throw new Error("This page cannot be saved as a bookmark.");

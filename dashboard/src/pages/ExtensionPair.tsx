@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { KeyRound, Upload } from "lucide-react";
-import { Navigate, useLocation, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
 import { exportRawKey, normalizeRawKey } from "../lib/encryption";
@@ -11,6 +11,7 @@ import {
 } from "../lib/extensionPairing";
 import { buildAuthPath } from "../lib/authNavigation";
 import { createExtensionSessionToken } from "../lib/extensionSession";
+import { startLocalVaultCloudMerge } from "../lib/localVaultCloudMerge";
 import {
   loadPasskeyEncryptionRecord,
   type PasskeyEncryptionRecord,
@@ -25,7 +26,8 @@ import { AuthLayout } from "../components/ui/auth-layout";
 export default function ExtensionPair() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
-  const { session, user } = useAuth();
+  const navigate = useNavigate();
+  const { session, user, isLocalAccount } = useAuth();
   const { cryptoKey, setRawKey } = useEncryption();
   const [rawKeyInput, setRawKeyInput] = useState("");
   const [rememberDevice, setRememberDevice] = useState(true);
@@ -52,14 +54,16 @@ export default function ExtensionPair() {
   );
 
   useEffect(() => {
-    if (!user?.id || !session?.access_token || cryptoKey || connected) {
+    if (!user?.id || isLocalAccount || cryptoKey || connected) {
       setPasskeyRecord(null);
       return;
     }
 
     let active = true;
     setCheckingPasskey(true);
-    void loadPasskeyEncryptionRecord(session.access_token)
+    void (session?.access_token
+      ? loadPasskeyEncryptionRecord(session.access_token)
+      : Promise.resolve(null))
       .then((record) => {
         if (active) setPasskeyRecord(record);
       })
@@ -74,10 +78,10 @@ export default function ExtensionPair() {
     return () => {
       active = false;
     };
-  }, [connected, cryptoKey, session?.access_token, user?.id]);
+  }, [connected, cryptoKey, isLocalAccount, session?.access_token, user?.id]);
 
   const connect = useCallback(async (providedRawKey?: string) => {
-    if (!user || !validExtensionId || connecting) return;
+    if (!user || isLocalAccount || !validExtensionId || connecting) return;
     setConnecting(true);
     setError(null);
     try {
@@ -115,11 +119,12 @@ export default function ExtensionPair() {
     } finally {
       setConnecting(false);
     }
-  }, [connecting, cryptoKey, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
+  }, [connecting, cryptoKey, isLocalAccount, pairingAttempt, rawKeyInput, rememberDevice, session, setRawKey, user, validExtensionId]);
 
   useEffect(() => {
     if (
       !pairingAttempt ||
+      isLocalAccount ||
       !cryptoKey ||
       connected ||
       connecting ||
@@ -130,7 +135,7 @@ export default function ExtensionPair() {
     }
     autoConnectAttemptedRef.current = true;
     void connect();
-  }, [connect, connected, connecting, cryptoKey, pairingAttempt, validExtensionId]);
+  }, [connect, connected, connecting, cryptoKey, isLocalAccount, pairingAttempt, validExtensionId]);
 
   const unlockWithPasskey = async () => {
     if (!passkeyRecord || !user || connecting) return;
@@ -164,8 +169,36 @@ export default function ExtensionPair() {
     await connect(fileContent);
   };
 
+  const nextPath = `${location.pathname}${location.search}${location.hash}`;
+
+  if (user && isLocalAccount) {
+    return (
+      <AuthLayout>
+        <div className="w-full">
+          <span className="mb-4 inline-flex size-11 items-center justify-center rounded-xl bg-amber-500/10 text-amber-700">
+            <KeyRound size={22} aria-hidden="true" />
+          </span>
+          <Heading>Cloud account required</Heading>
+          <Text className="mt-2">
+            The FavLock Chrome extension works only with a cloud account. Connect this local library to a free account, then return to the extension to pair it.
+          </Text>
+          <Button
+            type="button"
+            color="emerald"
+            className="mt-6 w-full justify-center"
+            onClick={() => {
+              startLocalVaultCloudMerge(user.id);
+              navigate(buildAuthPath("/login", nextPath, { reconnect: true, merge: true }));
+            }}
+          >
+            Connect a cloud account
+          </Button>
+        </div>
+      </AuthLayout>
+    );
+  }
+
   if (user && !session?.access_token) {
-    const nextPath = `${location.pathname}${location.search}${location.hash}`;
     return (
       <Navigate
         to={buildAuthPath("/login", nextPath, { reconnect: true })}
@@ -184,7 +217,7 @@ export default function ExtensionPair() {
         <Text className="mt-2">
           {connected
             ? "You can close this page and return to the site you were viewing."
-            : "Your key lets the extension decrypt collection and tag names and encrypt new bookmarks locally."}
+            : "Your key lets the extension decrypt organization names and encrypt protected content before cloud sync."}
         </Text>
 
         {!validExtensionId && (

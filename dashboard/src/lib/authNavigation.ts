@@ -13,7 +13,10 @@ const POST_AUTH_PATHS = new Set([
 export type AuthMode = "sign-in" | "sign-up";
 
 export function getAuthMode(searchParams: URLSearchParams): AuthMode {
-  if (searchParams.get("reconnect") === "1") return "sign-in";
+  if (
+    searchParams.get("reconnect") === "1" &&
+    searchParams.get("merge") !== "1"
+  ) return "sign-in";
   const modes = searchParams.getAll("mode");
   return modes.length === 1 && modes[0] === "sign-up" ? "sign-up" : "sign-in";
 }
@@ -52,13 +55,14 @@ export function getPostAuthPath(searchParams: URLSearchParams): string {
 export function buildAuthPath(
   authPath: "/login",
   nextPath: string,
-  options: { mode?: AuthMode; reconnect?: boolean } = {},
+  options: { mode?: AuthMode; reconnect?: boolean; merge?: boolean } = {},
 ): string {
   const normalizedNextPath = normalizePostAuthPath(nextPath);
   const searchParams = new URLSearchParams();
-  if (options.mode === "sign-up" && !options.reconnect) searchParams.set("mode", "sign-up");
+  if (options.mode === "sign-up" && (!options.reconnect || options.merge)) searchParams.set("mode", "sign-up");
   if (normalizedNextPath !== "/") searchParams.set("next", normalizedNextPath);
   if (options.reconnect) searchParams.set("reconnect", "1");
+  if (options.merge) searchParams.set("merge", "1");
   return `${authPath}${searchParams.size ? `?${searchParams}` : ""}`;
 }
 

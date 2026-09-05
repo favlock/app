@@ -93,6 +93,7 @@ import { useReadspaceCount } from "../hooks/useReadspaceQuery";
 import { useTrashCount } from "../hooks/useTrashQuery";
 import { useListCount } from "../hooks/useListsQuery";
 import ProUpgradeDialog from "./ProUpgradeDialog";
+import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 
 const folderCollisionDetection: CollisionDetection = ({
   active,
@@ -238,7 +239,7 @@ export default function FolderSidebar({
   onOpenDataTransfer,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
-  const { user, signOut } = useAuth();
+  const { user, signOut, isLocalAccount } = useAuth();
   const {
     themeVariant,
     themeSaveError,
@@ -251,6 +252,8 @@ export default function FolderSidebar({
   const { data: accountPlan } = useAccountPlan();
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
   const {
     data: folders = [],
@@ -274,6 +277,19 @@ export default function FolderSidebar({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+
+  const performSignOut = async () => {
+    setSigningOut(true);
+    setSignOutError(null);
+    try {
+      await signOut();
+    } catch (error) {
+      setSignOutError(
+        error instanceof Error ? error.message : "Could not sign out. Try again.",
+      );
+      setSigningOut(false);
+    }
+  };
 
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -507,27 +523,45 @@ export default function FolderSidebar({
             </Link>
           </li>
           <li>
-            <Link
-              to="/readspace"
-              aria-current={location.pathname === "/readspace" ? "page" : undefined}
-              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/readspace" ? "theme-nav-button-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <BookOpen size={16} aria-hidden="true" />
-                Readspace
-              </span>
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/readspace"
-                    ? "theme-nav-count-active"
-                    : "text-[var(--app-muted)]"
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Readspace is available with a cloud account."
+                aria-label="Readspace, cloud only"
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Cloud
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/readspace"
+                aria-current={location.pathname === "/readspace" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/readspace" ? "theme-nav-button-active" : ""
                 }`}
               >
-                {readspaceItemCount}
-              </span>
-            </Link>
+                <span className="flex items-center gap-2">
+                  <BookOpen size={16} aria-hidden="true" />
+                  Readspace
+                </span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname === "/readspace"
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                >
+                  {readspaceItemCount}
+                </span>
+              </Link>
+            )}
           </li>
           <li>
             <Link
@@ -613,27 +647,45 @@ export default function FolderSidebar({
             </button>
           </li>
           <li>
-            <Link
-              to="/trash"
-              aria-current={location.pathname === "/trash" ? "page" : undefined}
-              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
-                location.pathname === "/trash" ? "theme-nav-button-active" : ""
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <Trash2 size={16} aria-hidden="true" />
-                Trash
-              </span>
-              <span
-                className={`rounded-md px-1.5 py-0.5 text-sm ${
-                  location.pathname === "/trash"
-                    ? "theme-nav-count-active"
-                    : "text-[var(--app-muted)]"
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Trash is available with a cloud account. Local deletions are immediate."
+                aria-label="Trash, cloud only. Local deletions are immediate."
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <Trash2 size={16} aria-hidden="true" />
+                  Trash
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">
+                  Cloud
+                </span>
+              </button>
+            ) : (
+              <Link
+                to="/trash"
+                aria-current={location.pathname === "/trash" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/trash" ? "theme-nav-button-active" : ""
                 }`}
               >
-                {trashCount}
-              </span>
-            </Link>
+                <span className="flex items-center gap-2">
+                  <Trash2 size={16} aria-hidden="true" />
+                  Trash
+                </span>
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname === "/trash"
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                >
+                  {trashCount}
+                </span>
+              </Link>
+            )}
           </li>
         </ul>
         <div
@@ -1079,9 +1131,13 @@ export default function FolderSidebar({
         {/* Sign Out */}
         <div className="p-2">
           <button
-            onClick={async () => {
-              setSigningOut(true);
-              await signOut();
+            onClick={() => {
+              if (isLocalAccount) {
+                setSignOutError(null);
+                setConfirmingSignOut(true);
+                return;
+              }
+              void performSignOut();
             }}
             disabled={signingOut}
             className="theme-nav-button theme-danger-button w-full group flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200"
@@ -1106,6 +1162,16 @@ export default function FolderSidebar({
       <ProUpgradeDialog
         open={upgradeDialogOpen}
         onClose={() => setUpgradeDialogOpen(false)}
+      />
+      <LocalVaultSignOutDialog
+        open={confirmingSignOut}
+        busy={signingOut}
+        error={signOutError}
+        onClose={() => {
+          setConfirmingSignOut(false);
+          setSignOutError(null);
+        }}
+        onConfirm={() => void performSignOut()}
       />
     </>
   );

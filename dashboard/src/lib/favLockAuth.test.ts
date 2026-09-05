@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FavLockAuthClient, LOCAL_PROFILE_STORAGE_KEY, type AuthSession } from "./favLockAuth";
 import { CloudAccessError } from "./cloudAccess";
+import { startLocalVaultCloudMerge } from "./localVaultCloudMerge";
 
 const API_URL = "https://api.favlock.example";
 const AUTH_URL = "https://auth.favlock.example";
@@ -116,6 +117,30 @@ describe("FavLockAuthClient", () => {
     clients.push(client);
     return client;
   }
+
+  it("creates and restores a token-free local account without network access", async () => {
+    const fetchImplementation = vi.fn();
+    const client = trackedClient(fetchImplementation);
+
+    const result = await client.createLocalAccount();
+
+    expect(result.error).toBeNull();
+    expect(result.data.user).toMatchObject({
+      email: "",
+      local_only: true,
+    });
+    expect(client.getLocalUser()?.id).toBe(result.data.user?.id);
+    expect(client.getCloudStatus()).toBe("reconnect_required");
+    expect(fetchImplementation).not.toHaveBeenCalled();
+
+    const restored = trackedClient(fetchImplementation);
+    await restored.initialize();
+    expect(restored.getLocalUser()).toMatchObject({
+      id: result.data.user?.id,
+      local_only: true,
+    });
+    expect(fetchImplementation).not.toHaveBeenCalled();
+  });
 
   function seedUnavailableSession(session = storedSession()) {
     localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(session));
@@ -595,6 +620,27 @@ describe("FavLockAuthClient", () => {
     expect(result.error?.message).toContain("different account");
     expect(client.getLocalUser()?.id).toBe(USER_ID);
     expect(JSON.parse(localStorage.getItem(SESSION_STORAGE_KEY)!).user.id).toBe(USER_ID);
+  });
+
+  it("switches from a local vault only after an explicit merge intent", async () => {
+    const cloudUserId = "22222222-2222-4222-8222-222222222222";
+    const client = trackedClient(vi.fn().mockResolvedValue(response({
+      data: { session: apiSession({ user: { ...apiSession().user, id: cloudUserId } }) },
+    })));
+    const created = await client.createLocalAccount();
+    const localUserId = created.data.user!.id;
+    localStorage.setItem("local-vault-sentinel", "preserved");
+    startLocalVaultCloudMerge(localUserId);
+
+    const result = await client.signInWithPassword({
+      email: "ada@example.com",
+      password: "password",
+      options: { captchaToken: "captcha" },
+    });
+
+    expect(result.error).toBeNull();
+    expect(client.getLocalUser()?.id).toBe(cloudUserId);
+    expect(localStorage.getItem("local-vault-sentinel")).toBe("preserved");
   });
 
   it("reconnects the same account without clearing local storage", async () => {

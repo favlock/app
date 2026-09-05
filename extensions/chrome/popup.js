@@ -83,6 +83,7 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
   const modeSwitch = document.getElementById("modeSwitch");
   connectionReady = connected && unlocked && cloudStatus === "available";
   modeSwitch.hidden = !connectionReady;
+  document.getElementById("showTabSessionButton").hidden = false;
   connectedAccount.hidden = !connected;
   connectedAccount.textContent = connected ? "Connected" : "";
   connectedAccount.title = email || "FavLock extension connected";
@@ -92,9 +93,9 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
     document.getElementById("pagePreview").hidden = false;
     panel.hidden = false;
     form.hidden = true;
-    document.getElementById("connectionTitle").textContent = "Local connection saved";
+    document.getElementById("connectionTitle").textContent = "Reconnect cloud access";
     document.getElementById("connectionDescription").textContent =
-      `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to use your saved local library.`;
+      `${email ? email + ". " : ""}Cloud access is ${cloudStatus === "offline" ? "offline" : "unavailable"}. Your saved key has not been cleared. Open the dashboard to continue.`;
     button.textContent = "Reconnect FavLock";
     return;
   }

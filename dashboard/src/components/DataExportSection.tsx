@@ -97,8 +97,7 @@ function downloadFile(contents: string, filename: string, type: string) {
 
 export default function DataExportSection() {
   const online = useBrowserOnline();
-  const { user, cloudStatus } = useAuth();
-  const localOnly = !!cloudStatus && cloudStatus !== "available";
+  const { user, isLocalAccount } = useAuth();
   const { cryptoKey, keyLoading, triggerUnlock } = useEncryption();
   const [format, setFormat] = useState<ExportFormat>("encrypted");
   const [selection, setSelection] =
@@ -110,12 +109,17 @@ export default function DataExportSection() {
   const foldersQuery = useFolders();
   const tagsQuery = useTags();
   const listsQuery = useLists({
-    enabled: !localOnly && format === "encrypted" && selection.bookmarks,
+    enabled: format === "encrypted" && selection.bookmarks,
   });
-  const notesQuery = useNotes({ enabled: format === "encrypted" });
-  const todosQuery = useTodos({ enabled: format === "encrypted" });
-  const readspaceQuery = useReadspace(format === "encrypted");
-  const highlightsQuery = useHighlights();
+  const notesQuery = useNotes({ enabled: format === "encrypted" && selection.notes });
+  const todosQuery = useTodos({ enabled: format === "encrypted" && selection.todos });
+  const readspaceQuery = useReadspace(format === "encrypted" && selection.readspace);
+  const highlightsQuery = useHighlights(
+    format === "encrypted" && selection.highlights && !isLocalAccount,
+  );
+  const effectiveSelection = isLocalAccount
+    ? { ...selection, readspace: false, highlights: false }
+    : selection;
 
   const relevantQueries = useMemo(
     () =>
@@ -123,23 +127,26 @@ export default function DataExportSection() {
         ? [
             foldersQuery,
             tagsQuery,
-            ...(selection.bookmarks && !localOnly ? [listsQuery] : []),
-            notesQuery,
-            todosQuery,
-            readspaceQuery,
-            ...(selection.highlights && !localOnly ? [highlightsQuery] : []),
+            ...(selection.bookmarks ? [listsQuery] : []),
+            ...(selection.notes ? [notesQuery] : []),
+            ...(selection.todos ? [todosQuery] : []),
+            ...(selection.readspace && !isLocalAccount ? [readspaceQuery] : []),
+            ...(selection.highlights && !isLocalAccount ? [highlightsQuery] : []),
           ]
         : [foldersQuery],
     [
       foldersQuery,
       format,
       listsQuery,
-      localOnly,
       notesQuery,
       readspaceQuery,
       highlightsQuery,
       selection.bookmarks,
+      selection.notes,
+      selection.readspace,
+      selection.todos,
       selection.highlights,
+      isLocalAccount,
       tagsQuery,
       todosQuery,
     ],
@@ -148,7 +155,7 @@ export default function DataExportSection() {
     (query) => query.isLoading || query.isFetching,
   );
   const hasError = relevantQueries.some((query) => query.isError);
-  const hasSelection = Object.values(selection).some(Boolean);
+  const hasSelection = Object.values(effectiveSelection).some(Boolean);
 
   const setCategory = (category: ExportCategory, checked: boolean) => {
     setSelection((current) => ({
@@ -164,7 +171,7 @@ export default function DataExportSection() {
   };
 
   const handleExport = async () => {
-    if (!isBrowserOnline()) return;
+    if (!isLocalAccount && !isBrowserOnline()) return;
     if (!cryptoKey) {
       triggerUnlock();
       return;
@@ -176,10 +183,13 @@ export default function DataExportSection() {
     try {
       const bookmarks =
         format === "html" || selection.bookmarks
-          ? await loadAllBookmarksForExport(user?.id ?? "")
+          ? await loadAllBookmarksForExport(
+              user?.id ?? "",
+              isLocalAccount ? cryptoKey : undefined,
+            )
           : [];
       const date = new Date().toISOString().slice(0, 10);
-      if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
+      if (!isLocalAccount && !isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
       if (format === "html") {
         downloadFile(
           buildBrowserBookmarksHtml(
@@ -190,9 +200,6 @@ export default function DataExportSection() {
           "text/html;charset=utf-8",
         );
       } else {
-        const archiveSelection = localOnly
-          ? { ...selection, highlights: false }
-          : selection;
         const archive = buildFavLockExport(
           {
             bookmarks,
@@ -201,13 +208,13 @@ export default function DataExportSection() {
             tags: tagsQuery.data ?? [],
             notes: notesQuery.data ?? [],
             todos: todosQuery.data ?? [],
-            readspace: readspaceQuery.data ?? [],
+            readspace: isLocalAccount ? [] : readspaceQuery.data ?? [],
             highlights: highlightsQuery.data ?? [],
           },
-          archiveSelection,
+          effectiveSelection,
         );
         const encryptedArchive = await encryptFavLockArchive(archive, cryptoKey);
-        if (!isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
+        if (!isLocalAccount && !isBrowserOnline()) throw new Error(OFFLINE_EXPORT_MESSAGE);
         downloadFile(
           serializeEncryptedFavLockArchive(encryptedArchive),
           `favlock-export-${date}.favlock`,
@@ -216,7 +223,9 @@ export default function DataExportSection() {
       }
       setExported(true);
     } catch {
-      setExportError(isBrowserOnline() ? "FavLock could not prepare the export. Please try again." : OFFLINE_EXPORT_MESSAGE);
+      setExportError(isLocalAccount || isBrowserOnline()
+        ? "FavLock could not prepare the export. Please try again."
+        : OFFLINE_EXPORT_MESSAGE);
     } finally {
       setIsPreparing(false);
     }
@@ -230,7 +239,7 @@ export default function DataExportSection() {
     (format === "encrypted" && !hasSelection);
 
   const downloadOfflineDecryptor = () => {
-    if (!isBrowserOnline()) return;
+    if (!isLocalAccount && !isBrowserOnline()) return;
     downloadFile(
       buildOfflineDecryptorHtml(),
       OFFLINE_DECRYPTOR_FILENAME,
@@ -238,7 +247,7 @@ export default function DataExportSection() {
     );
   };
 
-  if (!online) {
+  if (!isLocalAccount && !online) {
     return <p role="status" className="text-sm text-gray-600">{OFFLINE_EXPORT_MESSAGE}</p>;
   }
 
@@ -249,7 +258,7 @@ export default function DataExportSection() {
         title="Export data"
         description="Download a portable copy of your FavLock data. The export is created locally in this browser."
       />
-      {localOnly && <p role="note" className="mt-4 text-sm text-amber-800">This export contains only data saved on this device. Lists and changes not yet synchronized may be missing. Keep your existing backups.</p>}
+      {isLocalAccount && <p role="note" className="mt-4 text-sm text-amber-800">This backup contains the bookmarks, Lists, Documents, Tasks, Collections, and Tags saved in this browser. Keep it with your recovery key; FavLock cannot recover either one for you.</p>}
 
       <fieldset className="mt-6">
         <legend className="text-sm font-semibold text-gray-900">
@@ -320,7 +329,7 @@ export default function DataExportSection() {
             </div>
           </div>
 
-          <fieldset className="mt-6">
+          {!isLocalAccount && <fieldset className="mt-6">
             <legend className="text-sm font-semibold text-gray-900">
               What to export
             </legend>
@@ -332,8 +341,7 @@ export default function DataExportSection() {
                 <CheckboxField key={category.id}>
                   <Checkbox
                     color="emerald"
-                    checked={category.id === "highlights" && localOnly ? false : !!selection[category.id]}
-                    disabled={category.id === "highlights" && localOnly}
+                    checked={!!selection[category.id]}
                     onChange={(checked) => setCategory(category.id, checked)}
                   />
                   <Label>{category.label}</Label>
@@ -341,7 +349,7 @@ export default function DataExportSection() {
                 </CheckboxField>
               ))}
             </div>
-          </fieldset>
+          </fieldset>}
 
           <div className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
             <p className="text-sm font-semibold text-gray-900">

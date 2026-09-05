@@ -16,8 +16,9 @@ function NavigationProbe() {
   </>;
 }
 
-const { resend, signInWithOAuth, signInWithPassword, signUp } = vi.hoisted(
+const { createLocalAccount, resend, signInWithOAuth, signInWithPassword, signUp } = vi.hoisted(
   () => ({
+    createLocalAccount: vi.fn(),
     resend: vi.fn(),
     signInWithOAuth: vi.fn(),
     signInWithPassword: vi.fn(),
@@ -26,7 +27,13 @@ const { resend, signInWithOAuth, signInWithPassword, signUp } = vi.hoisted(
 );
 
 vi.mock("../lib/favLockAuth", () => ({
-  favLockAuth: { resend, signInWithOAuth, signInWithPassword, signUp },
+  favLockAuth: {
+    createLocalAccount,
+    resend,
+    signInWithOAuth,
+    signInWithPassword,
+    signUp,
+  },
 }));
 
 vi.mock("../components/CloudflareTurnstile", () => ({
@@ -63,6 +70,7 @@ describe("AuthPage", () => {
   let root: Root;
 
   beforeEach(() => {
+    createLocalAccount.mockReset().mockResolvedValue({ error: null });
     resend.mockReset();
     signInWithOAuth.mockReset();
     signInWithPassword.mockReset();
@@ -234,6 +242,7 @@ describe("AuthPage", () => {
     expect(container.textContent).toContain("Continue with Google");
     expect(container.textContent).toContain("Continue with Apple");
     expect(container.textContent).toContain("Continue with email");
+    expect(container.textContent).not.toContain("Try FavLock locally");
     expect(container.textContent).toContain("By continuing");
     expect(container.querySelector('input[type="email"]')).toBeNull();
     const optionLabels = Array.from(container.querySelectorAll("button")).map(
@@ -250,6 +259,44 @@ describe("AuthPage", () => {
     expect(googleButton.className).toBe(appleButton.className);
     expect(googleButton.getAttribute("style")).toBeNull();
     expect(appleButton.getAttribute("style")).toBeNull();
+  });
+
+  it.each([
+    ["/login?local=1", true],
+    ["/login?local=0", false],
+    ["/login?local=1&local=1", false],
+  ])("shows the local trial only for the explicit local flag (%s)", async (path, visible) => {
+    await renderAuthPage(path);
+
+    expect(container.textContent?.includes("Try FavLock locally")).toBe(visible);
+    if (!visible) return;
+
+    await act(async () => findButton(container, "Try FavLock locally").click());
+    expect(createLocalAccount).toHaveBeenCalledOnce();
+    expect(container.querySelector("[data-location]")?.textContent).toBe("/");
+  });
+
+  it("starts the local app automatically from the explicit local auto flag", async () => {
+    await renderAuthPage("/login?local=auto&next=%2Ftasks");
+
+    await vi.waitFor(() => expect(createLocalAccount).toHaveBeenCalledOnce());
+    await vi.waitFor(() => {
+      expect(container.querySelector("[data-location]")?.textContent).toBe(
+        "/tasks",
+      );
+    });
+    expect(container.textContent).not.toContain("Try FavLock locally");
+  });
+
+  it.each([
+    "/login?local=auto&local=auto",
+    "/login?local=auto&reconnect=1",
+    "/login?local=automatic",
+  ])("does not auto-start local mode for an invalid local URL (%s)", async (path) => {
+    await renderAuthPage(path);
+
+    expect(createLocalAccount).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Welcome to FavLock");
   });
 
   it("opens signup options directly and keeps signup when returning from email", async () => {

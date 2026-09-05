@@ -14,6 +14,7 @@ import {
   type PasskeyEncryptionRecord,
   unwrapEncryptionKeyWithPasskey,
 } from "../lib/passkeyEncryption";
+import { readLocalPasskeyRecord } from "../lib/localVault";
 import {
   Dialog,
   DialogActions,
@@ -27,10 +28,11 @@ import { Input } from "./ui/input";
 import { Text } from "./ui/text";
 import KeyQrScanner from "./KeyQrScanner";
 import { Checkbox, CheckboxField } from "./ui/checkbox";
+import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 
 export default function UnlockDialog() {
   const { needsUnlock, setRawKey } = useEncryption();
-  const { session, signOut, user } = useAuth();
+  const { session, signOut, user, isLocalAccount } = useAuth();
   const [key, setKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,17 +42,22 @@ export default function UnlockDialog() {
     useState<PasskeyEncryptionRecord | null>(null);
   const [checkingPasskey, setCheckingPasskey] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const accessToken = session?.access_token;
 
   useEffect(() => {
-    if (!needsUnlock || !user?.id || !session?.access_token) {
+    if (!needsUnlock || !user?.id || (!isLocalAccount && !accessToken)) {
       setPasskeyRecord(null);
       return;
     }
 
     let active = true;
     setCheckingPasskey(true);
-    void loadPasskeyEncryptionRecord(session.access_token)
+    const loadRecord = isLocalAccount
+      ? readLocalPasskeyRecord(user.id)
+      : loadPasskeyEncryptionRecord(accessToken!);
+    void loadRecord
       .then((record) => {
         if (active) setPasskeyRecord(record);
       })
@@ -65,7 +72,7 @@ export default function UnlockDialog() {
     return () => {
       active = false;
     };
-  }, [needsUnlock, session?.access_token, user?.id]);
+  }, [accessToken, isLocalAccount, needsUnlock, user?.id]);
 
   const unlockWithRawKey = useCallback(
     async (rawKey: string) => {
@@ -160,11 +167,12 @@ export default function UnlockDialog() {
   const busy = loading || signingOut;
 
   return (
-    <Dialog
-      open={needsUnlock && !!user && !signingOut}
-      onClose={() => {}}
-      size="md"
-    >
+    <>
+      <Dialog
+        open={needsUnlock && !!user && !signingOut && !confirmingSignOut}
+        onClose={() => {}}
+        size="md"
+      >
       <DialogTitle>Unlock encrypted data</DialogTitle>
       <DialogDescription>
         Your bookmarks are encrypted. Unlock with your passkey or use a recovery
@@ -253,14 +261,41 @@ export default function UnlockDialog() {
         </form>
       </DialogBody>
       <DialogActions>
-        <Button type="button" outline disabled={busy} onClick={signOutAndClear}>
+        <Button
+          type="button"
+          outline
+          disabled={busy}
+          onClick={() => {
+            if (isLocalAccount) {
+              setError(null);
+              setConfirmingSignOut(true);
+              return;
+            }
+            void signOutAndClear();
+          }}
+        >
           <LogOut data-slot="icon" aria-hidden="true" />
-          {signingOut ? "Signing out..." : "Sign out & clear local data"}
+          {signingOut
+            ? "Signing out..."
+            : isLocalAccount
+              ? "Sign out & erase vault"
+              : "Sign out & clear local data"}
         </Button>
         <Button type="submit" form="unlock-form" disabled={busy || !key.trim()}>
           {loading ? "Loading..." : "Unlock"}
         </Button>
       </DialogActions>
-    </Dialog>
+      </Dialog>
+      <LocalVaultSignOutDialog
+        open={confirmingSignOut}
+        busy={signingOut}
+        error={error}
+        onClose={() => {
+          setConfirmingSignOut(false);
+          setError(null);
+        }}
+        onConfirm={() => void signOutAndClear()}
+      />
+    </>
   );
 }
