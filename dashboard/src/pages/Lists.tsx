@@ -11,7 +11,7 @@ import {
   Pencil,
   Plus,
   Trash2,
-  Youtube,
+  Video,
 } from "lucide-react";
 import ConfirmDialog from "../components/ConfirmDialog";
 import ProUpgradeDialog from "../components/ProUpgradeDialog";
@@ -426,7 +426,7 @@ export default function Lists() {
                 <ol className="mt-5 space-y-2">
                   {selectedList.items.map((item, index) => {
                     const completed = !!item.completed_at;
-                    const VideoIcon = isYouTubeUrl(item.bookmark.url) ? Youtube : FileText;
+                    const VideoIcon = isYouTubeUrl(item.bookmark.url) ? Video : FileText;
                     return (
                       <li key={item.bookmark.id} className="flex items-center gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/55 p-3">
                         <button

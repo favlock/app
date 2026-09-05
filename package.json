@@ -22,7 +22,7 @@
     "test:chrome-browser": "node scripts/test-chrome-highlight-browser.mjs"
   },
   "devDependencies": {
-    "jsdom": "^29.1.1",
-    "vitest": "4.1.9"
+    "jsdom": "^30.0.1",
+    "vitest": "5.0.0"
   }
 }
