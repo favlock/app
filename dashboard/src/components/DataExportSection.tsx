@@ -118,7 +118,7 @@ export default function DataExportSection() {
     format === "encrypted" && selection.highlights && !isLocalAccount,
   );
   const effectiveSelection = isLocalAccount
-    ? { ...selection, highlights: false }
+    ? { ...selection, readspace: false, highlights: false }
     : selection;
 
   const relevantQueries = useMemo(
@@ -130,7 +130,7 @@ export default function DataExportSection() {
             ...(selection.bookmarks ? [listsQuery] : []),
             ...(selection.notes ? [notesQuery] : []),
             ...(selection.todos ? [todosQuery] : []),
-            ...(selection.readspace ? [readspaceQuery] : []),
+            ...(selection.readspace && !isLocalAccount ? [readspaceQuery] : []),
             ...(selection.highlights && !isLocalAccount ? [highlightsQuery] : []),
           ]
         : [foldersQuery],
@@ -208,7 +208,7 @@ export default function DataExportSection() {
             tags: tagsQuery.data ?? [],
             notes: notesQuery.data ?? [],
             todos: todosQuery.data ?? [],
-            readspace: readspaceQuery.data ?? [],
+            readspace: isLocalAccount ? [] : readspaceQuery.data ?? [],
             highlights: highlightsQuery.data ?? [],
           },
           effectiveSelection,
@@ -258,7 +258,7 @@ export default function DataExportSection() {
         title="Export data"
         description="Download a portable copy of your FavLock data. The export is created locally in this browser."
       />
-      {isLocalAccount && <p role="note" className="mt-4 text-sm text-amber-800">This backup contains the selected bookmarks, Lists, Documents, Tasks, Readspace items, Collections, and Tags saved in this browser. Keep it with your recovery key; FavLock cannot recover either one for you.</p>}
+      {isLocalAccount && <p role="note" className="mt-4 text-sm text-amber-800">This backup contains the bookmarks, Lists, Documents, Tasks, Collections, and Tags saved in this browser. Keep it with your recovery key; FavLock cannot recover either one for you.</p>}
 
       <fieldset className="mt-6">
         <legend className="text-sm font-semibold text-gray-900">

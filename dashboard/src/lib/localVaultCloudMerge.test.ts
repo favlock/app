@@ -11,11 +11,9 @@ import {
 import { encryptField, importRawKey, VERIFY_CONSTANT } from "./encryption";
 import { IDBFactory } from "fake-indexeddb";
 import {
-  addLocalListItem,
-  createLocalBookmark,
-  createLocalEntry,
-  createLocalList,
+  restoreLocalVaultFromExport,
 } from "./localVault";
+import type { FavLockExport } from "./dataExport";
 
 const mocks = vi.hoisted(() => ({
   fetchVerifier: vi.fn(),
@@ -131,52 +129,84 @@ describe("local vault cloud merge intent", () => {
 
   it("includes the complete encrypted local library in the cloud merge archive", async () => {
     const key = await importRawKey("a".repeat(32));
-    const bookmarkId = await createLocalBookmark(sourceVaultId, {
-      encryptedTitle: await encryptField("Bookmark", key),
-      encryptedUrl: await encryptField("https://favlock.app", key),
-      folderId: null,
-      existingTagIds: [],
-      newEncryptedTagNames: [],
-    });
-    await createLocalEntry(sourceVaultId, "note", {
-      title: await encryptField("Document", key),
-      content: await encryptField("Private document", key),
-      folderId: null,
-      existingTagIds: [],
-      newEncryptedTagNames: [],
-    });
-    await createLocalEntry(sourceVaultId, "todo", {
-      title: await encryptField("Task", key),
-      content: await encryptField("Private task", key),
-      folderId: null,
-      existingTagIds: [],
-      newEncryptedTagNames: [],
-    });
-    await createLocalEntry(sourceVaultId, "read", {
-      title: await encryptField("Article", key),
-      content: await encryptField("Private article", key),
-      folderId: null,
-      existingTagIds: [],
-      newEncryptedTagNames: [],
-    });
-    const listId = await createLocalList(
-      sourceVaultId,
-      await encryptField("Queue", key),
-    );
-    await addLocalListItem(sourceVaultId, listId, bookmarkId);
+    const createdAt = "2026-09-01T10:00:00.000Z";
+    const bookmarkId = "22222222-2222-4222-8222-222222222222";
+    await restoreLocalVaultFromExport(sourceVaultId, {
+      format: "favlock-export",
+      version: 2,
+      exportedAt: createdAt,
+      encrypted: false,
+      selection: {
+        bookmarks: true,
+        notes: true,
+        todos: true,
+        readspace: true,
+      },
+      data: {
+        collections: [],
+        tags: [],
+        bookmarks: [{
+          id: bookmarkId,
+          title: "Bookmark",
+          url: "https://favlock.app",
+          collectionIds: [],
+          tagIds: [],
+          isFavorite: false,
+          favoritedAt: null,
+          createdAt,
+        }],
+        lists: [{
+          id: "33333333-3333-4333-8333-333333333333",
+          name: "Queue",
+          createdAt,
+          updatedAt: createdAt,
+          items: [{ bookmarkId, position: 0, completedAt: null, createdAt }],
+        }],
+        notes: [{
+          id: "44444444-4444-4444-8444-444444444444",
+          title: "Document",
+          content: "Private document",
+          collectionId: null,
+          tagIds: [],
+          createdAt,
+          updatedAt: createdAt,
+        }],
+        todos: [{
+          id: "55555555-5555-4555-8555-555555555555",
+          title: "Task",
+          content: "Private task",
+          collectionId: null,
+          tagIds: [],
+          isCompleted: false,
+          completedAt: null,
+          dueDate: null,
+          createdAt,
+          updatedAt: createdAt,
+        }],
+        readspace: [{
+          id: "66666666-6666-4666-8666-666666666666",
+          title: "Article",
+          content: "Private article",
+          collectionId: null,
+          tagIds: [],
+          createdAt,
+          updatedAt: createdAt,
+        }],
+      },
+    } satisfies FavLockExport, key);
 
     const archive = await buildLocalVaultMergeArchive(sourceVaultId, key);
     expect(archive.selection).toEqual({
       bookmarks: true,
       notes: true,
       todos: true,
-      readspace: true,
+      readspace: false,
       highlights: false,
     });
     expect(archive.data.bookmarks).toHaveLength(1);
     expect(archive.data.lists).toHaveLength(1);
     expect(archive.data.notes).toHaveLength(1);
     expect(archive.data.todos).toHaveLength(1);
-    expect(archive.data.readspace).toHaveLength(1);
+    expect(archive.data.readspace).toBeUndefined();
   });
 });

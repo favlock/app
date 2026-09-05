@@ -1,13 +1,8 @@
-import type { LocalExtensionProjection } from "./localVault";
-
 const CHROME_EXTENSION_ID_PATTERN = /^[a-p]{32}$/;
 const EXTENSION_PAIRING_ATTEMPT_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 export const EXTENSION_PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 const EXTENSION_PAIR_REQUEST_MESSAGE = "favlock.extension.pair-request";
 const EXTENSION_PAIR_RESPONSE_MESSAGE = "favlock.extension.pair-response";
-export const EXTENSION_LOCAL_PROJECTION_MESSAGE = "favlock.extension.local-projection";
-const EXTENSION_LOCAL_PROJECTION_REQUEST_MESSAGE = "favlock.extension.local-projection-request";
-const EXTENSION_LOCAL_PROJECTION_RESPONSE_MESSAGE = "favlock.extension.local-projection-response";
 
 export function isAllowedFavLockExtensionId(
   extensionId: string | null,
@@ -44,16 +39,12 @@ function sendEncryptionKeyThroughPageBridge({
   userId,
   rawKey,
   sessionTokenHash,
-  localMode,
-  localProjection,
 }: {
   extensionId: string;
   pairingAttempt?: string;
   userId: string;
   rawKey: string;
-  sessionTokenHash?: string;
-  localMode?: boolean;
-  localProjection?: LocalExtensionProjection;
+  sessionTokenHash: string;
 }): Promise<void> {
   const requestId = globalThis.crypto.randomUUID();
 
@@ -95,9 +86,7 @@ function sendEncryptionKeyThroughPageBridge({
         ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
-        ...(localMode ? { localMode: true } : {}),
-        ...(localProjection ? { localProjection } : {}),
-        ...(sessionTokenHash ? { sessionTokenHash } : {}),
+        sessionTokenHash,
       },
       window.location.origin,
     );
@@ -118,16 +107,12 @@ export async function sendEncryptionKeyToExtension({
   userId,
   rawKey,
   sessionTokenHash,
-  localMode,
-  localProjection,
 }: {
   extensionId: string;
   pairingAttempt?: string;
   userId: string;
   rawKey: string;
-  sessionTokenHash?: string;
-  localMode?: boolean;
-  localProjection?: LocalExtensionProjection;
+  sessionTokenHash: string;
 }): Promise<void> {
   if (!isChromeExtensionId(extensionId)) {
     throw new Error("The Chrome extension ID is invalid.");
@@ -141,8 +126,6 @@ export async function sendEncryptionKeyToExtension({
       userId,
       rawKey,
       sessionTokenHash,
-      localMode,
-      localProjection,
     });
     return;
   }
@@ -155,9 +138,7 @@ export async function sendEncryptionKeyToExtension({
         ...(pairingAttempt ? { pairingAttempt } : {}),
         userId,
         rawKey,
-        ...(localMode ? { localMode: true } : {}),
-        ...(localProjection ? { localProjection } : {}),
-        ...(sessionTokenHash ? { sessionTokenHash } : {}),
+        sessionTokenHash,
       },
       (response) => {
         const runtimeError = runtime.lastError?.message;
@@ -171,68 +152,6 @@ export async function sendEncryptionKeyToExtension({
         }
         resolve();
       },
-    );
-  });
-}
-
-export async function sendLocalProjectionToExtension({
-  extensionId,
-  userId,
-  projection,
-}: {
-  extensionId: string;
-  userId: string;
-  projection: LocalExtensionProjection;
-}): Promise<void> {
-  if (!isChromeExtensionId(extensionId)) {
-    throw new Error("The Chrome extension ID is invalid.");
-  }
-  const message = {
-    type: EXTENSION_LOCAL_PROJECTION_MESSAGE,
-    userId,
-    projection,
-  };
-  const runtime = getChromeRuntime();
-  if (runtime?.sendMessage) {
-    await new Promise<void>((resolve, reject) => {
-      runtime.sendMessage(extensionId, message, (response) => {
-        const runtimeError = runtime.lastError?.message;
-        if (runtimeError) reject(new Error(runtimeError));
-        else if (!response?.ok) reject(new Error(response?.error || "The extension rejected the encrypted local library."));
-        else resolve();
-      });
-    });
-    return;
-  }
-
-  const requestId = globalThis.crypto.randomUUID();
-  await new Promise<void>((resolve, reject) => {
-    const timeout = window.setTimeout(() => {
-      window.removeEventListener("message", receiveResponse);
-      reject(new Error("FavLock could not reach the extension."));
-    }, 3000);
-    function receiveResponse(event: MessageEvent) {
-      if (
-        event.source !== window ||
-        event.origin !== window.location.origin ||
-        event.data?.type !== EXTENSION_LOCAL_PROJECTION_RESPONSE_MESSAGE ||
-        event.data?.requestId !== requestId
-      ) return;
-      window.clearTimeout(timeout);
-      window.removeEventListener("message", receiveResponse);
-      if (event.data.ok) resolve();
-      else reject(new Error(event.data.error || "The extension rejected the encrypted local library."));
-    }
-    window.addEventListener("message", receiveResponse);
-    window.postMessage(
-      {
-        type: EXTENSION_LOCAL_PROJECTION_REQUEST_MESSAGE,
-        requestId,
-        extensionId,
-        userId,
-        projection,
-      },
-      window.location.origin,
     );
   });
 }

@@ -38,14 +38,6 @@ import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
 import LocalVaultBanner from "../components/LocalVaultBanner";
 import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
-import {
-  isChromeExtensionId,
-  sendLocalProjectionToExtension,
-} from "../lib/extensionPairing";
-import {
-  LOCAL_VAULT_CHANGED_EVENT,
-  readLocalExtensionProjection,
-} from "../lib/localVault";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -92,47 +84,6 @@ export default function DashboardLayout() {
     useBookmarkCounts();
   const { ready: onboardingProgressReady } = useOnboardingProgressSync();
   const bookmarkAccess = accountPlan?.bookmarkAccess;
-
-  useEffect(() => {
-    const extensionId = import.meta.env.VITE_CHROME_EXTENSION_ID;
-    if (!isLocalAccount || !user?.id || !isChromeExtensionId(extensionId ?? null)) {
-      return;
-    }
-
-    let active = true;
-    let timeout: number | null = null;
-    const refreshProjection = () => {
-      if (timeout !== null) window.clearTimeout(timeout);
-      timeout = window.setTimeout(() => {
-        timeout = null;
-        void readLocalExtensionProjection(user.id)
-          .then((projection) => {
-            if (!active) return;
-            return sendLocalProjectionToExtension({
-              extensionId,
-              userId: user.id,
-              projection,
-            });
-          })
-          .catch(() => {
-            // The extension may not be installed or paired; pairing seeds it later.
-          });
-      }, 100);
-    };
-    const handleVaultChange = (event: Event) => {
-      if (
-        event instanceof CustomEvent &&
-        event.detail?.vaultId === user.id
-      ) refreshProjection();
-    };
-    window.addEventListener(LOCAL_VAULT_CHANGED_EVENT, handleVaultChange);
-    refreshProjection();
-    return () => {
-      active = false;
-      if (timeout !== null) window.clearTimeout(timeout);
-      window.removeEventListener(LOCAL_VAULT_CHANGED_EVENT, handleVaultChange);
-    };
-  }, [isLocalAccount, user?.id]);
 
   const location = useLocation();
   const navigate = useNavigate();

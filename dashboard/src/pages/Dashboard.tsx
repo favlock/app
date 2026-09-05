@@ -171,9 +171,10 @@ export default function Dashboard() {
   const selectedTagName = selectedTag?.name;
   const normalizedBookmarkSearch = debouncedBookmarkSearch.trim();
   const isSearchView = normalizedBookmarkSearch.length > 0;
-  const highlightsQuery = useHighlights(isSearchView);
+  const cloudSearchEnabled = isSearchView && !isLocalAccount;
+  const highlightsQuery = useHighlights(cloudSearchEnabled);
   const highlightSourceBookmarksQuery = useBookmarks(null, {
-    enabled: isSearchView,
+    enabled: cloudSearchEnabled,
     includeHighlightSources: true,
   });
   const isFavoritesView = location.pathname === "/favorites";
@@ -221,7 +222,8 @@ export default function Dashboard() {
   const shouldLoadCollectionEntries =
     isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0;
   const readspaceQuery = useReadspace(
-    isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0,
+    !isLocalAccount &&
+      (isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0),
   );
   const deleteReadspaceEntry = useDeleteReadspaceEntry();
   const readspaceArticles = useMemo(
@@ -237,6 +239,7 @@ export default function Dashboard() {
     normalizedBookmarkSearch,
     100,
     fullTextSearchEnabled,
+    !isLocalAccount,
   );
   const readspaceSearchResult = readspaceSearchQuery.data ?? {
     matches: [],
@@ -316,12 +319,16 @@ export default function Dashboard() {
       bookmarkSearchLoading ||
       notesQuery.isLoading ||
       todosQuery.isLoading ||
-      readspaceQuery.isLoading ||
-      readspaceSearchQuery.isLoading ||
-      highlightsQuery.isLoading ||
-      highlightSourceBookmarksQuery.isLoading
+      (!isLocalAccount && (
+        readspaceQuery.isLoading ||
+        readspaceSearchQuery.isLoading ||
+        highlightsQuery.isLoading ||
+        highlightSourceBookmarksQuery.isLoading
+      ))
     ) {
-      return "Searching bookmarks, documents, tasks, Readspace, and highlights...";
+      return isLocalAccount
+        ? "Searching bookmarks, documents, and tasks..."
+        : "Searching bookmarks, documents, tasks, Readspace, and highlights...";
     }
     const bookmarkLabel = `${bookmarkSearchResults} ${
       bookmarkSearchResults === 1 ? "bookmark" : "bookmarks"
@@ -338,7 +345,9 @@ export default function Dashboard() {
     const highlightLabel = `${highlightSearchMatches.length} ${
       highlightSearchMatches.length === 1 ? "highlight" : "highlights"
     }`;
-    return `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
+    return isLocalAccount
+      ? `${bookmarkLabel} · ${noteLabel} · ${todoLabel} for \u201c${normalizedBookmarkSearch}\u201d`
+      : `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
   }, [
     normalizedBookmarkSearch,
     bookmarkIndexStatus,
@@ -348,6 +357,7 @@ export default function Dashboard() {
     highlightSearchMatches.length,
     highlightSourceBookmarksQuery.isLoading,
     highlightsQuery.isLoading,
+    isLocalAccount,
     noteSearchMatches.length,
     notesQuery.isLoading,
     readspaceQuery.isLoading,
@@ -516,17 +526,21 @@ export default function Dashboard() {
           retryBookmarkCacheSync();
           void notesQuery.refetch();
           void todosQuery.refetch();
-          void readspaceQuery.refetch();
-          void readspaceSearchQuery.refetch();
-          void highlightsQuery.refetch();
-          void highlightSourceBookmarksQuery.refetch();
+          if (!isLocalAccount) {
+            void readspaceQuery.refetch();
+            void readspaceSearchQuery.refetch();
+            void highlightsQuery.refetch();
+            void highlightSourceBookmarksQuery.refetch();
+          }
         }}
       />
 
       {normalizedBookmarkSearch ? (
         <div
           className="space-y-3 px-3 lg:px-0"
-          aria-label="Search results from documents, tasks, articles, and highlights"
+          aria-label={isLocalAccount
+            ? "Search results from documents and tasks"
+            : "Search results from documents, tasks, articles, and highlights"}
         >
           <NoteSearchResults
             matches={noteSearchMatches}
@@ -536,14 +550,18 @@ export default function Dashboard() {
             matches={todoSearchMatches}
             query={normalizedBookmarkSearch}
           />
-          <ReadspaceSearchResults
-            result={readspaceSearchResult}
-            query={normalizedBookmarkSearch}
-          />
-          <HighlightSearchResults
-            matches={highlightSearchMatches}
-            query={normalizedBookmarkSearch}
-          />
+          {!isLocalAccount ? (
+            <>
+              <ReadspaceSearchResults
+                result={readspaceSearchResult}
+                query={normalizedBookmarkSearch}
+              />
+              <HighlightSearchResults
+                matches={highlightSearchMatches}
+                query={normalizedBookmarkSearch}
+              />
+            </>
+          ) : null}
         </div>
       ) : null}
 
@@ -709,11 +727,10 @@ export default function Dashboard() {
         onClose={() => setDeleteTarget(null)}
         size="sm"
       >
-        <DialogTitle>{isLocalAccount ? "Delete saved article permanently?" : "Move saved article to Trash?"}</DialogTitle>
+        <DialogTitle>Move saved article to Trash?</DialogTitle>
         <DialogDescription>
-          {isLocalAccount
-            ? `“${deleteTarget?.entry.title ?? "This article"}” will be deleted immediately. A free cloud account includes 7 days of Trash retention.`
-            : `“${deleteTarget?.entry.title ?? "This article"}” can be restored from Trash before its recovery period expires.`}
+          “{deleteTarget?.entry.title ?? "This article"}” can be restored from
+          Trash before its recovery period expires.
         </DialogDescription>
         {deleteArticleError ? (
           <p className="mt-3 text-sm text-red-600" role="alert">
@@ -735,7 +752,7 @@ export default function Dashboard() {
             disabled={deleteReadspaceEntry.isPending}
             onClick={() => void confirmDeleteArticle()}
           >
-            {deleteReadspaceEntry.isPending ? "Deleting…" : isLocalAccount ? "Delete permanently" : "Move to Trash"}
+            {deleteReadspaceEntry.isPending ? "Deleting…" : "Move to Trash"}
           </Button>
         </DialogActions>
       </Dialog>

@@ -20,7 +20,7 @@ type PrivacyStatus = {
 };
 
 export default function LocalPrivacySection() {
-  const { user } = useAuth();
+  const { user, isLocalAccount } = useAuth();
   const {
     clearKey,
     cryptoKey,
@@ -132,10 +132,10 @@ export default function LocalPrivacySection() {
               Local search uses decrypted data
             </p>
             <p className="mt-1 text-sm leading-6 text-gray-600">
-              Decrypted bookmarks, documents, tasks, Readspace items, collections,
-              tags, and Trash summaries are stored in a local IndexedDB library
-              cache on this browser. It is cleared when you sign out or use the
-              action below.
+              {isLocalAccount
+                ? "Decrypted bookmarks, documents, tasks, collections, tags, and Lists are stored in this browser profile."
+                : "Decrypted bookmarks, documents, tasks, Readspace items, collections, tags, and Trash summaries are stored in a local IndexedDB library cache on this browser."}{" "}
+              It is cleared when you sign out or use the action below.
             </p>
           </div>
         </div>

@@ -8,14 +8,6 @@ import {
   loadLibraryKey,
   saveLibraryKey,
 } from "./extension-crypto.js";
-import {
-  LOCAL_PROJECTION_KEY,
-  LOCAL_PROJECTION_MESSAGE,
-  normalizeLocalProjection,
-  removeLocalProjection,
-  writeLocalProjection,
-} from "./local-projection.js";
-
 export const PAIR_KEY_MESSAGE = "favlock.extension.pair-key";
 export const ONBOARDING_STATUS_MESSAGE = "favlock.extension.onboarding-status";
 const SESSION_KEY = "favlockAuthSession";
@@ -51,7 +43,7 @@ export async function readLocalAccount() {
 
 export async function assertLocalAccount(account) {
   const current = await readLocalAccount();
-  if (!current || !account || current.userId !== account.userId || current.epoch !== account.epoch) throw new Error("The local account changed. Reopen the extension before continuing.");
+  if (!current || !account || current.userId !== account.userId || current.epoch !== account.epoch) throw new Error("The paired account changed. Reopen the extension before continuing.");
 }
 
 export async function reportCloudFailure(accessToken, status) {
@@ -333,32 +325,23 @@ export async function receivePairedKey(message, sender) {
       throw new Error("This extension connection request expired. Start again from the extension.");
     }
     const initialEpoch = (await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY];
-    const localMode = message.localMode === true;
-    const localProjection = localMode
-      ? normalizeLocalProjection(message.localProjection, message.userId)
-      : null;
-    if (localMode && !localProjection) {
-      throw new Error("FavLock did not provide a valid encrypted local library projection.");
-    }
     const localAccount = await readLocalAccount();
     if (localAccount && localAccount.userId !== message.userId) throw new Error("This is a different account. Disconnect explicitly before switching accounts; your saved key was not changed.");
     let session = null;
-    if (!localMode) {
-      try {
-        session = await getValidSession();
-      } catch {
-        session = null;
-      }
+    try {
+      session = await getValidSession();
+    } catch {
+      session = null;
     }
     let replacingSession = false;
-    if (!localMode && (!session || session.userId !== message.userId)) {
+    if (!session || session.userId !== message.userId) {
       session = await exchangeExtensionSessionToken({
         tokenHash: message.sessionTokenHash,
         expectedUserId: message.userId,
       });
       replacingSession = true;
     }
-    if (!localMode && session.userId !== message.userId) {
+    if (session.userId !== message.userId) {
       throw new Error("The paired FavLock account does not match.");
     }
 
@@ -366,22 +349,11 @@ export async function receivePairedKey(message, sender) {
     await withStateLock(async () => {
       if ((await chrome.storage.local.get(EPOCH_KEY))[EPOCH_KEY] !== initialEpoch) throw new Error("Pairing was cancelled.");
       const currentAccount = await readLocalAccount();
-      if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The local account changed. Pair again.");
-      if (localMode) {
-        await chrome.storage.local.remove(SESSION_KEY);
-        await chrome.storage.local.set({
-          [PROFILE_KEY]: {
-            version: 1,
-            userId: message.userId,
-            email: "",
-            cloudStatus: "local",
-          },
-          [LOCAL_PROJECTION_KEY]: localProjection,
-        });
-      } else if (replacingSession) {
+      if (currentAccount && currentAccount.userId !== message.userId) throw new Error("The paired account changed. Pair again.");
+      if (replacingSession) {
         await writeSession(session);
       }
-      if (!localMode) await removeLocalProjection();
+      await chrome.storage.local.remove("favlockLocalLibraryProjection");
       await saveLibraryKey(key);
       await chrome.storage.session.remove(PAIRING_ATTEMPT_KEY);
     });
@@ -414,32 +386,6 @@ export async function receivePairedKey(message, sender) {
   }
 }
 
-export async function receiveLocalProjection(message, sender) {
-  if (message?.type !== LOCAL_PROJECTION_MESSAGE) return null;
-  if (getSenderOrigin(sender) !== new URL(FAVLOCK_CONFIG.dashboardUrl).origin) {
-    return { ok: false, error: "Untrusted dashboard origin." };
-  }
-  try {
-    const account = await readLocalAccount();
-    if (!account || account.cloudStatus !== "local") {
-      throw new Error("Connect a local FavLock vault before refreshing its library.");
-    }
-    if (message.userId !== account.userId) {
-      throw new Error("The encrypted local library belongs to another account.");
-    }
-    await withStateLock(async () => {
-      await assertLocalAccount(account);
-      await writeLocalProjection(message.projection, account.userId);
-    });
-    return { ok: true };
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "Local library refresh failed.",
-    };
-  }
-}
-
 export async function getConnectionState() {
   let session = null;
   try {
@@ -452,9 +398,7 @@ export async function getConnectionState() {
     connected: !!account,
     unlocked: !!(await loadLibraryKey()),
     email: account?.email || session?.email || "",
-    cloudStatus: account?.cloudStatus === "local"
-      ? "local"
-      : globalThis.navigator?.onLine === false
+    cloudStatus: globalThis.navigator?.onLine === false
         ? "offline"
         : !session
           ? "reconnect_required"
@@ -490,7 +434,14 @@ export async function disconnectExtension() {
       chrome.storage.local.remove([SESSION_KEY, PROFILE_KEY]),
       chrome.storage.session.remove([ORIGINAL_TAB_KEY, PAIRING_ATTEMPT_KEY]),
       deleteLibraryKey(),
-      removeLocalProjection(),
+      chrome.storage.local.remove("favlockLocalLibraryProjection"),
     ]);
   });
+}
+
+export async function removeLegacyLocalVaultConnection() {
+  const account = await readLocalAccount();
+  if (account?.cloudStatus !== "local") return false;
+  await disconnectExtension();
+  return true;
 }

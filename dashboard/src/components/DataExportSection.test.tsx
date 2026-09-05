@@ -111,7 +111,6 @@ describe("DataExportSection connectivity guard", () => {
     authState.isLocalAccount = true;
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
     await act(async () => root.render(<DataExportSection />));
-
     await act(async () => exportButton().click());
 
     expect(loadBookmarks).toHaveBeenCalledWith("local-user", {});
@@ -122,7 +121,7 @@ describe("DataExportSection connectivity guard", () => {
         todos: [],
         readspace: [],
       }),
-      { bookmarks: true, notes: true, todos: true, readspace: true, highlights: false },
+      { bookmarks: true, notes: true, todos: true, readspace: false, highlights: false },
     );
     expect(encryptArchive).toHaveBeenCalledOnce();
     expect(createObjectURL).toHaveBeenCalledOnce();

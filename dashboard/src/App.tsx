@@ -26,7 +26,6 @@ const Trash = lazy(() => import("./pages/Trash"));
 const Settings = lazy(() => import("./pages/Settings"));
 const Support = lazy(() => import("./pages/Support"));
 const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
-const LocalExtensionSave = lazy(() => import("./pages/LocalExtensionSave"));
 
 function RouteFallback() {
   if (window.location.pathname === "/") {
@@ -120,7 +119,6 @@ function App() {
                     />
                     <Route path="/readspace" element={<Readspace />} />
                     <Route path="/lists" element={<Lists />} />
-                    <Route path="/extension/local-save" element={<LocalExtensionSave />} />
                     <Route path="/trash" element={<Trash />} />
                     <Route path="/support" element={<Support />} />
                     <Route path="settings" element={<Settings />} />

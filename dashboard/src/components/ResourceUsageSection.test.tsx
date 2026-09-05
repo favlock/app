@@ -176,6 +176,7 @@ describe("ResourceUsageSection", () => {
     expect(container.textContent).toContain("Deleted items are removed immediately");
     expect(container.textContent).not.toContain("Trash recovery");
     expect(container.textContent).not.toContain("Highlights");
+    expect(container.textContent).not.toContain("Saved articles");
   });
 
   it("shows reached and exceeded finite limits in red", async () => {

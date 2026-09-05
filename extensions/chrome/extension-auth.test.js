@@ -6,9 +6,9 @@ import {
   exchangeExtensionSessionToken,
   getConnectionState,
   getExternalOnboardingStatus,
+  removeLegacyLocalVaultConnection,
   refreshSession,
   disconnectExtension,
-  receiveLocalProjection,
   receivePairedKey,
   PAIR_KEY_MESSAGE,
   ONBOARDING_STATUS_MESSAGE,
@@ -28,19 +28,6 @@ const user = {
   id: "11111111-1111-4111-8111-111111111111",
   email: "ada@example.com",
 };
-
-function localProjection(userId = user.id) {
-  return {
-    version: 1,
-    userId,
-    revision: "empty",
-    generatedAt: "2026-09-02T10:00:00.000Z",
-    folders: [],
-    tags: [],
-    lists: [],
-    bookmarks: [],
-  };
-}
 
 function sessionResponse() {
   return {
@@ -115,6 +102,22 @@ afterEach(() => {
 });
 
 describe("extension dashboard connection", () => {
+  it("removes a legacy local-vault pairing after the cloud-only update", async () => {
+    localData.favlockLocalProfile = {
+      version: 1,
+      userId: user.id,
+      email: "",
+      cloudStatus: "local",
+    };
+    localData.favlockLocalLibraryProjection = { version: 1 };
+
+    await expect(removeLegacyLocalVaultConnection()).resolves.toBe(true);
+
+    expect(localData.favlockLocalProfile).toBeUndefined();
+    expect(localData.favlockLocalLibraryProjection).toBeUndefined();
+    expect(cryptoMocks.deleteLibraryKey).toHaveBeenCalledOnce();
+  });
+
   it("rejects pairing another account before exchanging credentials or replacing a key", async () => {
     localData.favlockLocalProfile = { version: 1, userId: user.id, email: user.email, cloudStatus: "reconnect_required" };
     sessionData.favlockPairingAttempt = { value: "p".repeat(43), expiresAt: Date.now() + 60_000 };
@@ -255,81 +258,7 @@ describe("extension dashboard connection", () => {
     expect(sessionData.favlockPairingAttempt).toBeUndefined();
   });
 
-  it("pairs a local vault without requesting or storing cloud credentials", async () => {
-    const pairingAttempt = "p".repeat(43);
-    sessionData.favlockPairingAttempt = {
-      value: pairingAttempt,
-      expiresAt: Date.now() + 60_000,
-    };
-    cryptoMocks.importLibraryKey.mockResolvedValueOnce({ type: "secret" });
-    const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(receivePairedKey(
-      {
-        type: PAIR_KEY_MESSAGE,
-        pairingAttempt,
-        userId: user.id,
-        rawKey: "test-key",
-        localMode: true,
-        localProjection: localProjection(),
-      },
-      { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin },
-    )).resolves.toEqual({ ok: true });
-
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(localData.favlockAuthSession).toBeUndefined();
-    expect(localData.favlockLocalProfile).toEqual({
-      version: 1,
-      userId: user.id,
-      email: "",
-      cloudStatus: "local",
-    });
-    expect(localData.favlockLocalLibraryProjection).toEqual(localProjection());
-    await expect(getConnectionState()).resolves.toMatchObject({
-      connected: true,
-      unlocked: true,
-      cloudStatus: "local",
-    });
-  });
-
-  it("accepts encrypted local projection refreshes only for the paired dashboard account", async () => {
-    localData.favlockLocalProfile = {
-      version: 1,
-      userId: user.id,
-      email: "",
-      cloudStatus: "local",
-    };
-    localData.favlockLocalEpoch = "local-epoch";
-    const refreshed = { ...localProjection(), revision: "2:refreshed" };
-    const trustedSender = { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin };
-
-    await expect(receiveLocalProjection({
-      type: "favlock.extension.local-projection",
-      userId: user.id,
-      projection: refreshed,
-    }, trustedSender)).resolves.toEqual({ ok: true });
-    expect(localData.favlockLocalLibraryProjection).toEqual(refreshed);
-
-    await expect(receiveLocalProjection({
-      type: "favlock.extension.local-projection",
-      userId: "22222222-2222-4222-8222-222222222222",
-      projection: localProjection("22222222-2222-4222-8222-222222222222"),
-    }, trustedSender)).resolves.toMatchObject({
-      ok: false,
-      error: expect.stringContaining("another account"),
-    });
-    await expect(receiveLocalProjection({
-      type: "favlock.extension.local-projection",
-      userId: user.id,
-      projection: refreshed,
-    }, { origin: "https://attacker.example" })).resolves.toEqual({
-      ok: false,
-      error: "Untrusted dashboard origin.",
-    });
-  });
-
-  it("rejects a local pairing without a valid ciphertext projection", async () => {
+  it("rejects a legacy local-vault pairing without cloud authorization", async () => {
     const pairingAttempt = "p".repeat(43);
     sessionData.favlockPairingAttempt = {
       value: pairingAttempt,
@@ -341,9 +270,10 @@ describe("extension dashboard connection", () => {
       userId: user.id,
       rawKey: "test-key",
       localMode: true,
+      localProjection: { version: 1 },
     }, { origin: new URL(FAVLOCK_CONFIG.dashboardUrl).origin });
 
-    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("projection") });
+    expect(result).toMatchObject({ ok: false, error: expect.stringContaining("authorization") });
     expect(cryptoMocks.importLibraryKey).not.toHaveBeenCalled();
     expect(localData.favlockLocalProfile).toBeUndefined();
   });
@@ -447,7 +377,7 @@ describe("extension dashboard connection", () => {
     expect(cryptoMocks.deleteLibraryKey).not.toHaveBeenCalled();
   });
 
-  it("retains the local account and key when refresh credentials are rejected", async () => {
+  it("retains the paired account and key when refresh credentials are rejected", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
