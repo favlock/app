@@ -40,6 +40,7 @@ import { cloudStatusMessage, type CloudStatus } from "../lib/cloudAccess";
 import { clearLocalKeyVerifier, readLocalKeyVerifier } from "../lib/localKeyVerifier";
 import { cancelLocalVaultWork } from "../lib/localVaultWork";
 import { clearLocalVault } from "../lib/localVault";
+import { clearLinkHealthResults } from "../lib/linkHealthStorage";
 
 interface AuthContextType {
   session: AuthSession | null;
@@ -112,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearBookmarkCacheForUser(userId),
           clearLibraryContentCacheForUser(userId),
           clearEntryDraftsForUser(userId),
+          clearLinkHealthResults(userId),
         ]);
         if (results.some((result) => result.status === "rejected")) {
           throw new Error(

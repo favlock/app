@@ -39,6 +39,7 @@ import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
 import LocalVaultBanner from "../components/LocalVaultBanner";
 import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
 import ReleaseAnnouncementDialog from "../components/ReleaseAnnouncementDialog";
+import LibraryHealthProgress from "../components/LibraryHealthProgress";
 
 export interface DashboardLayoutContext {
   setIsMobileSidebarOpen: (v: boolean) => void;
@@ -246,7 +247,8 @@ export default function DashboardLayout() {
       location.pathname === "/settings" ||
       location.pathname === "/support" ||
       location.pathname === "/trash" ||
-      location.pathname === "/lists"
+      location.pathname === "/lists" ||
+      location.pathname === "/duplicates"
     ) {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
@@ -484,6 +486,7 @@ export default function DashboardLayout() {
         }
         userId={user?.id ?? ""}
       />
+      <LibraryHealthProgress />
 
       <a
         href="#main-content"

@@ -54,6 +54,8 @@ describe("ProUpgradeDialog", () => {
     expect(comparison.textContent).toContain("Support");
     expect(comparison.textContent).toContain("Standard");
     expect(comparison.textContent).toContain("Priority");
+    expect(comparison.textContent).toContain("Duplicate monitor");
+    expect(comparison.textContent).toContain("Broken link monitor");
     expect(document.body.textContent).toContain(
       "Both plans search bookmark titles, URLs, tags, collections, and highlighted text in Readspace",
     );
