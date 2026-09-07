@@ -22,6 +22,8 @@ async function requestAuthenticated(
   options: {
     method: "GET" | "PATCH" | "PUT" | "POST" | "DELETE";
     body?: object;
+    signal?: AbortSignal;
+    timeoutMs?: number;
   },
 ): Promise<AuthenticatedResponse> {
   if (!accessToken) {
@@ -49,9 +51,17 @@ async function requestAuthenticated(
         credentials: "omit",
         referrerPolicy: "no-referrer",
         redirect: "error",
-        signal: AbortSignal.timeout(30_000),
+        signal: options.signal
+          ? AbortSignal.any([
+              options.signal,
+              AbortSignal.timeout(options.timeoutMs ?? 30_000),
+            ])
+          : AbortSignal.timeout(options.timeoutMs ?? 30_000),
       });
     } catch {
+      if (options.signal?.aborted) {
+        throw new DOMException("Request cancelled", "AbortError");
+      }
       assertCurrentRequest(requestSession);
       reportCloudFailure(requestSession.accessToken, "unavailable");
       throw new CloudAccessError("unavailable", failureMessage);
@@ -88,7 +98,7 @@ async function requestAuthenticated(
         ? payload.error
         : null;
       if (error && typeof error === "object" && "code" in error && error.code === "pro_required") {
-        throw new Error("Annotations require FavLock Pro.");
+        throw new Error("This feature requires FavLock Pro.");
       }
       reportCloudFailure(session.accessToken, "restricted");
       throw new CloudAccessError("restricted", cloudStatusMessage("restricted"));
@@ -117,7 +127,12 @@ async function requestAuthenticatedJson(
   path: `/v1/${string}`,
   accessToken: string,
   failureMessage: string,
-  options: { method: "GET" | "PATCH" | "POST"; body?: object },
+  options: {
+    method: "GET" | "PATCH" | "POST";
+    body?: object;
+    signal?: AbortSignal;
+    timeoutMs?: number;
+  },
 ): Promise<unknown> {
   const { response, session } = await requestAuthenticated(
     path,
@@ -173,10 +188,12 @@ export function postAuthenticatedJson(
   accessToken: string,
   body: object,
   failureMessage: string,
+  requestOptions?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<unknown> {
   return requestAuthenticatedJson(path, accessToken, failureMessage, {
     method: "POST",
     body,
+    ...requestOptions,
   });
 }
 

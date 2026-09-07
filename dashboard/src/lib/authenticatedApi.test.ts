@@ -185,6 +185,29 @@ describe("session-aware authenticated requests", () => {
     });
   });
 
+  it("cancels a long-running request without reporting a cloud failure", async () => {
+    const controller = new AbortController();
+    fetchMock.mockImplementation((_input, options) => new Promise((_resolve, reject) => {
+      const rejectAbort = () => {
+        reject(new DOMException("Request cancelled", "AbortError"));
+      };
+      if (options?.signal?.aborted) rejectAbort();
+      else options?.signal?.addEventListener("abort", rejectAbort, { once: true });
+    }));
+
+    const request = postAuthenticatedJson(
+      path,
+      "caller-access-token",
+      { urls: ["https://example.com/"] },
+      failureMessage,
+      { signal: controller.signal, timeoutMs: 120_000 },
+    );
+    controller.abort();
+
+    await expect(request).rejects.toMatchObject({ name: "AbortError" });
+    expect(cloudFailure).not.toHaveBeenCalled();
+  });
+
   it("does not replay a successful mutation with a malformed response body", async () => {
     fetchMock.mockResolvedValueOnce(new Response("not-json", { status: 200 }));
     await expect(postAuthenticatedJson(path, "caller-access-token", { encryptedTitle: "enc:test" }, failureMessage)).rejects.toThrow(failureMessage);

@@ -11,6 +11,9 @@ import AuthCallbackBoundary from "./components/AuthCallbackBoundary";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
 import LegacyNotesRedirect from "./components/LegacyNotesRedirect";
+import { DuplicateScanProvider } from "./context/DuplicateScanContext";
+import { LinkHealthProvider } from "./context/LinkHealthContext";
+import LibraryHealthProGate from "./components/LibraryHealthProGate";
 
 const AuthPage = lazy(() => import("./pages/Register"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
@@ -24,6 +27,8 @@ const Lists = lazy(() => import("./pages/Lists"));
 const Trash = lazy(() => import("./pages/Trash"));
 const Settings = lazy(() => import("./pages/Settings"));
 const DataTransfer = lazy(() => import("./pages/DataTransfer"));
+const Duplicates = lazy(() => import("./pages/Duplicates"));
+const BrokenLinks = lazy(() => import("./pages/BrokenLinks"));
 const Support = lazy(() => import("./pages/Support"));
 const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
 
@@ -91,11 +96,13 @@ function App() {
                 <Route
                   element={
                     <ProtectedRoute>
-                      <>
-                        <UnlockDialog />
-                        <EncryptionSetup />
-                        <DashboardLayout />
-                      </>
+                      <DuplicateScanProvider>
+                        <LinkHealthProvider>
+                          <UnlockDialog />
+                          <EncryptionSetup />
+                          <DashboardLayout />
+                        </LinkHealthProvider>
+                      </DuplicateScanProvider>
                     </ProtectedRoute>
                   }
                 >
@@ -121,6 +128,17 @@ function App() {
                   <Route path="/trash" element={<Trash />} />
                   <Route path="/support" element={<Support />} />
                   <Route path="/data-transfer" element={<DataTransfer />} />
+                  <Route path="/library-health" element={<Navigate to="/library-health/duplicates" replace />} />
+                  <Route
+                    path="/library-health/duplicates"
+                    element={<LibraryHealthProGate><Duplicates /></LibraryHealthProGate>}
+                  />
+                  <Route
+                    path="/library-health/broken-links"
+                    element={<LibraryHealthProGate><BrokenLinks /></LibraryHealthProGate>}
+                  />
+                  <Route path="/duplicates" element={<Navigate to="/library-health/duplicates" replace />} />
+                  <Route path="/broken-links" element={<Navigate to="/library-health/broken-links" replace />} />
                   <Route path="settings" element={<Settings />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />

@@ -13,7 +13,7 @@ import { useBookmarkStore } from "../store/bookmarkStore";
 const mocks = vi.hoisted(() => ({
   getSession: vi.fn(), getLocalUser: vi.fn(), getCloudStatus: vi.fn(), getConnectionError: vi.fn(), isLocalAccountInvalidated: vi.fn(), signOut: vi.fn(), onAuthStateChange: vi.fn(),
   clearKey: vi.fn(), lockKey: vi.fn(), triggerUnlock: vi.fn(), clearBookmarks: vi.fn(), clearContent: vi.fn(), hydrate: vi.fn(), clearQueries: vi.fn(),
-  fetchQuery: vi.fn(), clearDrafts: vi.fn(), clearImportRecovery: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
+  fetchQuery: vi.fn(), clearDrafts: vi.fn(), clearImportRecovery: vi.fn(), clearLinkHealth: vi.fn(), updateAccountProfile: vi.fn(), invalidateQueries: vi.fn(),
 }));
 vi.mock("../lib/favLockAuth", () => ({
   isLocalOnlyUser: (user: { local_only?: boolean } | null) => user?.local_only === true,
@@ -33,6 +33,7 @@ vi.mock("../lib/bookmarkCache", () => ({
 }));
 vi.mock("../lib/entryDrafts", () => ({ clearEntryDraftsForUser: mocks.clearDrafts }));
 vi.mock("../lib/importRecovery", () => ({ clearImportRecoveryJournal: mocks.clearImportRecovery }));
+vi.mock("../lib/linkHealthStorage", () => ({ clearLinkHealthResults: mocks.clearLinkHealth }));
 vi.mock("../lib/hydrateLibraryQueryCache", () => ({ hydrateLibraryQueryCache: mocks.hydrate }));
 vi.mock("../lib/queryClient", () => ({ queryClient: { clear: mocks.clearQueries, fetchQuery: mocks.fetchQuery, invalidateQueries: mocks.invalidateQueries } }));
 vi.mock("../lib/accountSettingsApi", () => ({ updateAccountProfile: mocks.updateAccountProfile }));
@@ -84,6 +85,7 @@ describe("local routing through cloud failure", () => {
     mocks.clearDrafts.mockReset().mockResolvedValue(undefined);
     mocks.clearKey.mockReset().mockResolvedValue(undefined);
     mocks.clearImportRecovery.mockReset();
+    mocks.clearLinkHealth.mockReset().mockResolvedValue(undefined);
     mocks.updateAccountProfile.mockReset().mockResolvedValue({});
     localStorage.clear();
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });

@@ -36,7 +36,6 @@ import PasskeySettingsSection from "../components/PasskeySettingsSection";
 import ResourceUsageSection from "../components/ResourceUsageSection";
 import LocalPrivacySection from "../components/LocalPrivacySection";
 import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySection";
-import BookmarkDuplicateCleanupSection from "../components/BookmarkDuplicateCleanupSection";
 import BillingSection from "../components/BillingSection";
 import AppearancePreference from "../components/AppearancePreference";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
@@ -412,7 +411,6 @@ export default function Settings() {
                 )}
                 <div className="h-px bg-[color-mix(in_oklab,var(--app-line)_14%,transparent)]" />
                 <ResourceUsageSection localOnly={isLocalAccount} />
-                <BookmarkDuplicateCleanupSection />
               </div>
             )}
           </div>
