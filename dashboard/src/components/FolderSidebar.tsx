@@ -56,6 +56,7 @@ import {
   ArrowDownUp,
   HeartPulse,
   LoaderCircle,
+  Files as FilesIcon,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
@@ -547,6 +548,36 @@ export default function FolderSidebar({
                   }`}
                 >
                   {readspaceItemCount}
+                </span>
+              </Link>
+            )}
+          </li>
+          <li>
+            {isLocalAccount ? (
+              <button
+                type="button"
+                disabled
+                title="Encrypted Files is available with a cloud account."
+                aria-label="Files, cloud only"
+                className="theme-nav-button flex w-full cursor-not-allowed items-center justify-between rounded-lg px-2.5 py-1.5 font-medium opacity-55"
+              >
+                <span className="flex items-center gap-2">
+                  <FilesIcon size={16} aria-hidden="true" />
+                  Files
+                </span>
+                <span className="rounded-md border border-[color-mix(in_oklab,var(--app-line)_16%,transparent)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-muted)]">Cloud</span>
+              </button>
+            ) : (
+              <Link
+                to="/files"
+                aria-current={location.pathname === "/files" ? "page" : undefined}
+                className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                  location.pathname === "/files" ? "theme-nav-button-active" : ""
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <FilesIcon size={16} aria-hidden="true" />
+                  Files
                 </span>
               </Link>
             )}

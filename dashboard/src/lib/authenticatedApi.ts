@@ -15,6 +15,14 @@ function assertCurrentRequest(session: AuthRequestSession): void {
   }
 }
 
+function formatByteLimit(bytes: number): string {
+  const gibibyte = 1024 * 1024 * 1024;
+  if (bytes >= gibibyte) {
+    return `${(bytes / gibibyte).toFixed(bytes % gibibyte === 0 ? 0 : 1)} GB`;
+  }
+  return `${(bytes / 1024 / 1024).toFixed(bytes >= 10 * 1024 * 1024 ? 0 : 1)} MB`;
+}
+
 async function requestAuthenticated(
   path: `/v1/${string}`,
   accessToken: string,
@@ -22,6 +30,8 @@ async function requestAuthenticated(
   options: {
     method: "GET" | "PATCH" | "PUT" | "POST" | "DELETE";
     body?: object;
+    binaryBody?: Blob;
+    accept?: "application/json" | "application/octet-stream";
     signal?: AbortSignal;
     timeoutMs?: number;
   },
@@ -31,7 +41,7 @@ async function requestAuthenticated(
   }
   if (!navigator.onLine) throw new CloudAccessError("unavailable", cloudStatusMessage("offline"));
 
-  const body = options.body ? JSON.stringify(options.body) : undefined;
+  const body = options.binaryBody ?? (options.body ? JSON.stringify(options.body) : undefined);
   let session = await favLockAuth.getRequestSession(accessToken);
 
   async function send(requestSession: AuthRequestSession): Promise<Response> {
@@ -42,9 +52,13 @@ async function requestAuthenticated(
       response = await fetch(`${API_URL}${path}`, {
         method: options.method,
         headers: {
-          Accept: "application/json",
+          Accept: options.accept ?? "application/json",
           Authorization: `Bearer ${requestSession.accessToken}`,
-          ...(body ? { "Content-Type": "application/json" } : {}),
+          ...(options.binaryBody
+            ? { "Content-Type": "application/octet-stream" }
+            : options.body
+              ? { "Content-Type": "application/json" }
+              : {}),
         },
         ...(body ? { body } : {}),
         cache: "no-store",
@@ -110,9 +124,18 @@ async function requestAuthenticated(
       if (error && typeof error === "object" && "code" in error && error.code === "quota_exceeded" && "details" in error) {
         const details = error.details;
         if (details && typeof details === "object" && "resource" in details && "limit" in details &&
-          typeof details.resource === "string" && ["bookmarks", "entries", "readspace", "highlights", "collections", "tags", "lists"].includes(details.resource) &&
-          typeof details.limit === "number" && Number.isSafeInteger(details.limit) && details.limit >= 0 && details.limit <= 2147483647) {
-          throw new CloudAccessError("quota_exceeded", `Your plan allows up to ${details.limit} ${details.resource}. Your existing data remains available.`, { resource: details.resource, limit: details.limit });
+          typeof details.resource === "string" && ["bookmarks", "entries", "readspace", "highlights", "collections", "tags", "lists", "file_size", "file_storage"].includes(details.resource) &&
+          typeof details.limit === "number" && Number.isSafeInteger(details.limit) && details.limit >= 0 && details.limit <= Number.MAX_SAFE_INTEGER) {
+          const fileLimit = details.resource === "file_size" || details.resource === "file_storage";
+          const formattedLimit = fileLimit
+            ? formatByteLimit(details.limit)
+            : String(details.limit);
+          const resourceName = details.resource === "file_size"
+            ? "per encrypted file"
+            : details.resource === "file_storage"
+              ? "of encrypted file storage"
+              : details.resource;
+          throw new CloudAccessError("quota_exceeded", `Your plan allows up to ${formattedLimit} ${resourceName}. Your existing data remains available.`, { resource: details.resource, limit: details.limit });
         }
       }
     }
@@ -155,9 +178,11 @@ export function fetchAuthenticatedJson(
   path: `/v1/${string}`,
   accessToken: string,
   failureMessage: string,
+  options: { signal?: AbortSignal } = {},
 ): Promise<unknown> {
   return requestAuthenticatedJson(path, accessToken, failureMessage, {
     method: "GET",
+    ...options,
   });
 }
 
@@ -258,4 +283,47 @@ export async function deleteAuthenticatedWithoutResponse(
   );
   assertCurrentRequest(session);
   if (response.status !== 204) throw new Error(failureMessage);
+}
+
+export async function putAuthenticatedBlobWithoutResponse(
+  path: `/v1/${string}`,
+  accessToken: string,
+  body: Blob,
+  failureMessage: string,
+  requestOptions?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<void> {
+  const { response, session } = await requestAuthenticated(
+    path,
+    accessToken,
+    failureMessage,
+    {
+      method: "PUT",
+      binaryBody: body,
+      accept: "application/json",
+      ...requestOptions,
+    },
+  );
+  assertCurrentRequest(session);
+  if (response.status !== 204) throw new Error(failureMessage);
+}
+
+export async function fetchAuthenticatedBlob(
+  path: `/v1/${string}`,
+  accessToken: string,
+  failureMessage: string,
+  requestOptions?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<Blob> {
+  const { response, session } = await requestAuthenticated(
+    path,
+    accessToken,
+    failureMessage,
+    {
+      method: "GET",
+      accept: "application/octet-stream",
+      ...requestOptions,
+    },
+  );
+  const body = await response.blob();
+  assertCurrentRequest(session);
+  return body;
 }

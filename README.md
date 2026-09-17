@@ -90,6 +90,22 @@ be created again for the migrated account. Readspace also offers explicit
 plaintext highlight downloads as Markdown, HTML, or JSON for one item, a
 selection, a source page, or the current results; these are generated locally
 and clearly labeled as unencrypted.
+
+Cloud accounts can export Files separately from the library archive on the
+Export data screen. The browser downloads ciphertext through the existing Files
+API, verifies and decrypts each file locally, and prepares independent,
+unencrypted ZIP parts. Each part contains at most 100 files and is planned from
+at most 128 MiB of ciphertext; only one part is prepared at a time. Each ZIP has
+a manifest with original names, MIME types, sizes, modification times, and the
+number of excluded unfinished uploads. UUID subdirectories preserve duplicate
+names, and archive filenames are sanitized for extraction. Users explicitly
+download each prepared part before continuing. Locking, account changes,
+navigation, going offline, and cancellation discard prepared links and abort
+work. Files added after the list was checked require a fresh export; a failed,
+deleted, or damaged file fails its entire part so it can be retried. This export
+does not change the encrypted `.favlock` archive or add Files to library
+migration/import. Re-upload extracted originals through Files when needed.
+
 No direct Supabase table or RPC data calls remain in the dashboard. Email signup,
 signup-confirmation resend, and password-reset-email delivery preserve the
 browser's PKCE flow but now use `VITE_API_URL`. Password sign-in, token

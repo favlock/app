@@ -23,6 +23,7 @@ const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Notes = lazy(() => import("./pages/Notes"));
 const Tasks = lazy(() => import("./pages/Todos"));
 const Readspace = lazy(() => import("./pages/Readspace"));
+const Files = lazy(() => import("./pages/Files"));
 const Lists = lazy(() => import("./pages/Lists"));
 const Trash = lazy(() => import("./pages/Trash"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -124,6 +125,7 @@ function App() {
                     }
                   />
                   <Route path="/readspace" element={<Readspace />} />
+                  <Route path="/files" element={<Files />} />
                   <Route path="/lists" element={<Lists />} />
                   <Route path="/trash" element={<Trash />} />
                   <Route path="/support" element={<Support />} />

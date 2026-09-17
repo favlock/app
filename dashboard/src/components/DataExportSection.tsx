@@ -37,6 +37,7 @@ import { loadAllBookmarksForExport } from "../lib/bookmarkExportRepository";
 import { Button } from "./ui/button";
 import { Checkbox, CheckboxField } from "./ui/checkbox";
 import { Description, Label } from "./ui/fieldset";
+import FileExportSection from "./FileExportSection";
 import {
   DataTransferActionBar,
   DataTransferSectionHeader,
@@ -434,6 +435,7 @@ export default function DataExportSection() {
                 : "Download bookmark HTML"}
         </Button>
       </DataTransferActionBar>
+      {!isLocalAccount && <FileExportSection />}
     </section>
   );
 }
