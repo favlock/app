@@ -1,5 +1,9 @@
 # Chrome extension changelog
 
+## 1.11.0 — September 17, 2026
+
+- Aligned the extension version with FavLock 1.11.0. No extension behavior changes.
+
 ## 1.10.0 — September 5, 2026
 
 - Refreshed the popup, settings, reader, and exported highlights with FavLock's new pastel design.
