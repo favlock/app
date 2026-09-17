@@ -177,10 +177,26 @@ function isOnboardingCloudStep(value: unknown): value is OnboardingCloudStep {
   return ONBOARDING_CLOUD_STEPS.includes(value as OnboardingCloudStep);
 }
 
+function hasCompletedCloudStep(
+  current: OnboardingStateV1,
+  step: OnboardingCloudStep,
+) {
+  switch (step) {
+    case "library_protected":
+      return current.protection.status === "confirmed";
+    case "first_save_or_import":
+      return current.libraryPopulated === "populated";
+    case "first_deliberate_retrieval":
+      return current.firstRetrieval === "completed";
+  }
+}
+
 function addPendingStep(
   current: OnboardingStateV1,
   step: OnboardingCloudStep,
 ): OnboardingStateV1["cloudSync"] {
+  if (hasCompletedCloudStep(current, step)) return current.cloudSync;
+
   return {
     ...current.cloudSync,
     pendingCompletedSteps: Array.from(
@@ -280,7 +296,13 @@ export function saveOnboardingPreference(userId: string, hidden: boolean) {
   return saveOnboardingState(userId, (current) => ({
     ...current,
     dismissals: { ...current.dismissals, welcomeTour: hidden },
-    cloudSync: { ...current.cloudSync, pendingDismissal: hidden },
+    cloudSync: {
+      ...current.cloudSync,
+      pendingDismissal:
+        current.dismissals.welcomeTour === hidden
+          ? current.cloudSync.pendingDismissal
+          : hidden,
+    },
   }));
 }
 
@@ -372,6 +394,7 @@ export function applyCloudOnboardingProgress(
   progress: CloudOnboardingProgress,
 ) {
   return saveOnboardingState(userId, (current) => {
+    const confirmed = new Set(progress.completedSteps);
     const completedSteps = Array.from(
       new Set([
         ...progress.completedSteps,
@@ -386,7 +409,16 @@ export function applyCloudOnboardingProgress(
         welcomeTour:
           current.cloudSync.pendingDismissal ?? progress.dismissed,
       },
-      cloudSync: { ...current.cloudSync, hydrated: true },
+      cloudSync: {
+        hydrated: true,
+        pendingCompletedSteps: current.cloudSync.pendingCompletedSteps.filter(
+          (step) => !confirmed.has(step),
+        ),
+        pendingDismissal:
+          current.cloudSync.pendingDismissal === progress.dismissed
+            ? null
+            : current.cloudSync.pendingDismissal,
+      },
     };
   });
 }

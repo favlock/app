@@ -1,5 +1,6 @@
 import { strFromU8, unzip, type Unzipped } from "fflate";
 import { parse, type DefaultTreeAdapterTypes } from "parse5";
+export { normalizeImportedBookmarkUrl } from "./bookmarkUrl";
 
 export interface BrowserBookmarkImportItem {
   title: string;
@@ -405,23 +406,6 @@ export function parseChromeBookmarksTree(
   }
 
   return { bookmarks, folderPaths: Array.from(folderMap.values()) };
-}
-
-export function normalizeImportedBookmarkUrl(rawUrl: string): string | null {
-  const trimmed = rawUrl.trim();
-  if (!trimmed) return null;
-
-  const normalized = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
-
-  try {
-    const url = new URL(normalized);
-    if (!["http:", "https:"].includes(url.protocol)) return null;
-    return url.toString();
-  } catch {
-    return null;
-  }
 }
 
 export function getImportedBookmarkTitle(

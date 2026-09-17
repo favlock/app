@@ -54,11 +54,15 @@ import {
   Sparkles,
   ArrowRight,
   ArrowDownUp,
+  HeartPulse,
+  LoaderCircle,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
 import { getAccountDisplayName } from "../lib/auth";
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
+import { useDuplicateScan } from "../context/useDuplicateScan";
+import { useLinkHealth } from "../context/useLinkHealth";
 import {
   PRESET_COLORS,
   getColorHex,
@@ -233,6 +237,9 @@ export default function FolderSidebar({
   const { data: userInfo } = useUserInfo();
   const accountDisplayName = getAccountDisplayName(userInfo, user?.email);
   const { data: accountPlan } = useAccountPlan();
+  const { deviceState: duplicateScan, phase: duplicateScanPhase } =
+    useDuplicateScan();
+  const { deviceState: linkHealth, phase: linkHealthPhase } = useLinkHealth();
   const location = useLocation();
   const [signingOut, setSigningOut] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
@@ -626,6 +633,50 @@ export default function FolderSidebar({
                 {bookmarkCounts?.unsortedCount ?? 0}
               </span>
             </button>
+          </li>
+          <li>
+            <Link
+              to="/library-health/duplicates"
+              aria-current={location.pathname.startsWith("/library-health") ? "page" : undefined}
+              className={`theme-nav-button flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${
+                location.pathname.startsWith("/library-health")
+                  ? "theme-nav-button-active"
+                  : ""
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <HeartPulse size={16} aria-hidden="true" />
+                Library health
+              </span>
+              {accountPlan?.id !== "pro" ? (
+                <span
+                  className="rounded-md border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[var(--app-lavender)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-primary)]"
+                  aria-label="FavLock Pro feature"
+                >
+                  Pro
+                </span>
+              ) : duplicateScanPhase === "scanning" || linkHealthPhase === "scanning" ? (
+                <span
+                  className="flex items-center rounded-md px-1.5 py-0.5 text-[var(--app-muted)]"
+                  title="Library health scan in progress"
+                  aria-label="Library health scan in progress"
+                >
+                  <LoaderCircle className="size-3.5 animate-spin" aria-hidden="true" />
+                </span>
+              ) : (
+                <span
+                  className={`rounded-md px-1.5 py-0.5 text-sm ${
+                    location.pathname.startsWith("/library-health")
+                      ? "theme-nav-count-active"
+                      : "text-[var(--app-muted)]"
+                  }`}
+                  title={`${duplicateScan.duplicateCount.toLocaleString()} duplicates${isLocalAccount ? "" : `, ${linkHealth.brokenCount.toLocaleString()} broken links`}`}
+                  aria-label={`${duplicateScan.duplicateCount + (isLocalAccount ? 0 : linkHealth.brokenCount)} library health issues found`}
+                >
+                  {duplicateScan.duplicateCount + (isLocalAccount ? 0 : linkHealth.brokenCount)}
+                </span>
+              )}
+            </Link>
           </li>
           <li>
             {isLocalAccount ? (

@@ -6,6 +6,7 @@ import {
   markProtectionConfirmed,
   readOnboardingState,
   saveOnboardingPreference,
+  setLibraryPopulated,
 } from "../lib/onboarding";
 import { useOnboardingProgressSync } from "./useOnboardingProgressSync";
 
@@ -95,6 +96,29 @@ describe("useOnboardingProgressSync", () => {
         firstRetrieval: "completed",
         dismissals: { welcomeTour: true },
       });
+    });
+    expect(mocks.updateProgress).not.toHaveBeenCalled();
+  });
+
+  it("does not sync again when import reports an already completed milestone", async () => {
+    mocks.fetchProgress.mockResolvedValue({
+      version: 1,
+      completedSteps: [
+        "library_protected",
+        "first_save_or_import",
+        "first_deliberate_retrieval",
+      ],
+      dismissed: true,
+    });
+    await render();
+
+    await vi.waitFor(() => expect(container.textContent).toBe("ready"));
+    act(() => setLibraryPopulated("account-a", true));
+
+    await vi.waitFor(() => {
+      expect(readOnboardingState("account-a").libraryPopulated).toBe(
+        "populated",
+      );
     });
     expect(mocks.updateProgress).not.toHaveBeenCalled();
   });

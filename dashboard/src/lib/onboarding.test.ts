@@ -150,6 +150,46 @@ describe("account-scoped onboarding state", () => {
     });
   });
 
+  it("does not requeue milestones that are already complete", () => {
+    applyCloudOnboardingProgress("account-a", {
+      version: 1,
+      completedSteps: [
+        "library_protected",
+        "first_save_or_import",
+        "first_deliberate_retrieval",
+      ],
+      dismissed: true,
+    });
+
+    markProtectionConfirmed("account-a", "passkey");
+    setLibraryPopulated("account-a", true);
+    markFirstRetrieval("account-a");
+    saveOnboardingPreference("account-a", true);
+
+    expect(readOnboardingState("account-a").cloudSync).toEqual({
+      hydrated: true,
+      pendingCompletedSteps: [],
+      pendingDismissal: null,
+    });
+  });
+
+  it("acknowledges queued progress already confirmed by the cloud", () => {
+    reconcileExistingAccountOnboarding("account-a");
+    setLibraryPopulated("account-a", true);
+
+    applyCloudOnboardingProgress("account-a", {
+      version: 1,
+      completedSteps: ["library_protected", "first_save_or_import"],
+      dismissed: true,
+    });
+
+    expect(readOnboardingState("account-a").cloudSync).toEqual({
+      hydrated: true,
+      pendingCompletedSteps: [],
+      pendingDismissal: null,
+    });
+  });
+
   it("keeps unsynced local actions until the cloud acknowledges them", () => {
     markFirstRetrieval("account-a");
     saveOnboardingPreference("account-a", false);

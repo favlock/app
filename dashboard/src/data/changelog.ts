@@ -10,6 +10,22 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "September 17, 2026",
+    announcementHighlights: [
+      "Keep your bookmarks tidy with Library health, included with Pro.",
+      "Find duplicate bookmarks and review links that may no longer work.",
+      "Open Pro checkout more reliably.",
+    ],
+    changes: [
+      "Use Library health on Pro to find duplicate bookmarks and review broken links in one place.",
+      "Choose how duplicate URLs are matched and review bookmarks before moving extras to Trash.",
+      "Pause and resume broken-link checks, with saved progress on this device.",
+      "Fixed an issue that could prevent Pro checkout from opening.",
+      "Avoid repeated setup-progress updates when your library has not changed.",
+    ],
+  },
+  {
+    version: "1.10.0",
     date: "September 5, 2026",
     announcementHighlights: [
       "Try FavLock before signing up with an encrypted vault stored in this browser.",

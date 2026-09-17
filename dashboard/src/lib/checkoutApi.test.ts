@@ -12,6 +12,8 @@ describe("server-owned checkout", () => {
     "https://creem.io/test/payment/prod_test?checkout_id=ch_test",
     "https://creem.io/checkout/prod_test/ch_test",
     "https://creem.io/checkout/prod_test/ch_test/?theme=dark",
+    "https://www.creem.io/checkout/prod_test/ch_test",
+    "https://www.creem.io/checkout/prod_test/ch_test/?theme=dark",
     "https://www.creem.io/payment/prod_test",
     "https://www.creem.io/test/payment/prod_test",
   ])("accepts the payment URL %s while sending only an attempt ID and bearer", async (url) => {
@@ -24,11 +26,13 @@ describe("server-owned checkout", () => {
     expect(fetchMock.mock.calls[0][1].headers.Authorization).toBe("Bearer bearer");
   });
 
-  it("preserves checkout query parameters and normalizes the approved bare hostname", () => {
+  it("preserves checkout query parameters and normalizes approved hostnames", () => {
     expect(validatedCheckoutUrl("https://CREEM.IO:443/payment/prod_test-123/?checkout_id=ch_test&theme=dark"))
       .toBe("https://creem.io/payment/prod_test-123/?checkout_id=ch_test&theme=dark");
     expect(validatedCheckoutUrl("https://CREEM.IO:443/checkout/prod_test123/ch_test123/?theme=dark"))
       .toBe("https://creem.io/checkout/prod_test123/ch_test123/?theme=dark");
+    expect(validatedCheckoutUrl("https://WWW.CREEM.IO:443/checkout/prod_test123/ch_test123/?theme=dark"))
+      .toBe("https://www.creem.io/checkout/prod_test123/ch_test123/?theme=dark");
   });
 
   it.each([
@@ -39,7 +43,6 @@ describe("server-owned checkout", () => {
     "https://user:password@creem.io/checkout/prod_test/ch_test",
     "https://creem.io:444/checkout/prod_test/ch_test",
     "https://creem.io/checkout/prod_test/ch_test#secret",
-    "https://www.creem.io/checkout/prod_test/ch_test",
     "https://checkout.creem.io/checkout/prod_test/ch_test",
     "https://creem.io/checkout/prod_test",
     "https://creem.io/checkout/prod_/ch_test",
@@ -55,7 +58,7 @@ describe("server-owned checkout", () => {
     "https://creem.io/checkout/prod_test/ch_test%3Fsecret",
     "https://creem.io/checkout/prod_" + "a".repeat(129) + "/ch_test",
     "https://creem.io/checkout/prod_test/ch_" + "a".repeat(129),
-  ])("rejects unsafe or malformed product/checkout destinations: %s", (url) => {
+  ].flatMap((url) => [url, url.replaceAll("creem.io", "www.creem.io")]))("rejects unsafe or malformed product/checkout destinations: %s", (url) => {
     expect(() => validatedCheckoutUrl(url)).toThrow();
   });
 
