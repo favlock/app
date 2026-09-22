@@ -32,6 +32,7 @@ import LibraryCard from "./LibraryCard";
 import { markFirstRetrieval } from "../lib/onboarding";
 import { useAuth } from "../context/useAuth";
 import { PLANS } from "@favlock/shared";
+import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
@@ -49,6 +50,7 @@ export default function BookmarkCard({
   const { data: folders = [] } = useFolders();
   const { data: tags = [] } = useTags();
   const { isLocalAccount } = useAuth();
+  const recordBookmarkOpen = useRecordBookmarkOpen();
   const deleteBookmarkMutation = useDeleteBookmark();
   const moveBookmarkMutation = useMoveBookmark();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -260,7 +262,8 @@ export default function BookmarkCard({
           <a
             ref={bookmarkLinkRef}
             href={bookmark.url}
-            onClick={() => markFirstRetrieval(bookmark.user_id)}
+            onClick={() => { markFirstRetrieval(bookmark.user_id); recordBookmarkOpen(bookmark.id); }}
+            onAuxClick={(event) => { if (event.button === 1) recordBookmarkOpen(bookmark.id); }}
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}

@@ -11,6 +11,7 @@ export const SORT_LABELS = {
   "website-desc": "Website: Z–A",
   "favorited-desc": "Date favorited: newest first",
   "favorited-asc": "Date favorited: oldest first",
+  "most-used": "Most used",
 } as const;
 export type BookmarkSortOrder = keyof typeof SORT_LABELS;
 export interface BookmarkSorting {
@@ -51,6 +52,8 @@ export function compareBookmarks(left: Bookmark, right: Bookmark, sorting: Bookm
     comparison ||= collator.compare(left.title.trim(), right.title.trim());
   } else if (sorting.order.startsWith("favorited-")) {
     comparison = (date(left.favorited_at) - date(right.favorited_at)) * direction;
+  } else if (sorting.order === "most-used") {
+    comparison = (right.open_count ?? 0) - (left.open_count ?? 0);
   } else if (sorting.order !== "default") {
     comparison = (date(left.created_at) - date(right.created_at)) * direction;
   } else {

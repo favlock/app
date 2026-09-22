@@ -69,6 +69,7 @@ import { useHighlights } from "../hooks/useHighlightsQuery";
 import { useBookmarks } from "../hooks/useBookmarksQuery";
 import { searchHighlights } from "../lib/highlightSearch";
 import HighlightSearchResults from "../components/HighlightSearchResults";
+import { useBookmarkUsage } from "../hooks/useBookmarkUsage";
 
 export default function Dashboard() {
   const { setIsMobileSidebarOpen, openAddBookmark } =
@@ -90,10 +91,16 @@ export default function Dashboard() {
   const { data: folders = [] } = useFolders();
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const cachedBookmarksQuery = useCachedBookmarks();
+  const { searchQuery } = useBookmarkStore();
   const cachedBookmarks = useMemo(
     () => cachedBookmarksQuery.data ?? [],
     [cachedBookmarksQuery.data],
   );
+  const usageQuery = useBookmarkUsage(sortPreference.order === "most-used" && !searchQuery.trim());
+  const rankedBookmarks = useMemo(() => sortPreference.order === "most-used" && usageQuery.isPending
+    ? [] : cachedBookmarks.map((bookmark) => ({
+    ...bookmark, open_count: usageQuery.data?.[bookmark.id] ?? 0,
+  })), [cachedBookmarks, usageQuery.data, usageQuery.isPending, sortPreference.order]);
   const updateSearchEngine = useUpdateSearchEngine();
   const { data: userInfo } = useUserInfo();
   const searchHistory = useSearchHistory();
@@ -101,7 +108,6 @@ export default function Dashboard() {
   const fullTextSearchEnabled = accountPlan?.id === "pro";
   const bookmarkSearchInputRef = useRef<HTMLInputElement>(null);
 
-  const { searchQuery } = useBookmarkStore();
   const [bookmarkSearchResults, setBookmarkSearchResults] = useState(0);
   const [bookmarkSearchLoading, setBookmarkSearchLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -194,7 +200,9 @@ export default function Dashboard() {
   const mixedLibrary = !isSearchView && (isAllBookmarksView || isCollectionView);
   const sorting = useMemo(() => ({
     ...sortPreference,
-    order: sortPreference.order.startsWith("favorited-") && (!isFavoritesView || isSearchView)
+    order: sortPreference.order === "most-used" && isSearchView
+      ? "default" as const
+      : sortPreference.order.startsWith("favorited-") && (!isFavoritesView || isSearchView)
       ? "default" as const
       : sortPreference.order.startsWith("website-") && mixedLibrary && !sortPreference.bookmarksOnly
         ? "default" as const : sortPreference.order,
@@ -585,6 +593,11 @@ export default function Dashboard() {
           <Button plain onClick={sortSync.reload}>Reload cloud settings</Button>
         </div>
       )}
+      {sorting.order === "most-used" && usageQuery.error && (
+        <div role="alert" className="px-3 text-sm text-red-600 dark:text-red-300 lg:px-0">
+          Could not load bookmark usage. <Button plain onClick={() => void usageQuery.refetch()}>Try again</Button>
+        </div>
+      )}
       <BookmarkSortControl
         disabled={sortSync.busy}
         value={sorting}
@@ -599,11 +612,12 @@ export default function Dashboard() {
           key={sortingKey}
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
-          bookmarks={cachedBookmarks}
+          bookmarks={rankedBookmarks}
           notes={notesQuery.data ?? []}
           todos={todosQuery.data ?? []}
           articles={readspaceArticles}
           isLoading={
+            (sorting.order === "most-used" && usageQuery.isPending) ||
             cachedBookmarksQuery.isPending ||
             (bookmarkCacheSyncing && !bookmarkCacheSyncedAt) ||
             notesQuery.isLoading ||
@@ -655,8 +669,9 @@ export default function Dashboard() {
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
           folderId={selectedFolderId}
-          bookmarks={cachedBookmarks}
+          bookmarks={rankedBookmarks}
           bookmarksLoading={
+            (sorting.order === "most-used" && usageQuery.isPending) ||
             cachedBookmarksQuery.isPending ||
             (bookmarkCacheSyncing && !bookmarkCacheSyncedAt)
           }
@@ -715,8 +730,9 @@ export default function Dashboard() {
           <BookmarkList
             key={sortingKey}
             sorting={sorting}
-            bookmarks={cachedBookmarks}
+            bookmarks={rankedBookmarks}
             bookmarksLoading={
+              (sorting.order === "most-used" && usageQuery.isPending) ||
               cachedBookmarksQuery.isPending ||
               (bookmarkCacheSyncing && !bookmarkCacheSyncedAt)
             }

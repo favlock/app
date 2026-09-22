@@ -9,6 +9,7 @@ import { readOnboardingState } from "../lib/onboarding";
   .IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
+  recordBookmarkOpen: vi.fn(),
   searchResult: {
     data: undefined as { bookmarks: Bookmark[]; total: number } | undefined,
     isLoading: false,
@@ -17,6 +18,8 @@ const mocks = vi.hoisted(() => ({
     refetch: vi.fn(),
   },
 }));
+
+vi.mock("../hooks/useBookmarkUsage", () => ({ useRecordBookmarkOpen: () => mocks.recordBookmarkOpen }));
 
 vi.mock("../hooks/useBookmarkLocalSearch", () => ({
   useBookmarkLocalSearch: () => mocks.searchResult,
@@ -143,6 +146,7 @@ describe("BookmarkList search shortcuts", () => {
       "noopener,noreferrer",
     );
     expect(readOnboardingState("user-1").firstRetrieval).toBe("completed");
+    expect(mocks.recordBookmarkOpen).toHaveBeenCalledExactlyOnceWith("bookmark-3");
   });
 
   it("does not count displaying search results as retrieval", async () => {
@@ -158,6 +162,7 @@ describe("BookmarkList search shortcuts", () => {
 
     expect(container.querySelectorAll("[data-bookmark-id]")).toHaveLength(10);
     expect(readOnboardingState("user-1").firstRetrieval).toBe("unknown");
+    expect(mocks.recordBookmarkOpen).not.toHaveBeenCalled();
   });
 
   it("does not register numbered shortcuts outside search mode", async () => {

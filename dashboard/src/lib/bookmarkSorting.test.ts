@@ -28,6 +28,11 @@ describe("bookmark sorting", () => {
     expect(ids(sortBookmarks(bookmarks, { order: "saved-desc", favoritesFirst: true }))).toEqual(["b", "a", "c"]);
     expect(ids(sortBookmarks(bookmarks, { order: "default", favoritesFirst: false }))).toEqual(ids(bookmarks));
   });
+  it("ranks deliberate opens first and uses saved date for ties", () => {
+    const withUsage = bookmarks.map((bookmark) => ({ ...bookmark, open_count: bookmark.id === "a" ? 3 : bookmark.id === "c" ? 1 : 0 }));
+    expect(ids(sortBookmarks(withUsage, { order: "most-used", favoritesFirst: false }))).toEqual(["a", "c", "b"]);
+    expect(ids(sortBookmarks(bookmarks, { order: "most-used", favoritesFirst: false }))).toEqual(["c", "b", "a"]);
+  });
   it("breaks ties deterministically and handles accented names and invalid dates", () => {
     const same = bookmarks.map((item) => ({ ...item, title: "École", created_at: "invalid" })).reverse();
     expect(ids(sortBookmarks(same, { order: "name-asc", favoritesFirst: false }))).toEqual(["a", "b", "c"]);

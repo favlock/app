@@ -8,7 +8,7 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises";
-import { dirname, resolve } from "node:path";
+import { dirname, posix, resolve } from "node:path";
 import {
   configureChromeExtension,
   PRODUCTION_DASHBOARD_URL,
@@ -21,6 +21,7 @@ const productionRoot = resolve(outputDirectory, "production");
 
 const packagedFiles = [
   "background.js",
+  "bookmark-usage-queue.js",
   "bookmark-import-bridge.html",
   "bookmark-import-bridge.js",
   "config.generated.js",
@@ -94,6 +95,17 @@ if (typeof manifest.version !== "string" || !manifest.version.trim()) {
 
 for (const file of packagedFiles) {
   await access(resolve(extensionRoot, file));
+}
+
+for (const file of packagedFiles.filter((name) => name.endsWith(".js"))) {
+  const source = await readFile(resolve(extensionRoot, file), "utf8");
+  const localImports = source.matchAll(/(?:\bfrom\s*|\bimport\s*\()\s*["'](\.[^"']+)["']/g);
+  for (const [, specifier] of localImports) {
+    const target = posix.normalize(posix.join(posix.dirname(file), specifier));
+    if (!packagedFiles.includes(target)) {
+      throw new Error(`${file} imports ${target}, which is missing from the Chrome package.`);
+    }
+  }
 }
 
 await rm(productionRoot, { recursive: true, force: true });

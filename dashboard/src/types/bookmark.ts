@@ -16,6 +16,7 @@ export interface Bookmark {
   is_favorite?: boolean | null
   favorited_at?: string | null
   is_highlight_source?: boolean
+  open_count?: number
   folders?: Folder[]
   tags?: Tag[]
 }

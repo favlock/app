@@ -7,6 +7,7 @@ import BrokenLinks from "./BrokenLinks";
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const mocks = vi.hoisted(() => ({
+  recordBookmarkOpen: vi.fn(),
   applyRemoval: vi.fn(),
   deleteBookmark: vi.fn(),
   loadStoredResults: vi.fn(),
@@ -20,6 +21,8 @@ const mocks = vi.hoisted(() => ({
   setAutomaticScanEnabled: vi.fn(),
   setIsMobileSidebarOpen: vi.fn(),
 }));
+
+vi.mock("../hooks/useBookmarkUsage", () => ({ useRecordBookmarkOpen: () => mocks.recordBookmarkOpen }));
 
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...(await importOriginal<typeof import("react-router-dom")>()),
@@ -160,6 +163,13 @@ describe("BrokenLinks", () => {
     expect(container.textContent).toContain("Broken page");
     expect(container.textContent).not.toContain("Restricted page");
     expect(container.textContent).not.toContain("Redirected page");
+  });
+
+  it("counts a middle-clicked bookmark open", async () => {
+    await renderPage();
+    const link = container.querySelector<HTMLAnchorElement>('[aria-label="Open Missing page"]')!;
+    act(() => link.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, button: 1 })));
+    expect(mocks.recordBookmarkOpen).toHaveBeenCalledExactlyOnceWith("one");
   });
 
   it("renders large result sets incrementally", async () => {

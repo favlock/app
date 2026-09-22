@@ -429,12 +429,14 @@ export async function getExternalOnboardingStatus(message, sender) {
 
 export async function disconnectExtension() {
   await withStateLock(async () => {
+    const account = await readLocalAccount();
     await chrome.storage.local.set({ [EPOCH_KEY]: crypto.randomUUID() });
     await Promise.all([
       chrome.storage.local.remove([SESSION_KEY, PROFILE_KEY]),
       chrome.storage.session.remove([ORIGINAL_TAB_KEY, PAIRING_ATTEMPT_KEY]),
       deleteLibraryKey(),
       chrome.storage.local.remove("favlockLocalLibraryProjection"),
+      ...(account && globalThis.indexedDB ? [import("./bookmark-usage-queue.js").then(({ clearBookmarkUsage }) => clearBookmarkUsage(account.userId))] : []),
     ]);
   });
 }

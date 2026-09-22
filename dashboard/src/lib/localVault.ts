@@ -12,6 +12,7 @@ import type { EntryWriteValues } from "./entryRepository";
 import type { FavLockExport } from "./dataExport";
 import { decryptFieldStrict, encryptField } from "./encryption";
 import type { PasskeyEncryptionRecord } from "./passkeyEncryption";
+import { clearLocalBookmarkUsage, forgetLocalBookmarkUsage } from "./localBookmarkUsage";
 
 const DB_NAME = "favlock-local-vault";
 const DB_VERSION = 3;
@@ -961,11 +962,12 @@ async function mutateLocalBookmark(
   await transactionDone(transaction);
 }
 
-export function deleteLocalBookmark(
+export async function deleteLocalBookmark(
   vaultId: string,
   bookmarkId: string,
 ): Promise<void> {
-  return mutateLocalBookmark(vaultId, bookmarkId, () => null);
+  await mutateLocalBookmark(vaultId, bookmarkId, () => null);
+  forgetLocalBookmarkUsage(vaultId, bookmarkId);
 }
 
 export function favoriteLocalBookmark(
@@ -1533,5 +1535,6 @@ export async function clearLocalVault(vaultId: string): Promise<void> {
   transaction.objectStore(META).delete(`revision:${vaultId}`);
   transaction.objectStore(META).delete(`passkey:${vaultId}`);
   await transactionDone(transaction);
+  clearLocalBookmarkUsage(vaultId);
   notifyLocalVaultChanged(vaultId, "empty");
 }

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { IDBFactory } from "fake-indexeddb";
 
 vi.mock("./extension-auth.js", () => ({
   readLocalAccount: vi.fn(async () => ({ userId: "user-1", epoch: "test" })),
@@ -22,6 +23,7 @@ import {
   loadQuickAddData,
   loadSearchableBookmarks,
   loadSavedPageState,
+  recordBookmarkOpen,
   loadWebHighlightsForUrl,
   saveCurrentPage,
   saveReadspaceArticle,
@@ -32,6 +34,7 @@ import {
   updateWebHighlightColor,
 } from "./extension-data.js";
 import { FAVLOCK_CONFIG } from "./config.js";
+import { flushBookmarkUsage } from "./bookmark-usage-queue.js";
 
 function jsonResponse(payload, status = 200) {
   return {
@@ -41,13 +44,30 @@ function jsonResponse(payload, status = 200) {
   };
 }
 
+async function writeUsageRow(bookmarkId, row) {
+  const request = indexedDB.open("favlock-extension-bookmark-usage", 1);
+  const db = await new Promise((resolve, reject) => {
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  try {
+    const tx = db.transaction("counts", "readwrite");
+    const committed = new Promise((resolve, reject) => { tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+    if (row) tx.objectStore("counts").put(row);
+    else tx.objectStore("counts").delete(`user-1:${bookmarkId}`);
+    await committed;
+  } finally { db.close(); }
+}
+
 describe("extension saved-page state", () => {
   const fetchMock = vi.fn();
 
   beforeEach(() => {
     fetchMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("indexedDB", new IDBFactory());
   });
+  afterEach(() => vi.unstubAllGlobals());
 
   it("loads encrypted Quick Save taxonomy through paginated API routes", async () => {
     fetchMock.mockImplementation(async (url) => {
@@ -174,6 +194,86 @@ describe("extension saved-page state", () => {
         tagNames: ["privacy", "reference"],
       },
     ]);
+  });
+
+  it("queues a selected search result and syncs only IDs and counts", async () => {
+    const bookmarkId = "123e4567-e89b-42d3-a456-426614174000";
+    const secondBookmarkId = "123e4567-e89b-42d3-a456-426614174001";
+    fetchMock.mockImplementation(async (_url, options) => jsonResponse({ data: { items: JSON.parse(options.body).items.map((item) => ({
+      bookmarkId: item.bookmarkId, acceptedTotal: item.totalOpens,
+    })) } }));
+    await recordBookmarkOpen(bookmarkId);
+    await recordBookmarkOpen(secondBookmarkId);
+    expect(fetchMock).not.toHaveBeenCalled();
+    await flushBookmarkUsage();
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      `${FAVLOCK_CONFIG.apiUrl}/v1/bookmarks/usage/batch`,
+      expect.objectContaining({ method: "POST", credentials: "omit" }),
+    );
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
+      installationId: expect.any(String), items: [
+        { bookmarkId, generationId: expect.any(String), totalOpens: 1 }, { bookmarkId: secondBookmarkId, generationId: expect.any(String), totalOpens: 1 },
+      ],
+    });
+  });
+
+  it("retries a failed usage batch without increasing its cumulative total", async () => {
+    const bookmarkId = "123e4567-e89b-42d3-a456-426614174000";
+    await recordBookmarkOpen(bookmarkId);
+    fetchMock.mockResolvedValueOnce({ ok: false, status: 503 }).mockImplementationOnce(async (_url, options) => jsonResponse({ data: { items: JSON.parse(options.body).items.map((item) => ({
+      bookmarkId: item.bookmarkId, acceptedTotal: item.totalOpens,
+    })) } }));
+    await expect(flushBookmarkUsage()).rejects.toThrow("Bookmark usage sync failed.");
+    await flushBookmarkUsage();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[0][1].body).toBe(fetchMock.mock.calls[1][1].body);
+    await flushBookmarkUsage();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses a new counter generation after a local row disappears", async () => {
+    const bookmarkId = "123e4567-e89b-42d3-a456-426614174000";
+    fetchMock.mockImplementation(async (_url, options) => jsonResponse({ data: { items: JSON.parse(options.body).items.map((item) => ({
+      bookmarkId: item.bookmarkId, acceptedTotal: item.totalOpens,
+    })) } }));
+    await recordBookmarkOpen(bookmarkId);
+    await flushBookmarkUsage();
+    const firstGeneration = JSON.parse(fetchMock.mock.calls[0][1].body).items[0].generationId;
+    await writeUsageRow(bookmarkId, null);
+    await recordBookmarkOpen(bookmarkId);
+    await flushBookmarkUsage();
+    const secondGeneration = JSON.parse(fetchMock.mock.calls[1][1].body).items[0].generationId;
+    expect(secondGeneration).not.toBe(firstGeneration);
+  });
+
+  it("skips an invalid local row while syncing valid opens", async () => {
+    const invalidId = "123e4567-e89b-42d3-a456-426614174000";
+    const validId = "123e4567-e89b-42d3-a456-426614174001";
+    await recordBookmarkOpen(invalidId);
+    await recordBookmarkOpen(validId);
+    await writeUsageRow(invalidId, { key: `user-1:${invalidId}`, userId: "user-1", bookmarkId: invalidId,
+      generationId: crypto.randomUUID(), totalOpens: -1, syncedOpens: 0, pendingUserId: "user-1" });
+    fetchMock.mockImplementation(async (_url, options) => jsonResponse({ data: { items: JSON.parse(options.body).items.map((item) => ({
+      bookmarkId: item.bookmarkId, acceptedTotal: item.totalOpens,
+    })) } }));
+    await flushBookmarkUsage();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).items).toEqual([{
+      bookmarkId: validId, generationId: expect.any(String), totalOpens: 1,
+    }]);
+  });
+
+  it("schedules a one-shot alarm only while opens are pending", async () => {
+    const bookmarkId = "123e4567-e89b-42d3-a456-426614174000";
+    const get = vi.fn(async () => null);
+    const create = vi.fn(async () => undefined);
+    vi.stubGlobal("chrome", { alarms: { get, create } });
+    await recordBookmarkOpen(bookmarkId);
+    expect(create).toHaveBeenCalledExactlyOnceWith("favlock-bookmark-usage-sync", { delayInMinutes: 1 });
+    fetchMock.mockImplementation(async (_url, options) => jsonResponse({ data: { items: JSON.parse(options.body).items.map((item) => ({
+      bookmarkId: item.bookmarkId, acceptedTotal: item.totalOpens,
+    })) } }));
+    await flushBookmarkUsage();
+    expect(create).toHaveBeenCalledTimes(1);
   });
 
   it("keeps hidden highlight sources out of extension bookmark search", async () => {
