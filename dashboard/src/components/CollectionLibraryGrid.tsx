@@ -1,3 +1,4 @@
+import { sortLibraryItems, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useEffect, useMemo, useState } from "react";
 import { Library, PlusIcon } from "lucide-react";
 import {
@@ -16,6 +17,8 @@ const INITIAL_VISIBLE_ITEMS = 24;
 const LOAD_MORE_ITEMS = 24;
 
 export default function CollectionLibraryGrid({
+  sorting,
+  bookmarksOnly = false,
   folderId,
   bookmarks: cachedBookmarks,
   bookmarksLoading,
@@ -35,6 +38,8 @@ export default function CollectionLibraryGrid({
   onDeleteArticle,
 }: {
   folderId: string;
+  sorting?: BookmarkSorting;
+  bookmarksOnly?: boolean;
   bookmarks: Bookmark[];
   bookmarksLoading: boolean;
   bookmarksError?: string | null;
@@ -58,8 +63,16 @@ export default function CollectionLibraryGrid({
   );
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
   const items = useMemo(
-    () => mergeHomeLibraryItems(bookmarks, notes, todos, articles),
-    [articles, bookmarks, notes, todos],
+    () => {
+      const merged = mergeHomeLibraryItems(
+        bookmarks,
+        bookmarksOnly ? [] : notes,
+        bookmarksOnly ? [] : todos,
+        bookmarksOnly ? [] : articles,
+      );
+      return sorting ? sortLibraryItems(merged, sorting) : merged;
+    },
+    [articles, bookmarks, notes, todos, sorting, bookmarksOnly],
   );
   const visibleItems = items.slice(0, visibleCount);
   const isLoading = bookmarksLoading || entriesLoading;
@@ -136,7 +149,7 @@ export default function CollectionLibraryGrid({
             aria-hidden="true"
           />
           <h3 className="mt-3 text-lg font-bold text-[var(--app-ink)]">
-            This collection is empty
+            {bookmarksOnly ? "No bookmarks in this collection" : "This collection is empty"}
           </h3>
           <p className="mt-1 text-sm text-[var(--app-muted)]">
             Add a bookmark or move an existing library item here.

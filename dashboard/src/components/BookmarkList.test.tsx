@@ -77,6 +77,27 @@ describe("BookmarkList search shortcuts", () => {
     vi.unstubAllGlobals();
   });
 
+  it("sorts the complete browse view before the first visible batch", async () => {
+    const library = Array.from({ length: 30 }, (_, index) => ({
+      ...bookmarks[0],
+      id: `item-${index}`,
+      title: `Article ${30 - index}`,
+    }));
+    await act(async () => {
+      root.render(
+        <BookmarkList
+          bookmarks={library}
+          folderId={null}
+          sorting={{ order: "name-asc", favoritesFirst: false }}
+        />,
+      );
+    });
+    const cards = container.querySelectorAll("[data-bookmark-id]");
+    expect(cards).toHaveLength(21);
+    expect(cards[0].textContent).toBe("Article 1");
+    expect(cards[20].textContent).toBe("Article 21");
+  });
+
   it("labels only the first nine search results", async () => {
     await act(async () => {
       root.render(

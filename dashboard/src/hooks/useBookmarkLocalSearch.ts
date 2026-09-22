@@ -1,3 +1,4 @@
+import { sortBookmarks, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/useAuth";
 import { searchCachedBookmarksOffMainThread } from "../lib/bookmarkSearchWorkerClient";
@@ -6,7 +7,7 @@ import { readLocalBookmarks } from "../lib/localVault";
 
 export function useBookmarkLocalSearch(
   query: string,
-  options: { offset?: number; limit?: number } = {},
+  options: { offset?: number; limit?: number; sorting?: BookmarkSorting } = {},
 ) {
   const { user, isLocalAccount } = useAuth();
   const { cryptoKey } = useEncryption();
@@ -20,6 +21,7 @@ export function useBookmarkLocalSearch(
       "local-search",
       user?.id,
       normalized,
+      options.sorting,
       offset,
       limit,
     ],
@@ -28,11 +30,13 @@ export function useBookmarkLocalSearch(
         return searchCachedBookmarksOffMainThread(user!.id, normalized, {
           offset,
           limit,
+          sorting: options.sorting,
         });
       }
       const terms = normalized.toLocaleLowerCase().split(/\s+/).filter(Boolean);
       const matches = (await readLocalBookmarks(user!.id, cryptoKey!)).filter(
         (bookmark) => {
+          if (bookmark.is_highlight_source) return false;
           const haystack = [
             bookmark.title,
             bookmark.url,
@@ -43,7 +47,7 @@ export function useBookmarkLocalSearch(
         },
       );
       return {
-        bookmarks: matches.slice(offset, offset + limit),
+        bookmarks: (options.sorting ? sortBookmarks(matches, options.sorting) : matches).slice(offset, offset + limit),
         total: matches.length,
         offset,
         limit,

@@ -1,3 +1,4 @@
+import type { BookmarkSorting } from "../lib/bookmarkSorting";
 import { searchCachedBookmarks } from "../lib/bookmarkCache";
 
 interface SearchWorkerRequest {
@@ -6,6 +7,7 @@ interface SearchWorkerRequest {
   query: string;
   offset: number;
   limit: number;
+  sorting?: BookmarkSorting;
 }
 
 type SearchWorkerScope = {
@@ -16,8 +18,8 @@ type SearchWorkerScope = {
 const workerScope = globalThis as unknown as SearchWorkerScope;
 
 workerScope.onmessage = (event) => {
-  const { id, userId, query, offset, limit } = event.data;
-  void searchCachedBookmarks(userId, query, { offset, limit })
+  const { id, userId, query, offset, limit, sorting } = event.data;
+  void searchCachedBookmarks(userId, query, { offset, limit, sorting })
     .then((result) => workerScope.postMessage({ id, result }))
     .catch((error: unknown) => {
       workerScope.postMessage({

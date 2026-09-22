@@ -1,3 +1,4 @@
+import { sortBookmarks, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useRef, useEffect, useMemo, useState } from "react";
 import { useBookmarkLocalSearch } from "../hooks/useBookmarkLocalSearch";
 import BookmarkCard from "./BookmarkCard";
@@ -12,6 +13,7 @@ const SEARCH_PAGE_SIZE = 100;
 const BROWSE_PAGE_SIZE = 21;
 
 interface BookmarkListProps {
+  sorting?: BookmarkSorting;
   bookmarks: Bookmark[];
   bookmarksLoading?: boolean;
   bookmarksError?: unknown;
@@ -30,6 +32,7 @@ interface BookmarkListProps {
 }
 
 export default function BookmarkList({
+  sorting,
   bookmarks: cachedBookmarks,
   bookmarksLoading = false,
   bookmarksError,
@@ -56,6 +59,7 @@ export default function BookmarkList({
   const localSearchQuery = useBookmarkLocalSearch(normalizedSearch, {
     offset: searchOffset,
     limit: SEARCH_PAGE_SIZE,
+    sorting,
   });
 
   const view = useMemo<BookmarkView>(() => {
@@ -66,8 +70,11 @@ export default function BookmarkList({
     return { kind: "all" };
   }, [folderId, tagId]);
   const browseBookmarks = useMemo(
-    () => bookmarksForView(cachedBookmarks, view),
-    [cachedBookmarks, view],
+    () => {
+      const matching = bookmarksForView(cachedBookmarks, view);
+      return sorting ? sortBookmarks(matching, sorting) : matching;
+    },
+    [cachedBookmarks, view, sorting],
   );
   const visibleBrowseBookmarks = browseBookmarks.slice(0, visibleBrowseCount);
   const hasNextPage = visibleBrowseCount < browseBookmarks.length;

@@ -1,3 +1,5 @@
+import BookmarkSortControl from "../components/BookmarkSortControl";
+import { useBookmarkSorting } from "../hooks/useBookmarkSorting";
 import {
   useEffect,
   useMemo,
@@ -77,7 +79,9 @@ export default function Dashboard() {
     bookmarkCacheError,
     retryBookmarkCacheSync,
     isLocalAccount,
+    user,
   } = useAuth();
+  const [sortPreference, setSortPreference] = useBookmarkSorting(user?.id);
   const { collectionSlug, tagSlug } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -186,6 +190,15 @@ export default function Dashboard() {
       : selectedFolderId;
   const isAllBookmarksView = !effectiveFolderId && !selectedTagId;
   const isCollectionView = Boolean(selectedFolderId);
+  const mixedLibrary = !isSearchView && (isAllBookmarksView || isCollectionView);
+  const sorting = useMemo(() => ({
+    ...sortPreference,
+    order: sortPreference.order.startsWith("favorited-") && (!isFavoritesView || isSearchView)
+      ? "default" as const
+      : sortPreference.order.startsWith("website-") && mixedLibrary && !sortPreference.bookmarksOnly
+        ? "default" as const : sortPreference.order,
+  }), [sortPreference, isFavoritesView, isSearchView, mixedLibrary]);
+  const sortingKey = `${user?.id}:${sorting.order}:${sorting.favoritesFirst}:${sorting.bookmarksOnly}`;
   const pageTitle = isSearchView
     ? "Search results"
     : isFavoritesView
@@ -565,8 +578,19 @@ export default function Dashboard() {
         </div>
       ) : null}
 
+      <BookmarkSortControl
+        value={sorting}
+        onChange={setSortPreference}
+        mixedLibrary={mixedLibrary}
+        favorites={isFavoritesView && !isSearchView}
+        search={isSearchView}
+      />
+
       {isAllBookmarksView && !normalizedBookmarkSearch ? (
         <HomeLibraryGrid
+          key={sortingKey}
+          sorting={sorting}
+          bookmarksOnly={sorting.bookmarksOnly}
           bookmarks={cachedBookmarks}
           notes={notesQuery.data ?? []}
           todos={todosQuery.data ?? []}
@@ -619,6 +643,9 @@ export default function Dashboard() {
         />
       ) : isCollectionView && selectedFolderId && !normalizedBookmarkSearch ? (
         <CollectionLibraryGrid
+          key={sortingKey}
+          sorting={sorting}
+          bookmarksOnly={sorting.bookmarksOnly}
           folderId={selectedFolderId}
           bookmarks={cachedBookmarks}
           bookmarksLoading={
@@ -678,6 +705,8 @@ export default function Dashboard() {
       ) : (
         <section className="px-3 lg:px-0">
           <BookmarkList
+            key={sortingKey}
+            sorting={sorting}
             bookmarks={cachedBookmarks}
             bookmarksLoading={
               cachedBookmarksQuery.isPending ||

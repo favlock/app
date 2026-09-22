@@ -1,3 +1,4 @@
+import { sortLibraryItems, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useMemo, useState } from "react";
 import { Library, PlusIcon } from "lucide-react";
 import type { Bookmark, Note, Todo } from "../types/bookmark";
@@ -16,6 +17,8 @@ const INITIAL_VISIBLE_ITEMS = 24;
 const LOAD_MORE_ITEMS = 24;
 
 interface HomeLibraryGridProps {
+  sorting?: BookmarkSorting;
+  bookmarksOnly?: boolean;
   bookmarks: Bookmark[];
   notes: Note[];
   todos: Todo[];
@@ -34,6 +37,8 @@ interface HomeLibraryGridProps {
 }
 
 export default function HomeLibraryGrid({
+  sorting,
+  bookmarksOnly = false,
   bookmarks,
   notes,
   todos,
@@ -56,8 +61,16 @@ export default function HomeLibraryGrid({
     [bookmarks],
   );
   const items = useMemo(
-    () => mergeHomeLibraryItems(bookmarks, notes, todos, articles),
-    [articles, bookmarks, notes, todos],
+    () => {
+      const merged = mergeHomeLibraryItems(
+        bookmarks,
+        bookmarksOnly ? [] : notes,
+        bookmarksOnly ? [] : todos,
+        bookmarksOnly ? [] : articles,
+      );
+      return sorting ? sortLibraryItems(merged, sorting) : merged;
+    },
+    [articles, bookmarks, notes, todos, sorting, bookmarksOnly],
   );
   const visibleItems = items.slice(0, visibleCount);
 
@@ -75,7 +88,7 @@ export default function HomeLibraryGrid({
               id="home-library-title"
               className="text-lg font-bold text-[var(--app-ink)]"
             >
-              Recent items
+              {bookmarksOnly ? "Bookmarks" : "Library items"}
             </h2>
           </div>
           <p className="mt-0.5 text-sm text-[var(--app-muted)]">
@@ -122,11 +135,11 @@ export default function HomeLibraryGrid({
             <Library size={26} aria-hidden="true" />
           </span>
           <h3 className="mt-4 text-lg font-bold text-[var(--app-ink)]">
-            Start your private library
+            {bookmarksOnly ? "No bookmarks yet" : "Start your private library"}
           </h3>
           <p className="mx-auto mt-1 max-w-md text-sm text-[var(--app-muted)]">
             Save a useful link or article, capture a thought, or add a next
-            action. They will appear here in chronological order.
+            action. They will appear here in your library.
           </p>
           <div className="mt-5 flex justify-center">
             <HomeAddMenu
