@@ -1,7 +1,7 @@
 import type { ThemeVariant } from "../constants/themes";
 import type { SearchHistoryMode } from "./searchHistory";
 import { fetchAccountSettings } from "./accountSettingsApi";
-import { fetchEncryptionVerifier } from "./encryptionMetadataApi";
+import { fetchCachedEncryptionVerifier } from "./encryptionMetadataApi";
 
 export const USER_INFO_STALE_TIME = 1000 * 60 * 5;
 
@@ -22,10 +22,11 @@ export interface UserInfo {
 
 export async function fetchUserInfo(
   accessToken: string,
+  userId: string,
 ): Promise<UserInfo | null> {
   const [settings, keyVerifier] = await Promise.all([
     fetchAccountSettings(accessToken),
-    fetchEncryptionVerifier(accessToken),
+    fetchCachedEncryptionVerifier(accessToken, userId),
   ]);
 
   if (!settings) return null;

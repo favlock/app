@@ -17,7 +17,7 @@ export const useUserInfo = () => {
 
   return useQuery({
     queryKey: userInfoQueryKey(user?.id),
-    queryFn: () => fetchUserInfo(session?.access_token ?? ""),
+    queryFn: () => fetchUserInfo(session?.access_token ?? "", user?.id ?? ""),
     enabled: !!user && !!session?.access_token,
     staleTime: USER_INFO_STALE_TIME,
     gcTime: 1000 * 60 * 10,
