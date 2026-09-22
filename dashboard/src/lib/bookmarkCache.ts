@@ -1,3 +1,4 @@
+import { compareBookmarks, type BookmarkSorting } from "./bookmarkSorting";
 import type { Bookmark, Entry, Folder, Tag } from "../types/bookmark";
 import type { TrashResourceType } from "./trashRepository";
 
@@ -456,6 +457,7 @@ function pushRankedBookmark(
   heap: RankedBookmark[],
   candidate: RankedBookmark,
   capacity: number,
+  compare = compareBookmarkRank,
 ): void {
   if (capacity <= 0) return;
 
@@ -464,14 +466,14 @@ function pushRankedBookmark(
     let index = heap.length - 1;
     while (index > 0) {
       const parent = Math.floor((index - 1) / 2);
-      if (compareBookmarkRank(heap[parent], heap[index]) <= 0) break;
+      if (compare(heap[parent], heap[index]) <= 0) break;
       [heap[parent], heap[index]] = [heap[index], heap[parent]];
       index = parent;
     }
     return;
   }
 
-  if (compareBookmarkRank(candidate, heap[0]) <= 0) return;
+  if (compare(candidate, heap[0]) <= 0) return;
   heap[0] = candidate;
   let index = 0;
   while (true) {
@@ -480,13 +482,13 @@ function pushRankedBookmark(
     let worst = index;
     if (
       left < heap.length &&
-      compareBookmarkRank(heap[left], heap[worst]) < 0
+      compare(heap[left], heap[worst]) < 0
     ) {
       worst = left;
     }
     if (
       right < heap.length &&
-      compareBookmarkRank(heap[right], heap[worst]) < 0
+      compare(heap[right], heap[worst]) < 0
     ) {
       worst = right;
     }
@@ -499,7 +501,7 @@ function pushRankedBookmark(
 export function searchStoredBookmarks(
   storedBookmarks: StoredBookmark[],
   query: string,
-  options: { offset?: number; limit?: number } = {},
+  options: { offset?: number; limit?: number; sorting?: BookmarkSorting } = {},
 ): BookmarkSearchPage {
   const normalizedQuery = query.trim().toLowerCase();
   const offset = Math.max(0, Math.floor(options.offset ?? 0));
@@ -509,6 +511,10 @@ export function searchStoredBookmarks(
   const terms = normalizedQuery.split(/\s+/).filter(Boolean);
   const requestedCount = offset + limit;
   const ranked: RankedBookmark[] = [];
+  const sorting = options.sorting;
+  const compare = sorting
+    ? (a: RankedBookmark, b: RankedBookmark) => -compareBookmarks(a.bookmark, b.bookmark, sorting) || compareBookmarkRank(a, b)
+    : compareBookmarkRank;
   let total = 0;
 
   for (const bookmark of storedBookmarks) {
@@ -519,10 +525,11 @@ export function searchStoredBookmarks(
       ranked,
       { bookmark, score: scoreBookmarkMatch(bookmark, terms) },
       requestedCount,
+      compare,
     );
   }
 
-  ranked.sort((left, right) => compareBookmarkRank(right, left));
+  ranked.sort((left, right) => compare(right, left));
 
   return {
     bookmarks: ranked
@@ -537,7 +544,7 @@ export function searchStoredBookmarks(
 export async function searchCachedBookmarks(
   userId: string,
   query: string,
-  options: { offset?: number; limit?: number } = {},
+  options: { offset?: number; limit?: number; sorting?: BookmarkSorting } = {},
 ): Promise<BookmarkSearchPage> {
   const db = await openCacheDb();
   const tx = db.transaction(BOOKMARKS_STORE, "readonly");

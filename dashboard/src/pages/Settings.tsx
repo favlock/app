@@ -1,3 +1,4 @@
+import SortStoragePreference from "../components/SortStoragePreference";
 import {
   useEffect,
   useState,
@@ -392,6 +393,7 @@ export default function Settings() {
                 ) : (
                   <SearchHistoryPrivacySection />
                 )}
+                <SortStoragePreference />
                 <LocalPrivacySection />
               </div>
             ) : (
