@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import {
   DEFAULT_BOOKMARK_SORTING,
   SORT_LABELS,
@@ -36,13 +36,15 @@ export function useBookmarkSorting(userId: string | undefined) {
     value: readBookmarkSortPreference(key),
   }));
   const value = state.key === key ? state.value : readBookmarkSortPreference(key);
-  const update = (next: BookmarkSortPreference) => {
+  const update = useCallback((next: BookmarkSortPreference) => {
     setState({ key, value: next });
     try {
       localStorage.setItem(key, JSON.stringify(next));
+      return true;
     } catch {
       // Sorting remains usable when browser storage is unavailable.
+      return false;
     }
-  };
+  }, [key]);
   return [value, update] as const;
 }

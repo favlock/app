@@ -15,12 +15,14 @@ export default function BookmarkSortControl({
   mixedLibrary,
   favorites,
   search,
+  disabled = false,
 }: {
   value: BookmarkSortPreference;
   onChange: (value: BookmarkSortPreference) => void;
   mixedLibrary: boolean;
   favorites: boolean;
   search: boolean;
+  disabled?: boolean;
 }) {
   const defaultLabel = search
     ? "Default search order"
@@ -39,7 +41,7 @@ export default function BookmarkSortControl({
     >
       <div className="w-full sm:w-auto sm:min-w-64">
         <Dropdown>
-          <DropdownFieldButton aria-label={`Sort${search ? " bookmarks" : ""}: ${label}`}>
+          <DropdownFieldButton disabled={disabled} aria-label={`Sort${search ? " bookmarks" : ""}: ${label}`}>
             Sort: {label}
           </DropdownFieldButton>
           <DropdownMenu anchor="bottom start">
@@ -63,6 +65,7 @@ export default function BookmarkSortControl({
         <label className="flex min-h-11 items-center gap-2 text-sm text-[var(--app-ink)]">
           <input
             type="checkbox"
+            disabled={disabled}
             checked={value.bookmarksOnly}
             onChange={(event) => onChange({
               ...value,
@@ -78,6 +81,7 @@ export default function BookmarkSortControl({
         <label className="flex min-h-11 items-center gap-2 text-sm text-[var(--app-ink)]">
           <input
             type="checkbox"
+            disabled={disabled}
             checked={value.favoritesFirst}
             onChange={(event) => onChange({ ...value, favoritesFirst: event.target.checked })}
           />

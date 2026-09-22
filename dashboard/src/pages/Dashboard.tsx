@@ -1,5 +1,5 @@
 import BookmarkSortControl from "../components/BookmarkSortControl";
-import { useBookmarkSorting } from "../hooks/useBookmarkSorting";
+import { useSortPreferenceSync } from "../hooks/useSortPreferenceSync";
 import {
   useEffect,
   useMemo,
@@ -81,7 +81,8 @@ export default function Dashboard() {
     isLocalAccount,
     user,
   } = useAuth();
-  const [sortPreference, setSortPreference] = useBookmarkSorting(user?.id);
+  const sortSync = useSortPreferenceSync();
+  const { value: sortPreference, update: setSortPreference } = sortSync;
   const { collectionSlug, tagSlug } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -578,7 +579,14 @@ export default function Dashboard() {
         </div>
       ) : null}
 
+      {sortSync.error && (
+        <div role="alert" className="px-3 text-sm text-red-600 dark:text-red-300 lg:px-0">
+          {sortSync.error.message}
+          <Button plain onClick={sortSync.reload}>Reload cloud settings</Button>
+        </div>
+      )}
       <BookmarkSortControl
+        disabled={sortSync.busy}
         value={sorting}
         onChange={setSortPreference}
         mixedLibrary={mixedLibrary}
