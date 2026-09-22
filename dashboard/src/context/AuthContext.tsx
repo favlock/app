@@ -41,6 +41,7 @@ import { clearLocalKeyVerifier, readLocalKeyVerifier } from "../lib/localKeyVeri
 import { cancelLocalVaultWork } from "../lib/localVaultWork";
 import { clearLocalVault } from "../lib/localVault";
 import { clearLinkHealthResults } from "../lib/linkHealthStorage";
+import { clearCloudBookmarkUsage, flushCloudBookmarkUsage } from "../lib/cloudBookmarkUsageQueue";
 
 interface AuthContextType {
   session: AuthSession | null;
@@ -114,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           clearLibraryContentCacheForUser(userId),
           clearEntryDraftsForUser(userId),
           clearLinkHealthResults(userId),
+          clearCloudBookmarkUsage(userId),
         ]);
         if (results.some((result) => result.status === "rejected")) {
           throw new Error(
@@ -450,6 +452,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setBookmarkCacheRetryToken((token) => token + 1);
     });
   }, [user?.id, cryptoKey, cloudStatus]);
+
+  const usageUserId = user?.id;
+  const usageIsLocal = isLocalOnlyUser(user);
+  useEffect(() => {
+    if (!usageUserId || !session?.access_token || usageIsLocal) return;
+    const userId = usageUserId;
+    const token = session.access_token;
+    const sync = () => {
+      if (!navigator.onLine) return;
+      void flushCloudBookmarkUsage(userId, token)
+        .then((sent) => { if (sent) void queryClient.invalidateQueries({ queryKey: ["bookmark-usage", userId] }); })
+        .catch(() => { /* Keep pending counts for the next online attempt. */ });
+    };
+    sync();
+    const interval = window.setInterval(sync, 30_000);
+    window.addEventListener("online", sync);
+    window.addEventListener("focus", sync);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", sync);
+      window.removeEventListener("focus", sync);
+    };
+  }, [usageUserId, session?.access_token, usageIsLocal]);
 
   const signOut = async () => {
     const userId = lastUserIdRef.current;

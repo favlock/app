@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import type { Bookmark } from "../types/bookmark";
 import { bookmarksForView, type BookmarkView } from "../lib/bookmarkViews";
 import { markFirstRetrieval } from "../lib/onboarding";
+import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 
 const SEARCH_PAGE_SIZE = 100;
 const BROWSE_PAGE_SIZE = 21;
@@ -45,6 +46,7 @@ export default function BookmarkList({
   onAddBookmark,
   onSearchMetaChange,
 }: BookmarkListProps) {
+  const recordBookmarkOpen = useRecordBookmarkOpen();
   const normalizedSearch = searchQuery.trim();
   const isSearchMode = normalizedSearch.length > 0;
   const [visibleBrowseCount, setVisibleBrowseCount] = useState(BROWSE_PAGE_SIZE);
@@ -151,11 +153,12 @@ export default function BookmarkList({
       event.preventDefault();
       markFirstRetrieval(bookmark.user_id);
       window.open(bookmark.url, "_blank", "noopener,noreferrer");
+      recordBookmarkOpen(bookmark.id);
     };
 
     window.addEventListener("keydown", handleResultShortcut);
     return () => window.removeEventListener("keydown", handleResultShortcut);
-  }, [shortcutBookmarks]);
+  }, [shortcutBookmarks, recordBookmarkOpen]);
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);

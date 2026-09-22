@@ -5,6 +5,7 @@ import {
   loadSearchableBookmarks,
   loadSavedPageState,
   normalizeOpenTabs,
+  recordBookmarkOpen,
   saveCurrentPage,
   saveOpenTabsSession,
 } from "./extension-data.js";
@@ -242,11 +243,13 @@ function showQuickSave({ focus = false } = {}) {
 }
 
 async function openSearchResult(index) {
-  const url = getSearchResultUrl(visibleSearchResults[index]?.url);
+  const bookmark = visibleSearchResults[index];
+  const url = getSearchResultUrl(bookmark?.url);
   if (!url) {
     setStatus("This bookmark cannot be opened.");
     return;
   }
+  await recordBookmarkOpen(bookmark.id).catch(() => {});
   await chrome.tabs.create({ url });
   window.close();
 }

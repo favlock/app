@@ -1,4 +1,5 @@
 import { FAVLOCK_CONFIG } from "./config.js";
+import { queueBookmarkOpen } from "./bookmark-usage-queue.js";
 import { getValidSession, readLocalAccount, assertLocalAccount, reportCloudFailure } from "./extension-auth.js";
 import {
   decryptField,
@@ -7,7 +8,6 @@ import {
 } from "./extension-crypto.js";
 
 const keyAccounts = new WeakMap();
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const READSPACE_CONTENT_VERSION = 5;
 const READSPACE_TITLE_MAX_LENGTH = 120;
 const READSPACE_SERIALIZED_MAX_BYTES = 180_000;
@@ -326,6 +326,10 @@ export async function loadSearchableBookmarks({ folders = [], tags = [] } = {}) 
   );
 
   return bookmarks.filter(Boolean);
+}
+
+export async function recordBookmarkOpen(bookmarkId) {
+  await queueBookmarkOpen(bookmarkId);
 }
 
 export async function loadSavedPageState(url) {

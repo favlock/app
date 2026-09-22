@@ -31,6 +31,7 @@ export default function BookmarkSortControl({
   const orders = (Object.keys(SORT_LABELS) as BookmarkSortOrder[]).filter(
     (order) =>
       (!order.startsWith("favorited-") || favorites) &&
+      (order !== "most-used" || !search) &&
       (!order.startsWith("website-") || !mixedLibrary || value.bookmarksOnly),
   );
 
@@ -51,7 +52,7 @@ export default function BookmarkSortControl({
                 <DropdownItem
                   key={order}
                   aria-label={`${optionLabel}${value.order === order ? ", selected" : ""}`}
-                  onClick={() => onChange({ ...value, order })}
+                  onClick={() => onChange({ ...value, order, bookmarksOnly: order === "most-used" && mixedLibrary ? true : value.bookmarksOnly })}
                 >
                   {value.order === order && <Check data-slot="icon" aria-hidden="true" />}
                   <DropdownLabel>{optionLabel}</DropdownLabel>
@@ -70,7 +71,7 @@ export default function BookmarkSortControl({
             onChange={(event) => onChange({
               ...value,
               bookmarksOnly: event.target.checked,
-              order: !event.target.checked && value.order.startsWith("website-")
+              order: !event.target.checked && (value.order.startsWith("website-") || value.order === "most-used")
                 ? "default" : value.order,
             })}
           />
