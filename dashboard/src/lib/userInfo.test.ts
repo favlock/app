@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   fetchAccountSettings: vi.fn(),
-  fetchEncryptionVerifier: vi.fn(),
+  fetchCachedEncryptionVerifier: vi.fn(),
 }));
 
 vi.mock("./accountSettingsApi", () => ({
@@ -10,7 +10,7 @@ vi.mock("./accountSettingsApi", () => ({
 }));
 
 vi.mock("./encryptionMetadataApi", () => ({
-  fetchEncryptionVerifier: mocks.fetchEncryptionVerifier,
+  fetchCachedEncryptionVerifier: mocks.fetchCachedEncryptionVerifier,
 }));
 
 import { fetchUserInfo } from "./userInfo";
@@ -25,12 +25,12 @@ beforeEach(() => {
     themeVariant: "sunset",
     searchHistoryMode: "cloud",
   });
-  mocks.fetchEncryptionVerifier.mockResolvedValue("enc:verifier");
+  mocks.fetchCachedEncryptionVerifier.mockResolvedValue("enc:verifier");
 });
 
 describe("fetchUserInfo", () => {
   it("loads public settings and the verifier through the API", async () => {
-    await expect(fetchUserInfo("current.jwt.token")).resolves.toEqual({
+    await expect(fetchUserInfo("current.jwt.token", "user-a")).resolves.toEqual({
       first_name: "Ada",
       last_name: "Lovelace",
       default_search_engine: "duckduckgo",
@@ -43,22 +43,23 @@ describe("fetchUserInfo", () => {
     expect(mocks.fetchAccountSettings).toHaveBeenCalledExactlyOnceWith(
       "current.jwt.token",
     );
-    expect(mocks.fetchEncryptionVerifier).toHaveBeenCalledExactlyOnceWith(
+    expect(mocks.fetchCachedEncryptionVerifier).toHaveBeenCalledExactlyOnceWith(
       "current.jwt.token",
+      "user-a",
     );
   });
 
   it("preserves a missing user_info row", async () => {
     mocks.fetchAccountSettings.mockResolvedValue(null);
-    mocks.fetchEncryptionVerifier.mockResolvedValue(null);
+    mocks.fetchCachedEncryptionVerifier.mockResolvedValue(null);
 
-    await expect(fetchUserInfo("current.jwt.token")).resolves.toBeNull();
+    await expect(fetchUserInfo("current.jwt.token", "user-a")).resolves.toBeNull();
   });
 
   it("does not hide a failed encryption-verifier read", async () => {
-    mocks.fetchEncryptionVerifier.mockRejectedValue(new Error("request failed"));
+    mocks.fetchCachedEncryptionVerifier.mockRejectedValue(new Error("request failed"));
 
-    await expect(fetchUserInfo("current.jwt.token")).rejects.toThrow(
+    await expect(fetchUserInfo("current.jwt.token", "user-a")).rejects.toThrow(
       "request failed",
     );
   });

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./favLockAuth", () => import("../test/requestSessionAuthMock"));
 import {
+  fetchCachedEncryptionVerifier,
   fetchEncryptionVerifier,
   fetchPasskeyEncryptionRecord,
   saveEncryptionVerifier,
   savePasskeyEncryptionMetadata,
 } from "./encryptionMetadataApi";
+import { queryClient } from "./queryClient";
 
 const verifier = "enc:YWJjZA==";
 const record = {
@@ -16,10 +18,84 @@ const record = {
 };
 
 afterEach(() => {
+  queryClient.clear();
   vi.unstubAllGlobals();
 });
 
 describe("encryption metadata API client", () => {
+  it("reuses verifier reads for account refreshes while keeping unlock checks fresh", async () => {
+    const updatedVerifier = "enc:ZWZnaA==";
+    const fetchMock = vi.fn().mockImplementation((_url, options: RequestInit) =>
+      Promise.resolve(options.method === "PUT"
+        ? new Response(null, { status: 204 })
+        : new Response(JSON.stringify({ data: { verifier } }), { status: 200 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a")).resolves.toBe(verifier);
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a")).resolves.toBe(verifier);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    await expect(fetchEncryptionVerifier("current.jwt.token")).resolves.toBe(verifier);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    await saveEncryptionVerifier("current.jwt.token", updatedVerifier, "user-a");
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a"))
+      .resolves.toBe(updatedVerifier);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-b")).resolves.toBe(verifier);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("caches an account without a verifier", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { verifier: null } }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a")).resolves.toBeNull();
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a")).resolves.toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the previous cached verifier when a save fails", async () => {
+    const fetchMock = vi.fn().mockImplementation((_url, options: RequestInit) =>
+      Promise.resolve(options.method === "PUT"
+        ? new Response(JSON.stringify({ error: { code: "service_unavailable" } }), { status: 503 })
+        : new Response(JSON.stringify({ data: { verifier } }), { status: 200 })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchCachedEncryptionVerifier("current.jwt.token", "user-a");
+    await expect(saveEncryptionVerifier("current.jwt.token", "enc:ZWZnaA==", "user-a"))
+      .rejects.toThrow("could not access your encryption verifier");
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a"))
+      .resolves.toBe(verifier);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not let an older read replace a saved verifier", async () => {
+    let finishRead!: (response: Response) => void;
+    const pendingResponse = new Promise<Response>((resolve) => { finishRead = resolve; });
+    const fetchMock = vi.fn().mockImplementation((_url, options: RequestInit) =>
+      options.method === "PUT"
+        ? Promise.resolve(new Response(null, { status: 204 }))
+        : pendingResponse,
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const olderRead = fetchCachedEncryptionVerifier("current.jwt.token", "user-a");
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await saveEncryptionVerifier("current.jwt.token", "enc:ZWZnaA==", "user-a");
+    finishRead(new Response(JSON.stringify({ data: { verifier } }), { status: 200 }));
+    await olderRead.catch(() => undefined);
+
+    await expect(fetchCachedEncryptionVerifier("current.jwt.token", "user-a"))
+      .resolves.toBe("enc:ZWZnaA==");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("loads the opaque verifier through the FavLock API", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ data: { verifier } }), { status: 200 }),
@@ -61,7 +137,7 @@ describe("encryption metadata API client", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(
-      saveEncryptionVerifier("current.jwt.token", verifier),
+      saveEncryptionVerifier("current.jwt.token", verifier, "user-a"),
     ).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.favlock.example/v1/account/encryption/verifier",
@@ -145,7 +221,7 @@ describe("encryption metadata API client", () => {
     );
 
     await expect(
-      saveEncryptionVerifier("current.jwt.token", verifier),
+      saveEncryptionVerifier("current.jwt.token", verifier, "user-a"),
     ).rejects.toThrow("could not access your encryption verifier");
   });
 

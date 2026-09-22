@@ -49,6 +49,7 @@ vi.mock("../lib/accountSettingsApi", () => ({
 
 vi.mock("../lib/encryptionMetadataApi", () => ({
   fetchEncryptionVerifier,
+  fetchCachedEncryptionVerifier: fetchEncryptionVerifier,
   fetchPasskeyEncryptionRecord: vi.fn(),
   savePasskeyEncryptionMetadata: vi.fn(),
 }));

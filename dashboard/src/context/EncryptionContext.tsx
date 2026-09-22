@@ -149,7 +149,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
 
           const verifier = await enc(VERIFY_CONSTANT, key);
           try {
-            await saveEncryptionVerifier(session.access_token, verifier);
+            await saveEncryptionVerifier(session.access_token, verifier, userId);
           } catch {
             throw new Error("Key works, but the verifier could not be repaired.");
           }
@@ -177,7 +177,7 @@ export function EncryptionProvider({ children }: { children: ReactNode }) {
 
         const verifier = await enc(VERIFY_CONSTANT, key);
         try {
-          await saveEncryptionVerifier(session.access_token, verifier);
+          await saveEncryptionVerifier(session.access_token, verifier, userId);
         } catch {
           if (keyCheckpointed) {
             assertCurrent();

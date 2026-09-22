@@ -2,6 +2,7 @@ import {
   fetchAuthenticatedJson,
   putAuthenticatedJsonWithoutResponse,
 } from "./authenticatedApi";
+import { queryClient } from "./queryClient";
 
 const VERIFIER_ERROR =
   "We could not access your encryption verifier. Please try again.";
@@ -12,6 +13,12 @@ const PASSKEY_SAVE_ERROR =
 
 const ENCRYPTION_VERIFIER_PATTERN = /^enc:[A-Za-z0-9+/]+={0,2}$/;
 const BASE64_URL_PATTERN = /^[A-Za-z0-9_-]+$/;
+const VERIFIER_STALE_TIME = 1000 * 60 * 5;
+
+export const encryptionVerifierQueryKey = (userId: string) => [
+  "encryption-verifier",
+  userId,
+];
 
 export interface PasskeyEncryptionRecord {
   credentialId: string;
@@ -79,9 +86,22 @@ export async function fetchEncryptionVerifier(
   return verifier;
 }
 
+export function fetchCachedEncryptionVerifier(
+  accessToken: string,
+  userId: string,
+): Promise<string | null> {
+  return queryClient.fetchQuery({
+    queryKey: encryptionVerifierQueryKey(userId),
+    queryFn: () => fetchEncryptionVerifier(accessToken),
+    staleTime: VERIFIER_STALE_TIME,
+    retry: false,
+  });
+}
+
 export async function saveEncryptionVerifier(
   accessToken: string,
   verifier: string,
+  userId: string,
 ): Promise<void> {
   if (!isVerifier(verifier)) throw new Error(VERIFIER_ERROR);
   await putAuthenticatedJsonWithoutResponse(
@@ -90,6 +110,9 @@ export async function saveEncryptionVerifier(
     { verifier },
     VERIFIER_ERROR,
   );
+  const queryKey = encryptionVerifierQueryKey(userId);
+  await queryClient.cancelQueries({ queryKey });
+  queryClient.setQueryData(queryKey, verifier);
 }
 
 export async function fetchPasskeyEncryptionRecord(
