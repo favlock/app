@@ -1,3 +1,4 @@
+import { isTaskBulkAction, type EntryBulkAction, type EntryBulkResult } from "./entryBulk";
 import type { ColorConstant } from "../constants/colors";
 import { LOCAL_PLAN } from "@favlock/shared";
 import type {
@@ -13,6 +14,7 @@ import type { FavLockExport } from "./dataExport";
 import { decryptFieldStrict, encryptField } from "./encryption";
 import type { PasskeyEncryptionRecord } from "./passkeyEncryption";
 import { clearLocalBookmarkUsage, forgetLocalBookmarkUsage } from "./localBookmarkUsage";
+import type { BookmarkBulkAction, BookmarkBulkResult } from "./bookmarkBulk";
 
 const DB_NAME = "favlock-local-vault";
 const DB_VERSION = 3;
@@ -931,6 +933,82 @@ export async function updateLocalBookmark(
   await transactionDone(transaction);
 }
 
+export async function editLocalBookmarkBatch(
+  vaultId: string,
+  bookmarkIds: string[],
+  action: BookmarkBulkAction,
+  assertCurrent: () => void,
+): Promise<BookmarkBulkResult[]> {
+  assertCurrent();
+  const db = await openLocalVault();
+  assertCurrent();
+  const transaction = db.transaction([BOOKMARKS, FOLDERS, TAGS, LIST_ITEMS, META], "readwrite");
+  const done = transactionDone(transaction);
+  const results: BookmarkBulkResult[] = [];
+  const removed = new Set<string>();
+  try {
+    if ("folderId" in action && action.folderId) {
+      const folder = await requestResult(transaction.objectStore(FOLDERS).get(action.folderId)) as LocalFolderRecord | undefined;
+      if (folder?.vault_id !== vaultId) throw new Error("The collection is no longer available.");
+    }
+    if ("tagIds" in action) {
+      if (!action.tagIds.length || action.tagIds.length > 10) throw new Error("Choose between 1 and 10 tags.");
+      for (const tagId of action.tagIds) {
+        const tag = await requestResult(transaction.objectStore(TAGS).get(tagId)) as LocalTagRecord | undefined;
+        if (tag?.vault_id !== vaultId) throw new Error("A selected tag is no longer available.");
+      }
+    }
+    const bookmarks = transaction.objectStore(BOOKMARKS);
+    for (const bookmarkId of bookmarkIds) {
+      assertCurrent();
+      const current = await requestResult(bookmarks.get(bookmarkId)) as LocalBookmarkRecord | undefined;
+      if (!current || current.vault_id !== vaultId) {
+        results.push({ bookmarkId, status: "not-found" });
+        continue;
+      }
+      const next = { ...current };
+      switch (action.action) {
+        case "collection": next.folder_id = action.folderId; break;
+        case "add-tags": next.tag_ids = [...new Set([...current.tag_ids, ...action.tagIds])]; break;
+        case "remove-tags": next.tag_ids = current.tag_ids.filter((id) => !action.tagIds.includes(id)); break;
+        case "favorite":
+        case "unfavorite":
+          next.is_favorite = action.action === "favorite";
+          if (next.is_favorite !== current.is_favorite) next.favorited_at = next.is_favorite ? new Date().toISOString() : null;
+          break;
+        case "trash": removed.add(bookmarkId); break;
+      }
+      if (next.tag_ids.length > 10 && action.action === "add-tags") {
+        results.push({ bookmarkId, status: "tag-limit" });
+        continue;
+      }
+      const unchanged = action.action !== "trash" && next.folder_id === current.folder_id &&
+        next.is_favorite === current.is_favorite && next.tag_ids.length === current.tag_ids.length &&
+        next.tag_ids.every((id) => current.tag_ids.includes(id));
+      assertCurrent();
+      if (!unchanged) {
+        if (removed.has(bookmarkId)) bookmarks.delete(bookmarkId);
+        else bookmarks.put(next);
+      }
+      results.push({ bookmarkId, status: unchanged ? "unchanged" : "updated" });
+    }
+    if (removed.size) {
+      const store = transaction.objectStore(LIST_ITEMS);
+      const items = await requestResult(store.index(VAULT_ID_INDEX).getAll(vaultId)) as LocalListItemRecord[];
+      for (const item of items) if (removed.has(item.bookmark_id)) store.delete(item.id);
+    }
+    assertCurrent();
+    if (results.some((result) => result.status === "updated")) putRevision(transaction, vaultId);
+    await done;
+    for (const id of removed) forgetLocalBookmarkUsage(vaultId, id);
+    return results;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* The transaction may already have ended. */ }
+    await done.catch(() => {});
+    throw error;
+  }
+}
+
 async function mutateLocalBookmark(
   vaultId: string,
   bookmarkId: string,
@@ -1537,4 +1615,79 @@ export async function clearLocalVault(vaultId: string): Promise<void> {
   await transactionDone(transaction);
   clearLocalBookmarkUsage(vaultId);
   notifyLocalVaultChanged(vaultId, "empty");
+}
+
+export async function editLocalEntryBatch(
+  vaultId: string,
+  entryIds: string[],
+  action: EntryBulkAction,
+  assertCurrent: () => void,
+): Promise<EntryBulkResult[]> {
+  assertCurrent();
+  const db = await openLocalVault();
+  assertCurrent();
+  const transaction = db.transaction([ENTRIES, FOLDERS, TAGS, META], "readwrite");
+  const done = transactionDone(transaction);
+  const results: EntryBulkResult[] = [];
+  const removed = new Set<string>();
+  try {
+    if ("folderId" in action && action.folderId) {
+      const folder = await requestResult(transaction.objectStore(FOLDERS).get(action.folderId)) as LocalFolderRecord | undefined;
+      if (folder?.vault_id !== vaultId) throw new Error("The collection is no longer available.");
+    }
+    if ("tagIds" in action) {
+      if (!action.tagIds.length || action.tagIds.length > 10) throw new Error("Choose between 1 and 10 tags.");
+      for (const tagId of action.tagIds) {
+        const tag = await requestResult(transaction.objectStore(TAGS).get(tagId)) as LocalTagRecord | undefined;
+        if (tag?.vault_id !== vaultId) throw new Error("A selected tag is no longer available.");
+      }
+    }
+    if (action.action === "due-date" && action.dueDate !== null &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(action.dueDate) || action.dueDate < "0001-01-01" ||
+       Number.isNaN(Date.parse(action.dueDate)) || new Date(action.dueDate).toISOString().slice(0, 10) !== action.dueDate))
+      throw new Error("Choose a valid due date.");
+    const entries = transaction.objectStore(ENTRIES);
+    for (const entryId of entryIds) {
+      assertCurrent();
+      const current = await requestResult(entries.get(entryId)) as LocalEntryRecord | undefined;
+      if (!current || current.vault_id !== vaultId || (isTaskBulkAction(action) && current.kind !== "todo")) {
+        results.push({ entryId, status: "not-found" });
+        continue;
+      }
+      const next = { ...current };
+      switch (action.action) {
+        case "due-date": next.due_date = action.dueDate; break;
+        case "complete":
+        case "reopen":
+          next.is_completed = action.action === "complete";
+          if (next.is_completed !== current.is_completed) next.completed_at = next.is_completed ? new Date().toISOString() : null;
+          break;
+        case "collection": next.folder_id = action.folderId; break;
+        case "add-tags": next.tag_ids = [...new Set([...current.tag_ids, ...action.tagIds])]; break;
+        case "remove-tags": next.tag_ids = current.tag_ids.filter((id) => !action.tagIds.includes(id)); break;
+        case "trash": removed.add(entryId); break;
+      }
+      if (next.tag_ids.length > 10 && action.action === "add-tags") {
+        results.push({ entryId, status: "tag-limit" });
+        continue;
+      }
+      const unchanged = action.action !== "trash" && next.folder_id === current.folder_id && next.due_date === current.due_date && next.is_completed === current.is_completed &&
+        next.tag_ids.length === current.tag_ids.length &&
+        next.tag_ids.every((id) => current.tag_ids.includes(id));
+      assertCurrent();
+      if (!unchanged) {
+        if (removed.has(entryId)) entries.delete(entryId);
+        else entries.put({ ...next, updated_at: new Date().toISOString() });
+      }
+      results.push({ entryId, status: unchanged ? "unchanged" : "updated" });
+    }
+    assertCurrent();
+    if (results.some((result) => result.status === "updated")) putRevision(transaction, vaultId);
+    await done;
+    return results;
+  } catch (error) {
+    try { transaction.abort(); } catch { /* The transaction may already have ended. */ }
+    await done.catch(() => {});
+    throw error;
+  }
 }

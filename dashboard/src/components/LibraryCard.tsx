@@ -1,3 +1,5 @@
+import { useContext } from "react";
+import { LibrarySelectionContext } from "../context/LibrarySelectionContext";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { BookOpen, Bookmark, ListTodo, StickyNote } from "lucide-react";
 
@@ -26,6 +28,7 @@ export default function LibraryCard({
   onClick,
   raised = false,
 }: LibraryCardProps) {
+  const selection = useContext(LibrarySelectionContext);
   const isNote = kind === "note";
   const isTodo = kind === "todo";
   const isRead = kind === "read";
@@ -50,8 +53,11 @@ export default function LibraryCard({
   return (
     <article
       style={cardStyle}
-      onClick={onClick}
-      className={`library-card group relative isolate h-full min-w-0 w-full ${kind === "bookmark" ? "min-h-40" : "min-h-44"} cursor-pointer p-4 ${raised ? "z-40" : "z-0"}`}
+      onClick={(event) => {
+        if (!selection) return onClick(event);
+        if (!selection.disabled && !(event.target instanceof Element && event.target.closest("label, input"))) selection.toggle(event.shiftKey);
+      }}
+      className={`library-card group relative isolate h-full min-w-0 w-full ${kind === "bookmark" ? "min-h-40" : "min-h-44"} cursor-pointer p-4 ${raised ? "z-40" : "z-0"} ${selection?.checked ? "ring-2 ring-[var(--app-primary)]" : ""}`}
     >
       <div className="grid h-full min-w-0 grid-cols-1 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-1.5">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -61,22 +67,26 @@ export default function LibraryCard({
             <TypeIcon size={12} aria-hidden="true" />
             {isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}
           </span>
-          {meta ? (
+          {selection ? <label className="inline-flex min-h-11 cursor-pointer items-center gap-2 px-2 text-xs font-medium">
+            <input type="checkbox" aria-label={`Select item: ${selection.title}`} checked={selection.checked} disabled={selection.disabled}
+              className="size-4 accent-[var(--app-primary)]" onChange={() => {}} onClick={(event) => selection.toggle(event.shiftKey)} />
+            {selection.checked ? "Selected" : "Select"}
+          </label> : meta ? (
             <div className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full bg-[var(--app-highlight)]/60 px-1.5 py-0.5 text-xs font-medium text-[var(--app-muted)]">
               {meta}
             </div>
           ) : null}
         </div>
 
-        <h3 className="min-w-0 truncate text-[0.95rem] font-semibold leading-5 text-[var(--app-ink)]">
+        <h3 inert={!!selection} style={selection ? { pointerEvents: "none" } : undefined} className="min-w-0 truncate text-[0.95rem] font-semibold leading-5 text-[var(--app-ink)]">
           {title}
         </h3>
 
-        <div className="min-h-0 min-w-0">{details}</div>
+        <div inert={!!selection} style={selection ? { pointerEvents: "none" } : undefined} className="min-h-0 min-w-0">{details}</div>
 
         <div className="flex min-h-9 min-w-0 items-center justify-between gap-2 border-t border-[color-mix(in_oklab,var(--app-line)_8%,transparent)] pt-2">
-          <div className="min-w-0">{category}</div>
-          <div className="flex flex-none items-center gap-1">{actions}</div>
+          <div inert={!!selection} style={selection ? { pointerEvents: "none" } : undefined} className="min-w-0">{category}</div>
+          <div className="flex flex-none items-center gap-1">{selection ? null : actions}</div>
         </div>
       </div>
     </article>

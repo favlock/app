@@ -1,3 +1,6 @@
+import BookmarkBulkEditor from "../components/BookmarkBulkEditor";
+import SelectableLibraryItem from "../components/SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
 import {
   useEffect,
   useMemo,
@@ -452,6 +455,11 @@ export default function EntriesPage<TEntry extends Entry>({
       </section>
 
       <section className="px-3 lg:px-0">
+        <BookmarkBulkEditor libraryItems key={`${kind}:${searchQuery}:${filter}`} loading={isLoading || !!error}
+          shown={visibleEntries.map((entry) => ({ id: librarySelectionId(entry.kind, entry.id) }))}
+          total={visibleEntries.length} getAll={async () => visibleEntries.map((entry) => ({ id: librarySelectionId(entry.kind, entry.id) }))}>
+          {(selection) => <>
+
         {isLoading ? (
           <div
             className={
@@ -555,11 +563,12 @@ export default function EntriesPage<TEntry extends Entry>({
           >
             {visibleEntries.map((entry) => (
               <li key={entry.id} className="list-none">
-                {renderCard(entry, openEdit)}
+                <SelectableLibraryItem id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>{renderCard(entry, openEdit)}</SelectableLibraryItem>
               </li>
             ))}
           </ul>
         )}
+        </>}</BookmarkBulkEditor>
       </section>
 
       {renderEditor({

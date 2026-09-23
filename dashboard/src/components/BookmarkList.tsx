@@ -1,6 +1,6 @@
 import { sortBookmarks, type BookmarkSorting } from "../lib/bookmarkSorting";
-import { useRef, useEffect, useMemo, useState } from "react";
-import { useBookmarkLocalSearch } from "../hooks/useBookmarkLocalSearch";
+import { useRef, useEffect, useMemo, useState, type ReactNode } from "react";
+import { searchBookmarkLibrary, useBookmarkLocalSearch } from "../hooks/useBookmarkLocalSearch";
 import BookmarkCard from "./BookmarkCard";
 import { BookmarkIcon, Loader2, PlusIcon, Sparkles } from "lucide-react";
 import { BookmarkListSkeleton } from "./BookmarkCardSkeleton";
@@ -10,10 +10,15 @@ import { bookmarksForView, type BookmarkView } from "../lib/bookmarkViews";
 import { markFirstRetrieval } from "../lib/onboarding";
 import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 
+import BookmarkBulkEditor, { type BookmarkSelection } from "./BookmarkBulkEditor";
+import { useAuth } from "../context/useAuth";
+import { useEncryption } from "../context/useEncryption";
+
 const SEARCH_PAGE_SIZE = 100;
 const BROWSE_PAGE_SIZE = 21;
 
 interface BookmarkListProps {
+  headerControls?: ReactNode;
   sorting?: BookmarkSorting;
   bookmarks: Bookmark[];
   bookmarksLoading?: boolean;
@@ -33,6 +38,7 @@ interface BookmarkListProps {
 }
 
 export default function BookmarkList({
+  headerControls,
   sorting,
   bookmarks: cachedBookmarks,
   bookmarksLoading = false,
@@ -47,6 +53,9 @@ export default function BookmarkList({
   onSearchMetaChange,
 }: BookmarkListProps) {
   const recordBookmarkOpen = useRecordBookmarkOpen();
+  const { user, isLocalAccount } = useAuth();
+  const { cryptoKey } = useEncryption();
+  const [selectionActive, setSelectionActive] = useState(false);
   const normalizedSearch = searchQuery.trim();
   const isSearchMode = normalizedSearch.length > 0;
   const [visibleBrowseCount, setVisibleBrowseCount] = useState(BROWSE_PAGE_SIZE);
@@ -86,13 +95,14 @@ export default function BookmarkList({
     : visibleBrowseBookmarks;
   const shortcutBookmarks = useMemo(
     () =>
-      isSearchMode && searchShortcutsEnabled
+      isSearchMode && searchShortcutsEnabled && !selectionActive
         ? (localSearchQuery.data?.bookmarks ?? []).slice(0, 9)
         : [],
     [
       isSearchMode,
       localSearchQuery.data?.bookmarks,
       searchShortcutsEnabled,
+      selectionActive,
     ],
   );
   const searchResultTotal = localSearchQuery.data?.total ?? 0;
@@ -190,179 +200,200 @@ export default function BookmarkList({
     };
   }, [isSearchMode, hasNextPage]);
 
-  if (isLoading) {
-    return (
-      <div role="status" aria-label="Loading bookmarks">
-        <BookmarkListSkeleton />
-      </div>
-    );
-  }
+  const renderContent = (selection: BookmarkSelection) => {
+    if (isLoading) {
+      return (
+        <div role="status" aria-label="Loading bookmarks">
+          <BookmarkListSkeleton />
+        </div>
+      );
+    }
 
-  if (effectiveError) {
-    return (
-      <div
-        className="bg-red-500/10 border border-red-500/30 text-red-500  px-4 py-3 rounded-lg text-sm"
-        role="alert"
-      >
-        <p>
-          {effectiveError instanceof Error
-            ? effectiveError.message
-            : "Error loading bookmarks"}
-        </p>
-        <Button
-          type="button"
-          outline
-          className="mt-3"
-          onClick={() => void retryBookmarks()}
-        >
-          Try again
-        </Button>
-      </div>
-    );
-  }
-
-  if (bookmarks.length === 0) {
-    if (isSearchMode) {
+    if (effectiveError) {
       return (
         <div
-          className="rounded-xl border border-[var(--app-ink)]/12 bg-[var(--app-highlight)]/80 px-5 py-9 text-center shadow-sm"
-          role="status"
+          className="bg-red-500/10 border border-red-500/30 text-red-500  px-4 py-3 rounded-lg text-sm"
+          role="alert"
         >
-          <BookmarkIcon
-            className="mx-auto mb-3 text-[#94a3b8]"
-            size={36}
+          <p>
+            {effectiveError instanceof Error
+              ? effectiveError.message
+              : "Error loading bookmarks"}
+          </p>
+          <Button
+            type="button"
+            outline
+            className="mt-3"
+            onClick={() => void retryBookmarks()}
+          >
+            Try again
+          </Button>
+        </div>
+      );
+    }
+
+    if (bookmarks.length === 0) {
+      if (isSearchMode) {
+        return (
+          <div
+            className="rounded-xl border border-[var(--app-ink)]/12 bg-[var(--app-highlight)]/80 px-5 py-9 text-center shadow-sm"
+            role="status"
+          >
+            <BookmarkIcon
+              className="mx-auto mb-3 text-[#94a3b8]"
+              size={36}
+              aria-hidden="true"
+            />
+            <p className="text-sm font-medium text-[var(--app-ink)]">
+              No bookmarks match "{normalizedSearch}"
+            </p>
+            <p className="mt-1 text-sm text-[var(--app-muted)]">
+              Try fewer keywords or search by domain, tag, or collection name.
+            </p>
+          </div>
+        );
+      }
+
+      return (
+        <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-10 text-center shadow-[0_6px_0_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-12">
+          <div
+            className="absolute -left-12 -top-16 -z-10 size-40 rounded-full bg-[color-mix(in_oklab,var(--app-accent)_18%,transparent)] blur-2xl"
             aria-hidden="true"
           />
-          <p className="text-sm font-medium text-[var(--app-ink)]">
-            No bookmarks match "{normalizedSearch}"
-          </p>
-          <p className="mt-1 text-sm text-[var(--app-muted)]">
-            Try fewer keywords or search by domain, tag, or collection name.
-          </p>
+          <div
+            className="absolute -bottom-20 -right-12 -z-10 size-48 rounded-full bg-[color-mix(in_oklab,var(--app-secondary)_14%,transparent)] blur-3xl"
+            aria-hidden="true"
+          />
+
+          <div className="mx-auto flex max-w-md flex-col items-center">
+            <div className="relative mb-5">
+              <div className="flex size-16 items-center justify-center rounded-2xl border border-[color-mix(in_oklab,var(--app-primary)_22%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_12%,var(--app-card))] text-[var(--app-primary)] shadow-[0_5px_0_0_color-mix(in_oklab,var(--app-line)_10%,transparent)]">
+                <BookmarkIcon size={30} strokeWidth={2.2} aria-hidden="true" />
+              </div>
+              <span className="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--app-accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--app-accent)_20%,var(--app-card))] text-[var(--app-ink)] shadow-sm">
+                <Sparkles size={14} aria-hidden="true" />
+              </span>
+            </div>
+
+            <h3 className="text-xl font-bold tracking-tight text-[var(--app-ink)] sm:text-2xl">
+              Save your first bookmark
+            </h3>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--app-muted)] sm:text-base">
+              Keep useful links close, organized, and easy to find whenever you
+              need them.
+            </p>
+
+            {onAddBookmark ? (
+              <Button
+                type="button"
+                color="emerald"
+                onClick={onAddBookmark}
+                className="mt-6 min-h-11 items-center gap-2 px-4"
+              >
+                <PlusIcon data-slot="icon" aria-hidden="true" />
+                Add your first link
+              </Button>
+            ) : null}
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="relative isolate overflow-hidden rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-10 text-center shadow-[0_6px_0_0_color-mix(in_oklab,var(--app-line)_9%,transparent)] sm:px-8 sm:py-12">
-        <div
-          className="absolute -left-12 -top-16 -z-10 size-40 rounded-full bg-[color-mix(in_oklab,var(--app-accent)_18%,transparent)] blur-2xl"
-          aria-hidden="true"
-        />
-        <div
-          className="absolute -bottom-20 -right-12 -z-10 size-48 rounded-full bg-[color-mix(in_oklab,var(--app-secondary)_14%,transparent)] blur-3xl"
-          aria-hidden="true"
-        />
+      <div className="space-y-3">
+        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          {bookmarks.map((bookmark, index) => (
+            <li key={bookmark.id} className={`list-none h-full relative rounded-3xl ${selection.active && selection.selected.has(bookmark.id) ? "ring-2 ring-[var(--app-primary)]" : ""}`}>
+              <BookmarkCard
+                bookmark={bookmark}
+                selection={selection.active ? {
+                  checked: selection.selected.has(bookmark.id),
+                  disabled: selection.busy,
+                  onToggle: (range) => selection.toggle(bookmark.id, range),
+                } : undefined}
+                onDeleted={onRefresh || (() => {})}
+                onMoved={onRefresh}
+                searchShortcut={
+                  isSearchMode && searchShortcutsEnabled && !selectionActive && index < 9
+                    ? index + 1
+                    : undefined
+                }
+              />
+            </li>
+          ))}
+        </ul>
 
-        <div className="mx-auto flex max-w-md flex-col items-center">
-          <div className="relative mb-5">
-            <div className="flex size-16 items-center justify-center rounded-2xl border border-[color-mix(in_oklab,var(--app-primary)_22%,transparent)] bg-[color-mix(in_oklab,var(--app-primary)_12%,var(--app-card))] text-[var(--app-primary)] shadow-[0_5px_0_0_color-mix(in_oklab,var(--app-line)_10%,transparent)]">
-              <BookmarkIcon size={30} strokeWidth={2.2} aria-hidden="true" />
+        {isSearchMode && searchResultTotal > 0 ? (
+          <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[var(--app-card)] px-4 py-3 sm:flex-row">
+            <p className="text-sm tabular-nums liquid-muted">
+              Showing {searchOffset + 1}–
+              {Math.min(searchOffset + bookmarks.length, searchResultTotal)} of{" "}
+              {searchResultTotal.toLocaleString("en-US")} bookmarks
+            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                outline
+                disabled={searchPage === 0 || localSearchQuery.isFetching}
+                onClick={() =>
+                  setSearchPageState({
+                    query: normalizedSearch,
+                    page: Math.max(0, searchPage - 1),
+                  })
+                }
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                outline
+                disabled={
+                  searchOffset + bookmarks.length >= searchResultTotal ||
+                  localSearchQuery.isFetching
+                }
+                onClick={() =>
+                  setSearchPageState({
+                    query: normalizedSearch,
+                    page: searchPage + 1,
+                  })
+                }
+              >
+                Next
+              </Button>
             </div>
-            <span className="absolute -right-2 -top-2 flex size-7 items-center justify-center rounded-full border border-[color-mix(in_oklab,var(--app-accent)_35%,transparent)] bg-[color-mix(in_oklab,var(--app-accent)_20%,var(--app-card))] text-[var(--app-ink)] shadow-sm">
-              <Sparkles size={14} aria-hidden="true" />
-            </span>
           </div>
+        ) : null}
 
-          <h3 className="text-xl font-bold tracking-tight text-[var(--app-ink)] sm:text-2xl">
-            Save your first bookmark
-          </h3>
-          <p className="mt-2 max-w-sm text-sm leading-6 text-[var(--app-muted)] sm:text-base">
-            Keep useful links close, organized, and easy to find whenever you
-            need them.
-          </p>
-
-          {onAddBookmark ? (
-            <Button
-              type="button"
-              color="emerald"
-              onClick={onAddBookmark}
-              className="mt-6 min-h-11 items-center gap-2 px-4"
-            >
-              <PlusIcon data-slot="icon" aria-hidden="true" />
-              Add your first link
-            </Button>
-          ) : null}
-        </div>
+        {/* Intersection observer sentinel – always rendered so the observer can attach */}
+        {!isSearchMode && (
+          <div ref={loadMoreRef} className="flex justify-center py-5">
+            {hasNextPage && (
+              <div
+                className="flex items-center gap-2 text-gray-500 dark:text-[var(--app-muted)] "
+                role="status"
+                aria-live="polite"
+              >
+                <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
+                <span className="text-sm">Loading more...</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
-  }
+  };
+  return <BookmarkBulkEditor
+    heading={headerControls}
+    key={`${folderId ?? ""}:${tagId ?? ""}:${normalizedSearch}`}
+    shown={bookmarks}
+    total={isSearchMode ? searchResultTotal : browseBookmarks.length}
+    loading={isLoading || !!effectiveError}
+    onModeChange={setSelectionActive}
+    getAll={async () => {
+      if (!isSearchMode) return browseBookmarks;
+      if (!user || !cryptoKey) throw new Error("Unlock your vault first.");
+      return (await searchBookmarkLibrary(user.id, cryptoKey, isLocalAccount, normalizedSearch, { limit: Number.MAX_SAFE_INTEGER, sorting })).bookmarks;
+    }}
+  >{renderContent}</BookmarkBulkEditor>;
 
-  return (
-    <div className="space-y-3">
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-        {bookmarks.map((bookmark, index) => (
-          <li key={bookmark.id} className="list-none h-full relative">
-            <BookmarkCard
-              bookmark={bookmark}
-              onDeleted={onRefresh || (() => {})}
-              onMoved={onRefresh}
-              searchShortcut={
-                isSearchMode && searchShortcutsEnabled && index < 9
-                  ? index + 1
-                  : undefined
-              }
-            />
-          </li>
-        ))}
-      </ul>
-
-      {isSearchMode && searchResultTotal > 0 ? (
-        <div className="flex flex-col items-center justify-between gap-3 rounded-xl border border-[color-mix(in_oklab,var(--app-line)_12%,transparent)] bg-[var(--app-card)] px-4 py-3 sm:flex-row">
-          <p className="text-sm tabular-nums liquid-muted">
-            Showing {searchOffset + 1}–
-            {Math.min(searchOffset + bookmarks.length, searchResultTotal)} of{" "}
-            {searchResultTotal.toLocaleString("en-US")} bookmarks
-          </p>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              outline
-              disabled={searchPage === 0 || localSearchQuery.isFetching}
-              onClick={() =>
-                setSearchPageState({
-                  query: normalizedSearch,
-                  page: Math.max(0, searchPage - 1),
-                })
-              }
-            >
-              Previous
-            </Button>
-            <Button
-              type="button"
-              outline
-              disabled={
-                searchOffset + bookmarks.length >= searchResultTotal ||
-                localSearchQuery.isFetching
-              }
-              onClick={() =>
-                setSearchPageState({
-                  query: normalizedSearch,
-                  page: searchPage + 1,
-                })
-              }
-            >
-              Next
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Intersection observer sentinel – always rendered so the observer can attach */}
-      {!isSearchMode && (
-        <div ref={loadMoreRef} className="flex justify-center py-5">
-          {hasNextPage && (
-            <div
-              className="flex items-center gap-2 text-gray-500 dark:text-[var(--app-muted)] "
-              role="status"
-              aria-live="polite"
-            >
-              <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-              <span className="text-sm">Loading more...</span>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
 }

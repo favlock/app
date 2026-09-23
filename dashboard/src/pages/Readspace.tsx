@@ -1,3 +1,7 @@
+import BookmarkBulkEditor from "../components/BookmarkBulkEditor";
+import SelectableLibraryItem from "../components/SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
+import { searchReadspaceOffMainThread } from "../lib/readspaceSearchWorkerClient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -710,7 +714,16 @@ function CloudReadspace() {
             }}
             onDeleteSelected={(selectedHighlights) => deleteHighlights.mutateAsync(selectedHighlights)}
           />
-        ) : isLoading ? (
+        ) : <BookmarkBulkEditor libraryItems key={query} loading={isLoading || !!error || (!!debouncedQuery && (readspaceSearchQuery.isLoading || !!readspaceSearchQuery.error))}
+          shown={visibleEntries.map(({ entry }) => ({ id: librarySelectionId(entry.kind, entry.id) }))}
+          total={debouncedQuery ? readspaceSearchResult.total : parsedEntries.length}
+          getAll={async () => {
+            const all = debouncedQuery
+              ? (await searchReadspaceOffMainThread(parsedEntries, debouncedQuery, Number.MAX_SAFE_INTEGER, fullTextSearchEnabled)).matches.map((match) => match.article)
+              : parsedEntries;
+            return all.map(({ entry }) => ({ id: librarySelectionId(entry.kind, entry.id) }));
+          }}>
+          {(selection) => <>{isLoading ? (
           <div
             className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
             role="status"
@@ -785,8 +798,8 @@ function CloudReadspace() {
             ) : null}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {visibleEntries.map(({ entry, content }) => (
+                <SelectableLibraryItem key={entry.id} id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>
                 <ReadspaceCard
-                  key={entry.id}
                   entry={entry}
                   content={content}
                   onOpen={() => {
@@ -796,10 +809,11 @@ function CloudReadspace() {
                   onOrganize={() => setOrganizeTarget(entry)}
                   onDelete={() => setDeleteTarget(entry)}
                 />
+                </SelectableLibraryItem>
               ))}
             </div>
           </div>
-        )}
+        )}</>}</BookmarkBulkEditor>}
       </section>
 
       <Dialog
