@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { LibrarySelectionContext } from "../context/LibrarySelectionContext";
+import { useContext, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -59,6 +60,7 @@ export default function TodoListRow({
   onEdit,
   onToggle,
 }: TodoListRowProps) {
+  const selection = useContext(LibrarySelectionContext);
   const { isLocalAccount } = useAuth();
   const deleteTodo = useDeleteTodo();
   const updateFolder = useUpdateEntryFolder();
@@ -95,6 +97,14 @@ export default function TodoListRow({
       );
     }
   };
+
+  if (selection) return <label className={`flex min-h-20 cursor-pointer items-center gap-3 rounded-xl border border-[var(--app-mint-border)] bg-[var(--app-card)] p-4 ${selection.checked ? "ring-2 ring-[var(--app-primary)]" : ""}`}>
+    <input type="checkbox" aria-label={`Select item: ${todo.title}`} checked={selection.checked} disabled={selection.disabled}
+      className="size-4 accent-[var(--app-primary)]" onChange={() => {}} onClick={(event) => selection.toggle(event.shiftKey)} />
+    <span className="min-w-0"><span className="block truncate font-semibold">{todo.title}</span>
+      <span className="text-xs text-[var(--app-muted)]">{todo.is_completed ? "Completed" : "Open"}{todo.due_date ? ` · ${todo.due_date}` : ""}</span>
+    </span>
+  </label>;
 
   return (
     <>

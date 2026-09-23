@@ -207,7 +207,6 @@ export default function Dashboard() {
       : sortPreference.order.startsWith("website-") && mixedLibrary && !sortPreference.bookmarksOnly
         ? "default" as const : sortPreference.order,
   }), [sortPreference, isFavoritesView, isSearchView, mixedLibrary]);
-  const sortingKey = `${user?.id}:${sorting.order}:${sorting.favoritesFirst}:${sorting.bookmarksOnly}`;
   const pageTitle = isSearchView
     ? "Search results"
     : isFavoritesView
@@ -436,6 +435,17 @@ export default function Dashboard() {
 
   const dashboardIconButtonClass = "theme-button-icon inline-flex";
 
+  const sortControl = (
+    <BookmarkSortControl
+        disabled={sortSync.busy}
+        value={sorting}
+        onChange={setSortPreference}
+        mixedLibrary={mixedLibrary}
+        favorites={isFavoritesView && !isSearchView}
+        search={isSearchView}
+      />
+  );
+
   return (
     <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
       <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
@@ -598,18 +608,11 @@ export default function Dashboard() {
           Could not load bookmark usage. <Button plain onClick={() => void usageQuery.refetch()}>Try again</Button>
         </div>
       )}
-      <BookmarkSortControl
-        disabled={sortSync.busy}
-        value={sorting}
-        onChange={setSortPreference}
-        mixedLibrary={mixedLibrary}
-        favorites={isFavoritesView && !isSearchView}
-        search={isSearchView}
-      />
+      {!normalizedBookmarkSearch && (isAllBookmarksView || (isCollectionView && selectedFolderId)) ? sortControl : null}
 
       {isAllBookmarksView && !normalizedBookmarkSearch ? (
         <HomeLibraryGrid
-          key={sortingKey}
+          key={user?.id}
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
           bookmarks={rankedBookmarks}
@@ -665,7 +668,7 @@ export default function Dashboard() {
         />
       ) : isCollectionView && selectedFolderId && !normalizedBookmarkSearch ? (
         <CollectionLibraryGrid
-          key={sortingKey}
+          key={user?.id}
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
           folderId={selectedFolderId}
@@ -728,7 +731,8 @@ export default function Dashboard() {
       ) : (
         <section className="px-3 lg:px-0">
           <BookmarkList
-            key={sortingKey}
+            headerControls={sortControl}
+            key={user?.id}
             sorting={sorting}
             bookmarks={rankedBookmarks}
             bookmarksLoading={

@@ -1,3 +1,6 @@
+import SelectableLibraryItem from "./SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
+import BookmarkBulkEditor from "./BookmarkBulkEditor";
 import { sortLibraryItems, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useEffect, useMemo, useState } from "react";
 import { Library, PlusIcon } from "lucide-react";
@@ -82,7 +85,9 @@ export default function CollectionLibraryGrid({
 
   return (
     <section className="px-3 lg:px-0" aria-labelledby="collection-library-title">
-      <div className="mb-3 flex items-center gap-2 px-1">
+      <BookmarkBulkEditor
+        libraryItems
+        heading={<div className="flex items-center gap-2">
         <Library
           size={17}
           className="text-[var(--app-primary)]"
@@ -106,8 +111,13 @@ export default function CollectionLibraryGrid({
             {articles.length} {articles.length === 1 ? "article" : "articles"}
           </p>
         </div>
-      </div>
-
+      </div>}
+        key={`${folderId}:${bookmarksOnly}`}
+        shown={visibleItems.map((item) => ({ id: librarySelectionId(item.kind, item.id) }))}
+        total={items.length}
+        loading={isLoading || !!error}
+        getAll={async () => items.map((item) => ({ id: librarySelectionId(item.kind, item.id) }))}
+      >{(selection) => <>
       {error ? (
         <div
           className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700 dark:text-red-300"
@@ -170,11 +180,16 @@ export default function CollectionLibraryGrid({
             {visibleItems.map((item) => (
               <li
                 key={`${item.kind}:${item.id}`}
-                className="relative h-full list-none"
+                className={`relative h-full list-none rounded-3xl ${selection.active && item.kind === "bookmark" && selection.selected.has(librarySelectionId(item.kind, item.id)) ? "ring-2 ring-[var(--app-primary)]" : ""}`}
               >
+                <SelectableLibraryItem id={librarySelectionId(item.kind, item.id)} title={item.kind === "note" ? item.note.title : item.kind === "todo" ? item.todo.title : item.kind === "read" ? item.article.entry.title : item.bookmark.title} selection={item.kind === "bookmark" ? { ...selection, active: false } : selection}>
                 {item.kind === "bookmark" ? (
                   <BookmarkCard
                     bookmark={item.bookmark}
+                    selection={selection.active ? {
+                      checked: selection.selected.has(librarySelectionId(item.kind, item.id)), disabled: selection.busy,
+                      onToggle: (range) => selection.toggle(librarySelectionId(item.kind, item.id), range),
+                    } : undefined}
                     onDeleted={() => {}}
                     onMoved={() => {}}
                   />
@@ -191,6 +206,7 @@ export default function CollectionLibraryGrid({
                     onDelete={() => onDeleteArticle(item.article)}
                   />
                 )}
+                </SelectableLibraryItem>
               </li>
             ))}
           </ul>
@@ -212,6 +228,7 @@ export default function CollectionLibraryGrid({
           ) : null}
         </>
       )}
+      </>}</BookmarkBulkEditor>
     </section>
   );
 }
