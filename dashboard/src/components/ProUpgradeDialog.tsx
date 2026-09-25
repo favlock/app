@@ -11,7 +11,9 @@ import {
   Link2Off,
   ListChecks,
   Search,
+  SlidersHorizontal,
   Sparkles,
+  Star,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import {
@@ -39,6 +41,18 @@ const comparisonRows = [
     free: "Bookmark details",
     pro: "Full content",
     icon: Search,
+  },
+  {
+    label: "Saved Smart Views",
+    free: "—",
+    pro: "Included",
+    icon: Star,
+  },
+  {
+    label: "Sorting across devices",
+    free: "On this device",
+    pro: "Cloud sync",
+    icon: SlidersHorizontal,
   },
   {
     label: "Web highlights",
@@ -102,6 +116,17 @@ export default function ProUpgradeDialog({
   open,
   onClose,
 }: ProUpgradeDialogProps) {
+  const configuredYearlyPrice = import.meta.env.VITE_PRO_YEARLY_PRICE_USD?.trim();
+  const yearlyPrice = Number(configuredYearlyPrice);
+  const displayYearlyPrice =
+    configuredYearlyPrice && Number.isFinite(yearlyPrice) && yearlyPrice > 0
+      ? new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+          maximumFractionDigits: 2,
+        }).format(yearlyPrice)
+      : null;
+
   return (
     <Dialog open={open} onClose={onClose} size="2xl">
       <div className="flex items-start gap-4">
@@ -116,6 +141,11 @@ export default function ProUpgradeDialog({
             FavLock Pro gives you unlimited bookmarks and highlights, encrypted
             annotations, deeper search, and more space for everything you save.
           </DialogDescription>
+          {displayYearlyPrice && (
+            <p className="mt-2 text-sm font-semibold text-[var(--app-ink)]">
+              {displayYearlyPrice} / year · billed yearly
+            </p>
+          )}
         </div>
       </div>
 

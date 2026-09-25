@@ -20,6 +20,7 @@ describe("ProUpgradeDialog", () => {
   afterEach(() => {
     act(() => root.unmount());
     document.body.innerHTML = "";
+    vi.unstubAllEnvs();
   });
 
   it("compares Free and Pro benefits before continuing to checkout", async () => {
@@ -56,6 +57,9 @@ describe("ProUpgradeDialog", () => {
     expect(comparison.textContent).toContain("Priority");
     expect(comparison.textContent).toContain("Duplicate monitor");
     expect(comparison.textContent).toContain("Broken link monitor");
+    expect(comparison.textContent).toContain("Saved Smart Views");
+    expect(comparison.textContent).toContain("Sorting across devices");
+    expect(comparison.textContent).toContain("Cloud sync");
     expect(document.body.textContent).toContain(
       "Both plans search bookmark titles, URLs, tags, collections, and highlighted text in Readspace",
     );
@@ -76,6 +80,27 @@ describe("ProUpgradeDialog", () => {
     );
     expect(upgradeLink?.getAttribute("href")).toBe("/checkout");
   });
+
+  it("shows the configured yearly price when it is valid", async () => {
+    vi.stubEnv("VITE_PRO_YEARLY_PRICE_USD", "19.50");
+    await act(async () => {
+      root.render(<MemoryRouter><ProUpgradeDialog open onClose={vi.fn()} /></MemoryRouter>);
+    });
+
+    expect(document.body.textContent).toContain("$19.50 / year · billed yearly");
+  });
+
+  it.each(["", "0", "not-a-price"])(
+    "hides an unavailable yearly price (%s)",
+    async (price) => {
+      vi.stubEnv("VITE_PRO_YEARLY_PRICE_USD", price);
+      await act(async () => {
+        root.render(<MemoryRouter><ProUpgradeDialog open onClose={vi.fn()} /></MemoryRouter>);
+      });
+
+      expect(document.body.textContent).not.toContain("billed yearly");
+    },
+  );
 
   it("can be dismissed without starting checkout", async () => {
     const onClose = vi.fn();
