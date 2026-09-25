@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HomeReadspaceArticle } from "./homeLibrary";
 import { searchReadspaceArticles } from "./readspaceSearch";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS } from "./librarySearchFilters";
 
 function article(
   id: string,
@@ -97,5 +98,15 @@ describe("Readspace full-text search", () => {
     expect(
       searchReadspaceArticles([savedArticle], "research", 100, options).total,
     ).toBe(1);
+  });
+
+  it("filters saved articles without text and searches only the chosen field", () => {
+    const savedArticle = article("1", "Private article", "<p>Important body</p>");
+    savedArticle.entry.tags = [{ id: "tag-1", user_id: "user-1", name: "Research", created_at: "2026-01-01" }];
+    const filters = { ...DEFAULT_LIBRARY_SEARCH_FILTERS, itemType: "readspace" as const, tagId: "tag-1" };
+    expect(searchReadspaceArticles([savedArticle], "", 100, { filters }).total).toBe(1);
+    expect(searchReadspaceArticles([savedArticle], "important", 100, { includeContent: false, filters }).total).toBe(0);
+    expect(searchReadspaceArticles([savedArticle], "research", 100, { filters: { ...filters, field: "tag" } }).total).toBe(1);
+    expect(searchReadspaceArticles([savedArticle], "research", 100, { filters: { ...filters, field: "title" } }).total).toBe(0);
   });
 });

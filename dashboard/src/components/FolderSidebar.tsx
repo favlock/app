@@ -89,6 +89,10 @@ import { useTrashCount } from "../hooks/useTrashQuery";
 import { useListCount } from "../hooks/useListsQuery";
 import ProUpgradeDialog from "./ProUpgradeDialog";
 import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
+import { useSavedSmartViews } from "../hooks/useSavedSmartViews";
+import { useSavedSmartViewCounts } from "../hooks/useSavedSmartViewCounts";
+import { smartViewIcon } from "../constants/smartViewIcons";
+import { Dialog, DialogActions, DialogDescription, DialogTitle } from "./ui/dialog";
 
 const folderCollisionDetection: CollisionDetection = ({
   active,
@@ -121,6 +125,7 @@ interface FolderSidebarProps {
   selectedTagId?: string | null;
   onSelectTag?: (tagId: string | null) => void;
   onStartOnboarding?: () => void;
+  onSelectSmartView?: () => void;
 }
 
 interface SortableCollectionProps {
@@ -230,6 +235,7 @@ export default function FolderSidebar({
   selectedTagId,
   onSelectTag,
   onStartOnboarding,
+  onSelectSmartView,
 }: FolderSidebarProps) {
   const appVersion = changelog[0]?.version ?? PRODUCT_VERSION;
   const { user, signOut, isLocalAccount } = useAuth();
@@ -245,6 +251,9 @@ export default function FolderSidebar({
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
   const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const smartViews = useSavedSmartViews();
+  const smartViewCounts = useSavedSmartViewCounts(smartViews.views);
+  const [smartViewInfoOpen, setSmartViewInfoOpen] = useState(false);
   const {
     data: folders = [],
     isLoading: loadingFolders,
@@ -720,6 +729,47 @@ export default function FolderSidebar({
             )}
           </li>
         </ul>
+        {!isLocalAccount ? <>
+          <div className="my-3 border-t border-[color-mix(in_oklab,var(--app-line)_10%,transparent)]" role="separator" />
+          <div className="flex items-center justify-between px-2">
+            <h3 className="app-sidebar-label">Saved Smart Views</h3>
+            {accountPlan?.id !== "pro" ? (
+              <span
+                className="rounded-md border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[var(--app-lavender)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-primary)]"
+                aria-label="FavLock Pro feature"
+              >
+                Pro
+              </span>
+            ) : null}
+          </div>
+          {smartViews.error ? <p role="alert" className="px-2 py-2 text-xs text-red-600">Could not load saved views. <button type="button" onClick={() => void smartViews.refetch()} className="underline">Retry</button></p>
+            : smartViews.views.length ? <ul className="mt-2 space-y-1">
+              {smartViews.views.map((view) => {
+                const Icon = smartViewIcon(view.icon);
+                const selected = location.pathname === `/smart-views/${view.id}`;
+                return <li key={view.id}>
+                  <Link to={`/smart-views/${view.id}`} onClick={onSelectSmartView} aria-current={selected ? "page" : undefined}
+                    className={`theme-nav-button flex min-w-0 items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${selected ? "theme-nav-button-active" : ""}`}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: getColorHex(view.color) }}>
+                        <Icon size={14} aria-hidden="true" />
+                      </span>
+                      <span className="truncate">{view.name}</span>
+                    </span>
+                    <span className={`rounded-md px-1.5 py-0.5 text-sm ${selected ? "theme-nav-count-active" : "text-[var(--app-muted)]"}`}>
+                      {smartViewCounts[view.id] ?? "…"}
+                    </span>
+                  </Link>
+                </li>;
+              })}
+            </ul> : <div className="flex flex-wrap items-center gap-x-2 px-2 pt-1 text-xs text-[var(--app-muted)]">
+                  <span>Save a search to see it here.</span>
+                  <button type="button" onClick={() => setSmartViewInfoOpen(true)}
+                    className="inline-flex min-h-8 items-center rounded-md font-semibold text-[var(--app-primary)] underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)]">
+                    Learn more
+                  </button>
+                </div>}
+        </> : null}
         <div
           className="my-3 border-t border-[color-mix(in_oklab,var(--app-line)_10%,transparent)]"
           role="separator"
@@ -1146,6 +1196,19 @@ export default function FolderSidebar({
         © {new Date().getFullYear()} FavLock · v{appVersion}
       </div>
       </nav>
+      <Dialog open={smartViewInfoOpen} onClose={() => setSmartViewInfoOpen(false)} size="sm">
+        <DialogTitle>What are Saved Smart Views?</DialogTitle>
+        <DialogDescription>
+          Save a search and its filters as a shortcut in your sidebar.
+        </DialogDescription>
+        <div className="mt-4 space-y-3 text-sm text-[var(--app-ink)]">
+          <p>Give each view a name, icon, and color. Open it anytime to see matching items and a live count as your library changes.</p>
+          <p>{accountPlan?.id !== "pro" ? "Creating Saved Smart Views is available with Pro. " : null}Your view names, search terms, and filters are encrypted before they are saved.</p>
+        </div>
+        <DialogActions>
+          <Button type="button" className="min-w-[100px]" onClick={() => setSmartViewInfoOpen(false)}>Got it</Button>
+        </DialogActions>
+      </Dialog>
       <ProUpgradeDialog
         open={upgradeDialogOpen}
         onClose={() => setUpgradeDialogOpen(false)}

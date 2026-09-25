@@ -1,5 +1,6 @@
 import { getEntryText } from "./entryContent";
 import type { HomeReadspaceArticle } from "./homeLibrary";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, matchesLibraryMetadata, matchesLibraryText, type LibrarySearchFilters } from "./librarySearchFilters";
 
 export interface ReadspaceSearchMatch {
   article: HomeReadspaceArticle;
@@ -14,6 +15,7 @@ export interface ReadspaceSearchPage {
 
 export interface ReadspaceSearchOptions {
   includeContent?: boolean;
+  filters?: LibrarySearchFilters;
 }
 
 interface SearchDocument {
@@ -83,18 +85,23 @@ export function searchReadspaceArticles(
   articles: HomeReadspaceArticle[],
   query: string,
   limit = 100,
-  { includeContent = true }: ReadspaceSearchOptions = {},
+  { includeContent = true, filters = DEFAULT_LIBRARY_SEARCH_FILTERS }: ReadspaceSearchOptions = {},
 ): ReadspaceSearchPage {
   const normalizedQuery = normalize(query);
-  if (!normalizedQuery) return { matches: [], total: 0 };
+  if (!hasActiveLibrarySearch(normalizedQuery, filters)) return { matches: [], total: 0 };
   const terms = normalizedQuery.split(" ").filter(Boolean);
 
   const matches = articles.flatMap((article) => {
     const document = getSearchDocument(article);
-    const allowedSearchText = includeContent
-      ? document.searchableText
-      : `${document.title} ${document.category} ${document.tags}`;
-    if (!terms.every((term) => allowedSearchText.includes(term))) {
+    if (!matchesLibraryMetadata(filters, "readspace", article.entry.folder?.id ?? null,
+      (article.entry.tags ?? []).map((tag) => tag.id)) ||
+      !matchesLibraryText(normalizedQuery, filters.field, {
+        title: document.title,
+        url: article.content.sourceUrl,
+        tags: document.tags,
+        collection: document.category,
+        content: includeContent ? `${document.metadata} ${document.body}` : undefined,
+      })) {
       return [];
     }
 

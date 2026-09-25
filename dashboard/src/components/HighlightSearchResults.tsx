@@ -1,14 +1,18 @@
 import { ArrowRight, Highlighter } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HighlightSearchMatch } from "../lib/highlightSearch";
+import { useState } from "react";
 
 export default function HighlightSearchResults({
   matches,
   query,
+  refined = false,
 }: {
   matches: HighlightSearchMatch[];
   query: string;
+  refined?: boolean;
 }) {
+  const [showAll, setShowAll] = useState(false);
   if (!matches.length) return null;
   const searchParams = new URLSearchParams({ view: "highlights", q: query });
   const target = `/readspace?${searchParams.toString()}`;
@@ -32,15 +36,15 @@ export default function HighlightSearchResults({
             </p>
           </div>
         </div>
-        <Link to={target} className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-primary)] hover:underline">
+        {!refined ? <Link to={target} className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-primary)] hover:underline">
           View all <ArrowRight size={15} aria-hidden="true" />
-        </Link>
+        </Link> : null}
       </div>
       <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
-        {matches.slice(0, 3).map(({ highlight, sourceTitle }) => (
+        {(showAll ? matches : matches.slice(0, 3)).map(({ highlight, sourceTitle }) => (
           <li key={highlight.id}>
             <Link
-              to={target}
+              to={refined ? `/readspace?view=highlights&open=${encodeURIComponent(highlight.id)}` : target}
               className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
             >
               <span className="mt-1 size-2.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
@@ -56,6 +60,11 @@ export default function HighlightSearchResults({
           </li>
         ))}
       </ul>
+      {matches.length > 3 && !showAll ? (
+        <button type="button" onClick={() => setShowAll(true)} className="mt-3 min-h-10 text-sm font-semibold text-[var(--app-primary)] hover:underline">
+          Show all {matches.length} matching highlights
+        </button>
+      ) : null}
     </section>
   );
 }

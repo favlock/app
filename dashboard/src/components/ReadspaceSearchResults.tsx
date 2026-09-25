@@ -1,14 +1,18 @@
 import { ArrowRight, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { ReadspaceSearchPage } from "../lib/readspaceSearch";
+import { useState } from "react";
 
 export default function ReadspaceSearchResults({
   result,
   query,
+  refined = false,
 }: {
   result: ReadspaceSearchPage;
   query: string;
+  refined?: boolean;
 }) {
+  const [showAll, setShowAll] = useState(false);
   if (result.total === 0) return null;
 
   const buildUrl = (entryId?: string) => {
@@ -41,17 +45,17 @@ export default function ReadspaceSearchResults({
             </p>
           </div>
         </div>
-        <Link
+        {!refined ? <Link
           to={buildUrl()}
           className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-primary)] hover:underline"
         >
           View all
           <ArrowRight size={15} aria-hidden="true" />
-        </Link>
+        </Link> : null}
       </div>
 
       <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
-        {result.matches.slice(0, 3).map(({ article, excerpt }) => (
+        {(showAll ? result.matches : result.matches.slice(0, 3)).map(({ article, excerpt }) => (
           <li key={article.entry.id}>
             <Link
               to={buildUrl(article.entry.id)}
@@ -76,6 +80,11 @@ export default function ReadspaceSearchResults({
           </li>
         ))}
       </ul>
+      {result.matches.length > 3 && !showAll ? (
+        <button type="button" onClick={() => setShowAll(true)} className="mt-3 min-h-10 text-sm font-semibold text-[var(--app-primary)] hover:underline">
+          Show more matching articles
+        </button>
+      ) : null}
     </section>
   );
 }

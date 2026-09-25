@@ -1,4 +1,5 @@
 import type { BookmarkSorting } from "../lib/bookmarkSorting";
+import type { LibrarySearchFilters } from "./librarySearchFilters";
 import {
   searchCachedBookmarks,
   type BookmarkSearchPage,
@@ -11,6 +12,7 @@ interface SearchWorkerRequest {
   offset: number;
   limit: number;
   sorting?: BookmarkSorting;
+  filters?: LibrarySearchFilters;
 }
 
 interface SearchWorkerResponse {
@@ -66,20 +68,21 @@ function getSearchWorker(): Worker | null {
 export async function searchCachedBookmarksOffMainThread(
   userId: string,
   query: string,
-  options: { offset?: number; limit?: number; sorting?: BookmarkSorting } = {},
+  options: { offset?: number; limit?: number; sorting?: BookmarkSorting; filters?: LibrarySearchFilters } = {},
 ): Promise<BookmarkSearchPage> {
   const offset = Math.max(0, Math.floor(options.offset ?? 0));
   const limit = Math.max(1, Math.floor(options.limit ?? 100));
   const sorting = options.sorting;
+  const filters = options.filters;
   const worker = getSearchWorker();
 
   if (!worker) {
-    return searchCachedBookmarks(userId, query, { offset, limit, sorting });
+    return searchCachedBookmarks(userId, query, { offset, limit, sorting, filters });
   }
 
   const id = nextRequestId++;
   return new Promise((resolve, reject) => {
     pendingSearches.set(id, { resolve, reject });
-    worker.postMessage({ id, userId, query, offset, limit, sorting } satisfies SearchWorkerRequest);
+    worker.postMessage({ id, userId, query, offset, limit, sorting, filters } satisfies SearchWorkerRequest);
   });
 }
