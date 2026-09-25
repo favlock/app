@@ -1,5 +1,5 @@
 import { sortBookmarks, type BookmarkSorting } from "../lib/bookmarkSorting";
-import { useRef, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRef, useEffect, useMemo, useState } from "react";
 import { searchBookmarkLibrary, useBookmarkLocalSearch } from "../hooks/useBookmarkLocalSearch";
 import BookmarkCard from "./BookmarkCard";
 import { BookmarkIcon, Loader2, PlusIcon, Sparkles } from "lucide-react";
@@ -14,12 +14,13 @@ import BookmarkBulkEditor, { type BookmarkSelection } from "./BookmarkBulkEditor
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
 import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, type LibrarySearchFilters } from "../lib/librarySearchFilters";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 const SEARCH_PAGE_SIZE = 100;
 const BROWSE_PAGE_SIZE = 21;
 
 interface BookmarkListProps {
-  headerControls?: ReactNode;
+  layout?: LibraryLayout;
   sorting?: BookmarkSorting;
   bookmarks: Bookmark[];
   bookmarksLoading?: boolean;
@@ -40,7 +41,7 @@ interface BookmarkListProps {
 }
 
 export default function BookmarkList({
-  headerControls,
+  layout = "cards",
   sorting,
   bookmarks: cachedBookmarks,
   bookmarksLoading = false,
@@ -209,7 +210,7 @@ export default function BookmarkList({
     if (isLoading) {
       return (
         <div role="status" aria-label="Loading bookmarks">
-          <BookmarkListSkeleton />
+          <BookmarkListSkeleton layout={layout} />
         </div>
       );
     }
@@ -306,10 +307,11 @@ export default function BookmarkList({
 
     return (
       <div className="space-y-3">
-        <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+        <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
           {bookmarks.map((bookmark, index) => (
             <li key={bookmark.id} className={`list-none h-full relative rounded-3xl ${selection.active && selection.selected.has(bookmark.id) ? "ring-2 ring-[var(--app-primary)]" : ""}`}>
               <BookmarkCard
+                layout={layout}
                 bookmark={bookmark}
                 selection={selection.active ? {
                   checked: selection.selected.has(bookmark.id),
@@ -390,7 +392,6 @@ export default function BookmarkList({
   if (isSearchMode && searchFilters.itemType !== "all" && searchFilters.itemType !== "bookmark") return null;
 
   return <BookmarkBulkEditor
-    heading={headerControls}
     key={`${folderId ?? ""}:${tagId ?? ""}:${searchKey}`}
     shown={bookmarks}
     total={isSearchMode ? searchResultTotal : browseBookmarks.length}

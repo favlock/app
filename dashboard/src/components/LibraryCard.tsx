@@ -1,7 +1,9 @@
-import { useContext } from "react";
+import { useContext, useEffect, useId, useState } from "react";
 import { LibrarySelectionContext } from "../context/LibrarySelectionContext";
+import type { LibraryItemSelection } from "../context/LibrarySelectionContext";
 import type { CSSProperties, MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { BookOpen, Bookmark, ListTodo, StickyNote } from "lucide-react";
+import { BookOpen, Bookmark, ListTodo, MoreHorizontal, StickyNote } from "lucide-react";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 import { COLOR_MAP, COLLECTION_SURFACE_MAP, type ColorConstant } from "../constants/colors";
 
@@ -15,6 +17,10 @@ interface LibraryCardProps {
   actions: ReactNode;
   onClick: (event: ReactMouseEvent<HTMLElement>) => void;
   raised?: boolean;
+  layout?: LibraryLayout;
+  compactSummary?: ReactNode;
+  compactSelection?: LibraryItemSelection;
+  compactActionsLabel?: string;
 }
 
 export default function LibraryCard({
@@ -27,8 +33,19 @@ export default function LibraryCard({
   actions,
   onClick,
   raised = false,
+  layout = "cards",
+  compactSummary,
+  compactSelection,
+  compactActionsLabel,
 }: LibraryCardProps) {
   const selection = useContext(LibrarySelectionContext);
+  const rowSelection = selection ?? compactSelection;
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsId = useId();
+
+  useEffect(() => {
+    if (layout !== "compact" || rowSelection) setActionsOpen(false);
+  }, [layout, rowSelection]);
   const isNote = kind === "note";
   const isTodo = kind === "todo";
   const isRead = kind === "read";
@@ -49,6 +66,49 @@ export default function LibraryCard({
       ? `color-mix(in oklab, ${COLOR_MAP[color]} 65%, var(--app-reading))`
       : "color-mix(in oklab, var(--app-line) 14%, transparent)",
   };
+
+  if (layout === "compact") {
+    return (
+      <article style={cardStyle}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && actionsOpen) {
+            event.stopPropagation();
+            setActionsOpen(false);
+          }
+        }}
+        onClick={(event) => {
+          if (!rowSelection) return onClick(event);
+          if (!rowSelection.disabled && !(event.target instanceof Element && event.target.closest("label, input, button"))) rowSelection.toggle(event.shiftKey);
+        }}
+        className={`library-card relative min-w-0 w-full cursor-pointer px-3 py-2 ${raised || actionsOpen ? "z-40" : "z-0"} ${rowSelection?.checked ? "ring-2 ring-[var(--app-primary)]" : ""}`}>
+        <div className="flex min-h-14 min-w-0 items-center gap-3">
+          <span className="library-card-badge flex size-9 shrink-0 items-center justify-center rounded-xl" title={isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}>
+            <TypeIcon size={17} aria-hidden="true" />
+          </span>
+          <div className="min-w-0 flex-1" inert={!!rowSelection} style={rowSelection ? { pointerEvents: "none" } : undefined}>
+            <h3 className="min-w-0 truncate text-sm font-semibold leading-5 text-[var(--app-ink)]">{title}</h3>
+            <p className="min-w-0 truncate text-xs leading-5 text-[var(--app-muted)]">
+              {isNote ? "Document" : isTodo ? "Task" : isRead ? "Read" : "Bookmark"}{compactSummary ? <> · {compactSummary}</> : null}
+            </p>
+          </div>
+          {!rowSelection && kind === "bookmark" && meta ? <span className="shrink-0 text-[var(--app-muted)]">{meta}</span> : null}
+          {rowSelection ? <label className="flex size-11 shrink-0 cursor-pointer items-center justify-center" onClick={(event) => event.stopPropagation()}>
+            <input type="checkbox" checked={rowSelection.checked} disabled={rowSelection.disabled}
+              aria-label={`Select item: ${rowSelection.title}`} className="size-5 accent-[var(--app-primary)]"
+              onChange={() => rowSelection.toggle(false)} />
+          </label> : <button type="button" aria-label={`Actions for ${compactActionsLabel ?? "item"}`} aria-expanded={actionsOpen} aria-controls={actionsId}
+            onClick={(event) => { event.stopPropagation(); setActionsOpen((open) => !open); }}
+            className="theme-button-icon flex size-11 shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2">
+            <MoreHorizontal size={19} aria-hidden="true" />
+          </button>}
+        </div>
+        {!rowSelection && actionsOpen ? <div id={actionsId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--card-border)] pt-2" onClick={(event) => event.stopPropagation()}>
+          <div className="min-w-0">{category}</div>
+          <div className="flex items-center gap-1">{actions}</div>
+        </div> : null}
+      </article>
+    );
+  }
 
   return (
     <article

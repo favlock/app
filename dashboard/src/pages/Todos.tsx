@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import TodoEditorDialog from "../components/TodoEditorDialog";
 import TodoListRow from "../components/TodoListRow";
 import TodoQuickAdd from "../components/TodoQuickAdd";
+import TodoCard from "../components/TodoCard";
 import { useTodos, useToggleTodo } from "../hooks/useTodosQuery";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import EntriesPage from "./EntriesPage";
@@ -76,13 +77,14 @@ export default function Todos() {
         isCompleted={(todo) => todo.is_completed}
         getDueDate={(todo) => todo.due_date}
         quickAdd={<TodoQuickAdd />}
-        layout="list"
-        renderCard={(todo, onEdit) => (
+        renderCard={(todo, onEdit, layout) => layout === "compact" ? (
           <TodoListRow
             todo={todo}
             onEdit={onEdit}
             onToggle={handleToggle}
           />
+        ) : (
+          <TodoCard todo={todo} onEdit={onEdit} layout="cards" onToggle={handleToggle} togglePending={toggleTodo.isPending} />
         )}
         renderEditor={({ open, entry, onClose }) => (
           <TodoEditorDialog open={open} todo={entry} onClose={onClose} />

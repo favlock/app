@@ -25,6 +25,7 @@ import {
 } from "./ui/dialog";
 import AddBookmarkForm from "./AddBookmarkForm";
 import { getCollectionBadgeColor } from "../constants/colors";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 import { buildTagSlugIndex } from "../lib/collectionSlugs";
 import { getMainDomain } from "../lib/domains";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
@@ -36,6 +37,7 @@ import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
+  layout?: LibraryLayout;
   onDeleted: () => void;
   onMoved?: () => void;
   searchShortcut?: number;
@@ -44,6 +46,7 @@ interface BookmarkCardProps {
 
 export default function BookmarkCard({
   bookmark,
+  layout = "cards",
   onDeleted,
   onMoved,
   searchShortcut,
@@ -247,6 +250,10 @@ export default function BookmarkCard({
     <>
       <LibraryCard
         kind="bookmark"
+        layout={layout}
+        compactSummary={displayDomain}
+        compactActionsLabel={bookmark.title}
+        compactSelection={selection ? { checked: selection.checked, disabled: selection.disabled, title: bookmark.title, toggle: selection.onToggle } : undefined}
         collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={showFolderMenu}

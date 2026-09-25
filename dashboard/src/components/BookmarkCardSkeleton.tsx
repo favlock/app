@@ -1,4 +1,5 @@
 import { Skeleton } from "./ui/skeleton";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 const SKELETON_COUNT = 6;
 
@@ -30,12 +31,12 @@ export function BookmarkCardSkeleton() {
   );
 }
 
-export function BookmarkListSkeleton() {
+export function BookmarkListSkeleton({ layout = "cards" }: { layout?: LibraryLayout }) {
   return (
-    <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
       {Array.from({ length: SKELETON_COUNT }).map((_, i) => (
         <li key={i} className="list-none">
-          <BookmarkCardSkeleton />
+          {layout === "compact" ? <div className="flex min-h-18 items-center gap-3 rounded-xl bg-[var(--app-reading)] px-3"><Skeleton className="size-9 rounded-xl" /><Skeleton className="h-5 w-2/3 rounded-full" /></div> : <BookmarkCardSkeleton />}
         </li>
       ))}
     </ul>

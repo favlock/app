@@ -35,6 +35,8 @@ import type { ReadspaceEntry } from "../types/bookmark";
 import type { DashboardLayoutContext } from "./DashboardLayout";
 import ReadspaceArticleDialog from "../components/ReadspaceArticleDialog";
 import ReadspaceCard from "../components/ReadspaceCard";
+import LibraryLayoutControl from "../components/LibraryLayoutControl";
+import { useLibraryLayout } from "../hooks/useLibraryLayout";
 import ReadspaceOrganizationDialog from "../components/ReadspaceOrganizationDialog";
 import ReadspaceOrganizationFields from "../components/ReadspaceOrganizationFields";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
@@ -175,6 +177,7 @@ function LocalReadspaceCloudOnly() {
 function CloudReadspace() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { user } = useAuth();
+  const { layout, update: setLayout } = useLibraryLayout(user?.id);
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
     useEncryption();
   const { data: entries = [], isLoading, error, refetch } = useReadspace();
@@ -681,6 +684,10 @@ function CloudReadspace() {
         </section>
       ) : null}
 
+      {view === "articles" ? <div className="flex justify-end px-3 lg:px-0">
+        <LibraryLayoutControl layout={layout} onChange={setLayout} />
+      </div> : null}
+
       <section className="px-3 lg:px-0">
         {view === "highlights" && highlightColorError ? (
           <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
@@ -726,13 +733,13 @@ function CloudReadspace() {
           }}>
           {(selection) => <>{isLoading ? (
           <div
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+            className={layout === "compact" ? "space-y-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}
             role="status"
           >
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className="h-56 animate-pulse rounded-xl bg-[var(--app-highlight)]/50"
+                className={`${layout === "compact" ? "h-18" : "h-56"} animate-pulse rounded-xl bg-[var(--app-highlight)]/50`}
               />
             ))}
           </div>
@@ -797,10 +804,11 @@ function CloudReadspace() {
                 matching articles.
               </p>
             ) : null}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
               {visibleEntries.map(({ entry, content }) => (
                 <SelectableLibraryItem key={entry.id} id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>
                 <ReadspaceCard
+                  layout={layout}
                   entry={entry}
                   content={content}
                   onOpen={() => {
