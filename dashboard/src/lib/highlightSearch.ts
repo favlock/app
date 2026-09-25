@@ -1,6 +1,7 @@
 import type { WebHighlight } from "../hooks/useHighlightsQuery";
 import type { Bookmark } from "../types/bookmark";
 import type { HomeReadspaceArticle } from "./homeLibrary";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, matchesLibraryMetadata, matchesLibraryText, type LibrarySearchFilters } from "./librarySearchFilters";
 
 export type HighlightSearchMatch = {
   highlight: WebHighlight;
@@ -23,10 +24,10 @@ export function searchHighlights(
   bookmarks: Bookmark[],
   articles: HomeReadspaceArticle[],
   query: string,
-  { includeAnnotations = false }: { includeAnnotations?: boolean } = {},
+  { includeAnnotations = false, filters = DEFAULT_LIBRARY_SEARCH_FILTERS }: { includeAnnotations?: boolean; filters?: LibrarySearchFilters } = {},
 ): HighlightSearchMatch[] {
   const terms = normalize(query).split(" ").filter(Boolean);
-  if (!terms.length) return [];
+  if (!hasActiveLibrarySearch(query, filters)) return [];
   const bookmarkById = new Map(bookmarks.map((bookmark) => [bookmark.id, bookmark]));
   const articleById = new Map(articles.map((article) => [article.entry.id, article]));
 
@@ -39,11 +40,20 @@ export function searchHighlights(
       : undefined;
     const sourceTitle = bookmark?.title ?? article?.entry.title ?? "Saved source";
     const sourceUrl = bookmark?.url ?? article?.content.sourceUrl ?? null;
+    const sourceCollection = bookmark?.folders?.[0] ?? article?.entry.folder;
+    const sourceTags = bookmark?.tags ?? article?.entry.tags ?? [];
+    if (!matchesLibraryMetadata(filters, "highlight", sourceCollection?.id ?? null,
+      sourceTags.map((tag) => tag.id))) return [];
     const quote = normalize(highlight.payload.quote.exact);
     const annotation = includeAnnotations ? normalize(highlight.payload.note) : "";
     const source = normalize(`${sourceTitle} ${sourceUrl ?? ""}`);
-    const searchableText = `${quote} ${annotation} ${source}`;
-    if (!terms.every((term) => searchableText.includes(term))) return [];
+    if (!matchesLibraryText(query, filters.field, {
+      title: sourceTitle,
+      url: sourceUrl ?? "",
+      tags: sourceTags.map((tag) => tag.name).join(" "),
+      collection: sourceCollection?.name ?? "",
+      content: `${quote} ${annotation}`,
+    })) return [];
 
     let score = 0;
     for (const term of terms) {

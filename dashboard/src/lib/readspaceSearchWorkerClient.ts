@@ -1,4 +1,5 @@
 import type { HomeReadspaceArticle } from "./homeLibrary";
+import type { LibrarySearchFilters } from "./librarySearchFilters";
 import {
   searchReadspaceArticles,
   type ReadspaceSearchPage,
@@ -110,10 +111,11 @@ export async function searchReadspaceOffMainThread(
   query: string,
   limit = 100,
   includeContent = true,
+  filters?: LibrarySearchFilters,
 ): Promise<ReadspaceSearchPage> {
   const currentWorker = getWorker();
   if (!currentWorker) {
-    return searchReadspaceArticles(articles, query, limit, { includeContent });
+    return searchReadspaceArticles(articles, query, limit, { includeContent, filters });
   }
 
   const signature = getIndexSignature(articles);
@@ -123,6 +125,7 @@ export async function searchReadspaceOffMainThread(
     query,
     limit,
     includeContent,
+    filters,
   });
   const articlesById = new Map(
     articles.map((article) => [article.entry.id, article]),

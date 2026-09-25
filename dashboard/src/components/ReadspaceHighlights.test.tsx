@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { WebHighlight } from "../hooks/useHighlightsQuery";
 import type { Bookmark } from "../types/bookmark";
 import ReadspaceHighlights from "./ReadspaceHighlights";
+import { MemoryRouter } from "react-router-dom";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -62,6 +63,34 @@ describe("ReadspaceHighlights", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+  });
+
+  it("shows the selected highlight from a filtered dashboard result", async () => {
+    await act(async () => root.render(
+      <MemoryRouter>
+        <ReadspaceHighlights
+          highlights={[highlight("highlight-1", "bookmark-1", "First quote"), highlight("highlight-2", "bookmark-2", "Second quote")]}
+          focusId="highlight-2"
+          bookmarks={bookmarks}
+          query=""
+          loading={false}
+          error={false}
+          deletingId={null}
+          annotatingId={null}
+          coloringId={null}
+          annotationDisabled={false}
+          onRetry={vi.fn()}
+          onDelete={vi.fn()}
+          onDeleteSelected={vi.fn()}
+          onAnnotate={vi.fn()}
+          onColorChange={vi.fn()}
+          onExport={vi.fn()}
+        />
+      </MemoryRouter>,
+    ));
+    expect(container.textContent).toContain("Second quote");
+    expect(container.textContent).not.toContain("First quote");
+    expect(container.querySelector('a[href="/readspace?view=highlights"]')).not.toBeNull();
   });
 
   it("groups highlights by source and keeps annotations beneath their quotes", async () => {

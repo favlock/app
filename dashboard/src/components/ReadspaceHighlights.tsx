@@ -1,5 +1,6 @@
 import { Download, ExternalLink, Highlighter, ListChecks, LoaderCircle, MessageSquareText, Trash2, X } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Bookmark } from "../types/bookmark";
 import type { ReadspaceContent } from "../lib/readspaceContent";
 import type { ReadspaceEntry } from "../types/bookmark";
@@ -83,6 +84,7 @@ export function CollapsibleAnnotation({ text }: { text: string }) {
 
 export default function ReadspaceHighlights({
   highlights,
+  focusId = null,
   bookmarks,
   articles = [],
   query,
@@ -102,6 +104,7 @@ export default function ReadspaceHighlights({
   onOpenArticle,
 }: {
   highlights: WebHighlight[];
+  focusId?: string | null;
   bookmarks: Bookmark[];
   articles?: Array<{ entry: ReadspaceEntry; content: ReadspaceContent }>;
   query: string;
@@ -136,6 +139,7 @@ export default function ReadspaceHighlights({
     .trim();
   const searchTerms = normalizedQuery.split(" ").filter(Boolean);
   const visible = highlights.filter((highlight) => {
+    if (focusId && highlight.id !== focusId) return false;
     const bookmark = highlight.bookmarkId ? bookmarkById.get(highlight.bookmarkId) : null;
     const article = highlight.entryId ? articleById.get(highlight.entryId) : null;
     const searchableText = [highlight.payload.quote.exact, highlight.payload.note, bookmark?.title, bookmark?.url, article?.entry.title, article?.content.sourceUrl]
@@ -206,10 +210,11 @@ export default function ReadspaceHighlights({
   if (loading) return <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--app-muted)]" role="status"><LoaderCircle className="size-4 animate-spin" /> Loading highlights…</div>;
   if (error) return <div className="rounded-xl bg-red-500/10 p-5 text-sm text-red-700 dark:text-red-300" role="alert"><p>Could not load highlights.</p><Button type="button" outline className="mt-3" onClick={onRetry}>Try again</Button></div>;
   if (!highlights.length) return <div className="rounded-xl border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[color-mix(in_oklab,var(--app-card)_88%,var(--app-highlight))] px-5 py-14 text-center"><Highlighter size={42} className="mx-auto text-[var(--app-primary)]" /><h3 className="mt-4 text-xl font-bold">No highlights yet</h3><p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[var(--app-muted)]">Select text in a saved article, or select text on a web page and choose Save highlight from the right-click menu.</p></div>;
-  if (!visible.length) return <div className="rounded-xl bg-[var(--app-highlight)]/55 px-5 py-10 text-center text-sm text-[var(--app-muted)]">No highlights match “{query.trim()}”.</div>;
+  if (!visible.length) return <div className="rounded-xl bg-[var(--app-highlight)]/55 px-5 py-10 text-center text-sm text-[var(--app-muted)]">{focusId ? "This highlight is no longer available." : `No highlights match “${query.trim()}”.`}</div>;
 
   return <>
   <div>
+    {focusId ? <Link to="/readspace?view=highlights" className="mb-3 inline-flex min-h-10 items-center text-sm font-semibold text-[var(--app-primary)] hover:underline">Show all highlights</Link> : null}
     <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
       {selecting ? <>
         <p className="mr-auto text-sm text-[var(--app-muted)]" role="status">

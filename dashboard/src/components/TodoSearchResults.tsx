@@ -4,11 +4,13 @@ import EntrySearchResults from "./EntrySearchResults";
 interface TodoSearchResultsProps {
   matches: TodoSearchMatch[];
   query: string;
+  refined?: boolean;
 }
 
 export default function TodoSearchResults({
   matches,
   query,
+  refined,
 }: TodoSearchResultsProps) {
   return (
     <EntrySearchResults
@@ -19,6 +21,7 @@ export default function TodoSearchResults({
         score,
       }))}
       query={query}
+      refined={refined}
     />
   );
 }

@@ -550,6 +550,7 @@ export default function DashboardLayout() {
                     setIsMobileSidebarOpen(false);
                     setIsOnboardingOpen(true);
                   }}
+                  onSelectSmartView={() => setIsMobileSidebarOpen(false)}
                 />
               </div>
             </Headless.DialogPanel>

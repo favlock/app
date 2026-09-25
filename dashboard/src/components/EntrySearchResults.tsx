@@ -9,11 +9,13 @@ import {
 import { Link } from "react-router-dom";
 import type { EntrySearchMatch } from "../lib/entrySearch";
 import type { EntryKind, Todo } from "../types/bookmark";
+import { useState } from "react";
 
 interface EntrySearchResultsProps {
   kind: EntryKind;
   matches: EntrySearchMatch[];
   query: string;
+  refined?: boolean;
 }
 
 function isCompletedTodo(kind: EntryKind, entry: EntrySearchMatch["entry"]): boolean {
@@ -24,7 +26,9 @@ export default function EntrySearchResults({
   kind,
   matches,
   query,
+  refined = false,
 }: EntrySearchResultsProps) {
+  const [showAll, setShowAll] = useState(false);
   if (matches.length === 0) return null;
 
   const isTodo = kind === "todo";
@@ -67,17 +71,17 @@ export default function EntrySearchResults({
             </p>
           </div>
         </div>
-        <Link
+        {!refined ? <Link
           to={buildUrl()}
           className="inline-flex items-center gap-1 text-sm font-semibold text-[var(--app-primary)] hover:underline"
         >
           View all
           <ArrowRight size={15} aria-hidden="true" />
-        </Link>
+        </Link> : null}
       </div>
 
       <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
-        {matches.slice(0, 3).map(({ entry, excerpt }) => {
+        {(showAll ? matches : matches.slice(0, 3)).map(({ entry, excerpt }) => {
           const isCompleted = isCompletedTodo(kind, entry);
           return (
             <li key={entry.id}>
@@ -125,6 +129,11 @@ export default function EntrySearchResults({
           );
         })}
       </ul>
+      {matches.length > 3 && !showAll ? (
+        <button type="button" onClick={() => setShowAll(true)} className="mt-3 min-h-10 text-sm font-semibold text-[var(--app-primary)] hover:underline">
+          Show all {matches.length} matching {plural}
+        </button>
+      ) : null}
     </section>
   );
 }

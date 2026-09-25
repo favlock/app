@@ -690,6 +690,7 @@ function CloudReadspace() {
         {view === "highlights" ? (
           <ReadspaceHighlights
             highlights={highlightsQuery.data ?? []}
+            focusId={new URLSearchParams(location.search).get("open")}
             bookmarks={bookmarks}
             articles={parsedEntries}
             query={debouncedQuery}

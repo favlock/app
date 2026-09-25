@@ -2,7 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useBookmarkLocalSearch } from "./useBookmarkLocalSearch";
+import { searchBookmarkLibrary, useBookmarkLocalSearch } from "./useBookmarkLocalSearch";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS } from "../lib/librarySearchFilters";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 const mocks = vi.hoisted(() => ({ local: true, read: vi.fn(), search: vi.fn() }));
@@ -41,5 +42,14 @@ describe("sorted bookmark search", () => {
     await render();
     expect(mocks.search).toHaveBeenCalledWith("test", "article", { offset: 1, limit: 1, sorting });
     expect(mocks.read).not.toHaveBeenCalled();
+  });
+
+  it("applies the same filter-only request in a local vault and the cloud cache worker", async () => {
+    const filters = { ...DEFAULT_LIBRARY_SEARCH_FILTERS, itemType: "bookmark" as const, field: "title" as const };
+    const local = await searchBookmarkLibrary("test", {} as CryptoKey, true, "", { filters });
+    expect(local.total).toBe(3);
+    mocks.local = false;
+    await searchBookmarkLibrary("test", null, false, "", { filters });
+    expect(mocks.search).toHaveBeenCalledWith("test", "", expect.objectContaining({ filters }));
   });
 });

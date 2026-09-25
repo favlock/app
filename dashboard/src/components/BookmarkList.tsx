@@ -13,6 +13,7 @@ import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 import BookmarkBulkEditor, { type BookmarkSelection } from "./BookmarkBulkEditor";
 import { useAuth } from "../context/useAuth";
 import { useEncryption } from "../context/useEncryption";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, type LibrarySearchFilters } from "../lib/librarySearchFilters";
 
 const SEARCH_PAGE_SIZE = 100;
 const BROWSE_PAGE_SIZE = 21;
@@ -28,6 +29,7 @@ interface BookmarkListProps {
   folderId: string | null;
   tagId?: string | null;
   searchQuery?: string;
+  searchFilters?: LibrarySearchFilters;
   searchShortcutsEnabled?: boolean;
   onAddBookmark?: () => void;
   onSearchMetaChange?: (meta: {
@@ -48,6 +50,7 @@ export default function BookmarkList({
   folderId,
   tagId,
   searchQuery = "",
+  searchFilters = DEFAULT_LIBRARY_SEARCH_FILTERS,
   searchShortcutsEnabled = true,
   onAddBookmark,
   onSearchMetaChange,
@@ -57,20 +60,22 @@ export default function BookmarkList({
   const { cryptoKey } = useEncryption();
   const [selectionActive, setSelectionActive] = useState(false);
   const normalizedSearch = searchQuery.trim();
-  const isSearchMode = normalizedSearch.length > 0;
+  const isSearchMode = hasActiveLibrarySearch(normalizedSearch, searchFilters);
+  const searchKey = JSON.stringify([normalizedSearch, searchFilters]);
   const [visibleBrowseCount, setVisibleBrowseCount] = useState(BROWSE_PAGE_SIZE);
   const [searchPageState, setSearchPageState] = useState({
     query: "",
     page: 0,
   });
   const searchPage =
-    searchPageState.query === normalizedSearch ? searchPageState.page : 0;
+    searchPageState.query === searchKey ? searchPageState.page : 0;
   const searchOffset = searchPage * SEARCH_PAGE_SIZE;
 
   const localSearchQuery = useBookmarkLocalSearch(normalizedSearch, {
     offset: searchOffset,
     limit: SEARCH_PAGE_SIZE,
     sorting,
+    filters: searchFilters,
   });
 
   const view = useMemo<BookmarkView>(() => {
@@ -245,10 +250,10 @@ export default function BookmarkList({
               aria-hidden="true"
             />
             <p className="text-sm font-medium text-[var(--app-ink)]">
-              No bookmarks match "{normalizedSearch}"
+              No bookmarks match your search
             </p>
             <p className="mt-1 text-sm text-[var(--app-muted)]">
-              Try fewer keywords or search by domain, tag, or collection name.
+              Try a different field, fewer keywords, or clear a filter.
             </p>
           </div>
         );
@@ -337,7 +342,7 @@ export default function BookmarkList({
                 disabled={searchPage === 0 || localSearchQuery.isFetching}
                 onClick={() =>
                   setSearchPageState({
-                    query: normalizedSearch,
+                    query: searchKey,
                     page: Math.max(0, searchPage - 1),
                   })
                 }
@@ -353,7 +358,7 @@ export default function BookmarkList({
                 }
                 onClick={() =>
                   setSearchPageState({
-                    query: normalizedSearch,
+                    query: searchKey,
                     page: searchPage + 1,
                   })
                 }
@@ -382,9 +387,11 @@ export default function BookmarkList({
       </div>
     );
   };
+  if (isSearchMode && searchFilters.itemType !== "all" && searchFilters.itemType !== "bookmark") return null;
+
   return <BookmarkBulkEditor
     heading={headerControls}
-    key={`${folderId ?? ""}:${tagId ?? ""}:${normalizedSearch}`}
+    key={`${folderId ?? ""}:${tagId ?? ""}:${searchKey}`}
     shown={bookmarks}
     total={isSearchMode ? searchResultTotal : browseBookmarks.length}
     loading={isLoading || !!effectiveError}
@@ -392,7 +399,7 @@ export default function BookmarkList({
     getAll={async () => {
       if (!isSearchMode) return browseBookmarks;
       if (!user || !cryptoKey) throw new Error("Unlock your vault first.");
-      return (await searchBookmarkLibrary(user.id, cryptoKey, isLocalAccount, normalizedSearch, { limit: Number.MAX_SAFE_INTEGER, sorting })).bookmarks;
+      return (await searchBookmarkLibrary(user.id, cryptoKey, isLocalAccount, normalizedSearch, { limit: Number.MAX_SAFE_INTEGER, sorting, filters: searchFilters })).bookmarks;
     }}
   >{renderContent}</BookmarkBulkEditor>;
 

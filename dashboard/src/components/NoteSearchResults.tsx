@@ -4,11 +4,13 @@ import EntrySearchResults from "./EntrySearchResults";
 interface NoteSearchResultsProps {
   matches: NoteSearchMatch[];
   query: string;
+  refined?: boolean;
 }
 
 export default function NoteSearchResults({
   matches,
   query,
+  refined,
 }: NoteSearchResultsProps) {
   return (
     <EntrySearchResults
@@ -19,6 +21,7 @@ export default function NoteSearchResults({
         score,
       }))}
       query={query}
+      refined={refined}
     />
   );
 }
