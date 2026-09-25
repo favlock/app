@@ -751,7 +751,7 @@ export default function FolderSidebar({
                   <Link to={`/smart-views/${view.id}`} onClick={onSelectSmartView} aria-current={selected ? "page" : undefined}
                     className={`theme-nav-button flex min-w-0 items-center justify-between rounded-lg px-2.5 py-1.5 font-medium ${selected ? "theme-nav-button-active" : ""}`}>
                     <span className="flex min-w-0 items-center gap-2">
-                      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md" style={{ backgroundColor: getColorHex(view.color) }}>
+                      <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-md text-[#1d2230]" style={{ backgroundColor: getColorHex(view.color) }}>
                         <Icon size={14} aria-hidden="true" />
                       </span>
                       <span className="truncate">{view.name}</span>
