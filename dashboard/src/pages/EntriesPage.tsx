@@ -1,3 +1,6 @@
+import BookmarkBulkEditor from "../components/BookmarkBulkEditor";
+import SelectableLibraryItem from "../components/SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
 import {
   useEffect,
   useMemo,
@@ -8,6 +11,9 @@ import {
 import { ListTodo, Menu, PlusIcon, Search, StickyNote, X } from "lucide-react";
 import { useOutletContext, useSearchParams } from "react-router-dom";
 import { Button } from "../components/ui/button";
+import LibraryLayoutControl from "../components/LibraryLayoutControl";
+import { useLibraryLayout, type LibraryLayout } from "../hooks/useLibraryLayout";
+import { useAuth } from "../context/useAuth";
 import { useDebounce } from "../hooks/useDebounce";
 import { searchEntries } from "../lib/entrySearch";
 import type { Entry, EntryKind } from "../types/bookmark";
@@ -44,7 +50,7 @@ interface EntriesPageProps<TEntry extends Entry> {
   isLoading: boolean;
   error: unknown;
   onRetry: () => void;
-  renderCard: (entry: TEntry, onEdit: (entry: TEntry) => void) => ReactNode;
+  renderCard: (entry: TEntry, onEdit: (entry: TEntry) => void, layout: LibraryLayout) => ReactNode;
   renderEditor: (options: {
     open: boolean;
     entry: TEntry | null;
@@ -53,7 +59,6 @@ interface EntriesPageProps<TEntry extends Entry> {
   isCompleted?: (entry: TEntry) => boolean;
   getDueDate?: (entry: TEntry) => string | null | undefined;
   quickAdd?: ReactNode;
-  layout?: "grid" | "list";
 }
 
 export default function EntriesPage<TEntry extends Entry>({
@@ -68,14 +73,15 @@ export default function EntriesPage<TEntry extends Entry>({
   isCompleted,
   getDueDate,
   quickAdd,
-  layout = "grid",
 }: EntriesPageProps<TEntry>) {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
+  const { user } = useAuth();
+  const isTodo = kind === "todo";
+  const { layout, update: setLayout } = useLibraryLayout(user?.id, isTodo ? "compact" : "cards");
   const [searchParams, setSearchParams] = useSearchParams();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<TEntry | null>(null);
-  const isTodo = kind === "todo";
   const [todoSearchOpen, setTodoSearchOpen] = useState(false);
   const singular = isTodo ? "task" : "document";
   const plural = isTodo ? "tasks" : "documents";
@@ -451,12 +457,21 @@ export default function EntriesPage<TEntry extends Entry>({
         </div>
       </section>
 
+      <div className="flex justify-end px-3 lg:px-0">
+        <LibraryLayoutControl layout={layout} onChange={setLayout} />
+      </div>
+
       <section className="px-3 lg:px-0">
+        <BookmarkBulkEditor libraryItems key={`${kind}:${searchQuery}:${filter}`} loading={isLoading || !!error}
+          shown={visibleEntries.map((entry) => ({ id: librarySelectionId(entry.kind, entry.id) }))}
+          total={visibleEntries.length} getAll={async () => visibleEntries.map((entry) => ({ id: librarySelectionId(entry.kind, entry.id) }))}>
+          {(selection) => <>
+
         {isLoading ? (
           <div
             className={
-              layout === "list"
-                ? "space-y-2"
+              layout === "compact"
+                ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
                 : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
             }
             role="status"
@@ -465,7 +480,7 @@ export default function EntriesPage<TEntry extends Entry>({
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className={`${layout === "list" ? "min-h-20" : isTodo ? "min-h-44" : "min-h-64"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50`}
+                className={`${layout === "compact" ? "min-h-20" : isTodo ? "min-h-44" : "min-h-64"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50`}
               />
             ))}
           </div>
@@ -548,18 +563,19 @@ export default function EntriesPage<TEntry extends Entry>({
         ) : (
           <ul
             className={
-              layout === "list"
-                ? "space-y-2"
+              layout === "compact"
+                ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3"
                 : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"
             }
           >
             {visibleEntries.map((entry) => (
               <li key={entry.id} className="list-none">
-                {renderCard(entry, openEdit)}
+                <SelectableLibraryItem id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>{renderCard(entry, openEdit, layout)}</SelectableLibraryItem>
               </li>
             ))}
           </ul>
         )}
+        </>}</BookmarkBulkEditor>
       </section>
 
       {renderEditor({

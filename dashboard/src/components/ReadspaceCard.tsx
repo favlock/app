@@ -12,6 +12,7 @@ import type { ReadspaceContent } from "../lib/readspaceContent";
 import type { ReadspaceEntry } from "../types/bookmark";
 import CollectionBadgeMenu from "./CollectionBadgeMenu";
 import LibraryCard from "./LibraryCard";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 
@@ -28,6 +29,7 @@ export default function ReadspaceCard({
   onOrganize,
   onDelete,
   deletePermanently = false,
+  layout = "cards",
 }: {
   entry: ReadspaceEntry;
   content: ReadspaceContent;
@@ -35,6 +37,7 @@ export default function ReadspaceCard({
   onOrganize: () => void;
   onDelete: () => void;
   deletePermanently?: boolean;
+  layout?: LibraryLayout;
 }) {
   const updateFolder = useUpdateEntryFolder();
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
@@ -68,6 +71,9 @@ export default function ReadspaceCard({
   return (
     <LibraryCard
       kind="read"
+      layout={layout}
+      compactSummary={content.siteName || "Saved article"}
+      compactActionsLabel={entry.title}
       collectionColor={currentFolder?.color}
       onClick={handleCardClick}
       raised={collectionMenuOpen}

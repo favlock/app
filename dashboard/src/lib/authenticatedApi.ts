@@ -128,7 +128,7 @@ async function requestAuthenticatedJson(
   accessToken: string,
   failureMessage: string,
   options: {
-    method: "GET" | "PATCH" | "POST";
+    method: "GET" | "PATCH" | "POST" | "PUT";
     body?: object;
     signal?: AbortSignal;
     timeoutMs?: number;
@@ -258,4 +258,13 @@ export async function deleteAuthenticatedWithoutResponse(
   );
   assertCurrentRequest(session);
   if (response.status !== 204) throw new Error(failureMessage);
+}
+
+export function putAuthenticatedJson(
+  path: `/v1/${string}`,
+  accessToken: string,
+  body: object,
+  failureMessage: string,
+): Promise<unknown> {
+  return requestAuthenticatedJson(path, accessToken, failureMessage, { method: "PUT", body });
 }

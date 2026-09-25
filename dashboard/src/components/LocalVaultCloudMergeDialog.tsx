@@ -168,6 +168,7 @@ export default function LocalVaultCloudMergeDialog() {
           await saveEncryptionVerifier(
             session.access_token,
             await encryptField(VERIFY_CONSTANT, sourceKey),
+            user.id,
           );
         }
         await adoptMigratedKey(sourceKey, { rememberDevice: true });

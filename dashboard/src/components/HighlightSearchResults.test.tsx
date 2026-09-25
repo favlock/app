@@ -49,4 +49,23 @@ describe("HighlightSearchResults", () => {
     await act(async () => root.unmount());
     container.remove();
   });
+
+  it("opens an exact highlight when dashboard filters cannot be carried to Readspace", async () => {
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+
+    await act(async () => root.render(
+      <MemoryRouter>
+        <HighlightSearchResults matches={[match]} query="" refined />
+      </MemoryRouter>,
+    ));
+
+    expect(container.querySelector("a")?.getAttribute("href")).toBe(
+      "/readspace?view=highlights&open=highlight-1",
+    );
+
+    await act(async () => root.unmount());
+    container.remove();
+  });
 });

@@ -109,6 +109,7 @@ function App() {
                   <Route path="/" element={<Dashboard />} />
                   <Route path="/c/:collectionSlug" element={<Dashboard />} />
                   <Route path="/t/:tagSlug" element={<Dashboard />} />
+                  <Route path="/smart-views/:smartViewId" element={<Dashboard />} />
                   <Route path="/favorites" element={<Dashboard />} />
                   <Route path="/unsorted" element={<Dashboard />} />
                   <Route path="/write" element={<Notes />} />

@@ -15,6 +15,13 @@ import EntrySearchResults from "../components/EntrySearchResults";
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
 
+const bulkKey = vi.hoisted(() => ({}));
+vi.mock("../context/useAuth", () => ({ useAuth: () => ({ user: {id:"user-1"}, isLocalAccount: true, retryBookmarkCacheSync: vi.fn() }) }));
+vi.mock("../context/useEncryption", () => ({ useEncryption: () => ({ cryptoKey: bulkKey }) }));
+vi.mock("@tanstack/react-query", async (original) => ({...await original<object>(), useQueryClient: () => ({invalidateQueries: vi.fn()})}));
+vi.mock("../hooks/useFoldersQuery", () => ({useFolders: () => ({data:[]})}));
+vi.mock("../hooks/useTagsQuery", () => ({useTags: () => ({data:[]})}));
+
 const note = (id: string, title: string): Note => ({
   kind: "note",
   id,

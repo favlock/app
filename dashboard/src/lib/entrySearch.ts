@@ -1,5 +1,6 @@
 import type { Entry } from "../types/bookmark";
 import { getEntryText } from "./entryContent";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, matchesLibraryMetadata, matchesLibraryText, type LibrarySearchFilters } from "./librarySearchFilters";
 
 export interface EntrySearchMatch<TEntry extends Entry = Entry> {
   entry: TEntry;
@@ -9,6 +10,7 @@ export interface EntrySearchMatch<TEntry extends Entry = Entry> {
 
 export interface EntrySearchOptions {
   includeContent?: boolean;
+  filters?: LibrarySearchFilters;
 }
 
 interface EntrySearchDocument {
@@ -69,23 +71,24 @@ function getSearchDocument(entry: Entry): EntrySearchDocument {
 export function searchEntries<TEntry extends Entry>(
   entries: TEntry[],
   query: string,
-  { includeContent = true }: EntrySearchOptions = {},
+  { includeContent = true, filters = DEFAULT_LIBRARY_SEARCH_FILTERS }: EntrySearchOptions = {},
 ): EntrySearchMatch<TEntry>[] {
   const normalizedQuery = normalizeSearchText(query);
-  if (!normalizedQuery) return [];
+  if (!hasActiveLibrarySearch(normalizedQuery, filters)) return [];
 
   const terms = normalizedQuery.split(" ").filter(Boolean);
 
   return entries
     .map((entry) => {
-      const { title, content, plainContent, category, tags, searchableText } =
+      const { title, content, plainContent, category, tags } =
         getSearchDocument(entry);
 
-      const allowedSearchText = includeContent
-        ? searchableText
-        : `${title} ${category} ${tags}`;
-
-      if (!terms.every((term) => allowedSearchText.includes(term))) return null;
+      if (!matchesLibraryMetadata(filters, entry.kind === "read" ? "readspace" : entry.kind,
+        entry.folder?.id ?? null, (entry.tags ?? []).map((tag) => tag.id))) return null;
+      if (!matchesLibraryText(normalizedQuery, filters.field, {
+        title, tags, collection: category,
+        content: includeContent ? content : undefined,
+      })) return null;
 
       let score = 0;
       for (const term of terms) {

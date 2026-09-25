@@ -16,8 +16,8 @@ export default function Notes() {
       isLoading={isLoading}
       error={error}
       onRetry={() => void refetch()}
-      renderCard={(note, onEdit) => (
-        <NoteCard note={note} onEdit={onEdit} />
+      renderCard={(note, onEdit, layout) => (
+        <NoteCard note={note} onEdit={onEdit} layout={layout} />
       )}
       renderEditor={({ open, entry, onClose }) => (
         <NoteEditorDialog open={open} note={entry} onClose={onClose} />

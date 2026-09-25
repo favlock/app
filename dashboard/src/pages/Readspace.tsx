@@ -1,3 +1,7 @@
+import BookmarkBulkEditor from "../components/BookmarkBulkEditor";
+import SelectableLibraryItem from "../components/SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
+import { searchReadspaceOffMainThread } from "../lib/readspaceSearchWorkerClient";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
@@ -31,6 +35,8 @@ import type { ReadspaceEntry } from "../types/bookmark";
 import type { DashboardLayoutContext } from "./DashboardLayout";
 import ReadspaceArticleDialog from "../components/ReadspaceArticleDialog";
 import ReadspaceCard from "../components/ReadspaceCard";
+import LibraryLayoutControl from "../components/LibraryLayoutControl";
+import { useLibraryLayout } from "../hooks/useLibraryLayout";
 import ReadspaceOrganizationDialog from "../components/ReadspaceOrganizationDialog";
 import ReadspaceOrganizationFields from "../components/ReadspaceOrganizationFields";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
@@ -171,6 +177,7 @@ function LocalReadspaceCloudOnly() {
 function CloudReadspace() {
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { user } = useAuth();
+  const { layout, update: setLayout } = useLibraryLayout(user?.id);
   const { cryptoKey, encryptField, keyLoading, triggerUnlock } =
     useEncryption();
   const { data: entries = [], isLoading, error, refetch } = useReadspace();
@@ -677,6 +684,10 @@ function CloudReadspace() {
         </section>
       ) : null}
 
+      {view === "articles" ? <div className="flex justify-end px-3 lg:px-0">
+        <LibraryLayoutControl layout={layout} onChange={setLayout} />
+      </div> : null}
+
       <section className="px-3 lg:px-0">
         {view === "highlights" && highlightColorError ? (
           <p className="mb-3 rounded-lg bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-300" role="alert">
@@ -686,6 +697,7 @@ function CloudReadspace() {
         {view === "highlights" ? (
           <ReadspaceHighlights
             highlights={highlightsQuery.data ?? []}
+            focusId={new URLSearchParams(location.search).get("open")}
             bookmarks={bookmarks}
             articles={parsedEntries}
             query={debouncedQuery}
@@ -710,15 +722,24 @@ function CloudReadspace() {
             }}
             onDeleteSelected={(selectedHighlights) => deleteHighlights.mutateAsync(selectedHighlights)}
           />
-        ) : isLoading ? (
+        ) : <BookmarkBulkEditor libraryItems key={query} loading={isLoading || !!error || (!!debouncedQuery && (readspaceSearchQuery.isLoading || !!readspaceSearchQuery.error))}
+          shown={visibleEntries.map(({ entry }) => ({ id: librarySelectionId(entry.kind, entry.id) }))}
+          total={debouncedQuery ? readspaceSearchResult.total : parsedEntries.length}
+          getAll={async () => {
+            const all = debouncedQuery
+              ? (await searchReadspaceOffMainThread(parsedEntries, debouncedQuery, Number.MAX_SAFE_INTEGER, fullTextSearchEnabled)).matches.map((match) => match.article)
+              : parsedEntries;
+            return all.map(({ entry }) => ({ id: librarySelectionId(entry.kind, entry.id) }));
+          }}>
+          {(selection) => <>{isLoading ? (
           <div
-            className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+            className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}
             role="status"
           >
             {[0, 1, 2].map((item) => (
               <div
                 key={item}
-                className="h-56 animate-pulse rounded-xl bg-[var(--app-highlight)]/50"
+                className={`${layout === "compact" ? "h-18" : "h-56"} animate-pulse rounded-xl bg-[var(--app-highlight)]/50`}
               />
             ))}
           </div>
@@ -783,10 +804,11 @@ function CloudReadspace() {
                 matching articles.
               </p>
             ) : null}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
               {visibleEntries.map(({ entry, content }) => (
+                <SelectableLibraryItem key={entry.id} id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>
                 <ReadspaceCard
-                  key={entry.id}
+                  layout={layout}
                   entry={entry}
                   content={content}
                   onOpen={() => {
@@ -796,10 +818,11 @@ function CloudReadspace() {
                   onOrganize={() => setOrganizeTarget(entry)}
                   onDelete={() => setDeleteTarget(entry)}
                 />
+                </SelectableLibraryItem>
               ))}
             </div>
           </div>
-        )}
+        )}</>}</BookmarkBulkEditor>}
       </section>
 
       <Dialog

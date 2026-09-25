@@ -15,6 +15,7 @@ import LibraryHealthTabs from "../components/LibraryHealthTabs";
 import { useAuth } from "../context/useAuth";
 import { useLinkHealth } from "../context/useLinkHealth";
 import { useDeleteBookmark } from "../hooks/useBookmarksQuery";
+import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 import type { LinkHealthStatus } from "../lib/linkHealthApi";
 import { normalizeImportedBookmarkUrl } from "../lib/bookmarkUrl";
 import { Checkbox } from "../components/ui/checkbox";
@@ -55,6 +56,7 @@ function formatScanTime(value: string | null): string {
 }
 
 export default function BrokenLinks() {
+  const recordBookmarkOpen = useRecordBookmarkOpen();
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const { isLocalAccount } = useAuth();
   const {
@@ -280,7 +282,7 @@ export default function BrokenLinks() {
                             </span>
                           ) : null}
                         </div>
-                        <a href={normalizeImportedBookmarkUrl(result.bookmark.url) ?? undefined} target="_blank" rel="noopener noreferrer" className="theme-button-icon flex size-8 flex-none items-center justify-center" aria-label={`Open ${result.bookmark.title}`}><ExternalLink size={14} aria-hidden="true" /></a>
+                        <a href={normalizeImportedBookmarkUrl(result.bookmark.url) ?? undefined} target="_blank" rel="noopener noreferrer" onClick={() => { if (normalizeImportedBookmarkUrl(result.bookmark.url)) recordBookmarkOpen(result.bookmark.id); }} onAuxClick={(event) => { if (event.button === 1 && normalizeImportedBookmarkUrl(result.bookmark.url)) recordBookmarkOpen(result.bookmark.id); }} className="theme-button-icon flex size-8 flex-none items-center justify-center" aria-label={`Open ${result.bookmark.title}`}><ExternalLink size={14} aria-hidden="true" /></a>
                       </div>
                       <h2 className="mt-3 truncate text-sm font-semibold text-[var(--app-ink)]" title={result.bookmark.title}>{result.bookmark.title}</h2>
                       <p className="mt-1 truncate text-xs text-[var(--app-muted)]" title={result.bookmark.url}>{result.bookmark.url}</p>

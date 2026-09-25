@@ -25,6 +25,7 @@ import {
 } from "./ui/dialog";
 import AddBookmarkForm from "./AddBookmarkForm";
 import { getCollectionBadgeColor } from "../constants/colors";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 import { buildTagSlugIndex } from "../lib/collectionSlugs";
 import { getMainDomain } from "../lib/domains";
 import { getBookmarkShortcutModifier } from "../lib/bookmarkSearchShortcuts";
@@ -32,23 +33,29 @@ import LibraryCard from "./LibraryCard";
 import { markFirstRetrieval } from "../lib/onboarding";
 import { useAuth } from "../context/useAuth";
 import { PLANS } from "@favlock/shared";
+import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 
 interface BookmarkCardProps {
   bookmark: Bookmark;
+  layout?: LibraryLayout;
   onDeleted: () => void;
   onMoved?: () => void;
   searchShortcut?: number;
+  selection?: { checked: boolean; disabled: boolean; onToggle: (range: boolean) => void };
 }
 
 export default function BookmarkCard({
   bookmark,
+  layout = "cards",
   onDeleted,
   onMoved,
   searchShortcut,
+  selection,
 }: BookmarkCardProps) {
   const { data: folders = [] } = useFolders();
   const { data: tags = [] } = useTags();
   const { isLocalAccount } = useAuth();
+  const recordBookmarkOpen = useRecordBookmarkOpen();
   const deleteBookmarkMutation = useDeleteBookmark();
   const moveBookmarkMutation = useMoveBookmark();
   const toggleFavoriteMutation = useToggleFavorite();
@@ -210,13 +217,15 @@ export default function BookmarkCard({
     if (
       target instanceof Element &&
       target.closest(
-        'a, button, input, select, textarea, summary, [role="button"], [role="menuitem"], [role="menuitemradio"], [contenteditable="true"]',
+        'a, button, input, label, select, textarea, summary, [role="button"], [role="menuitem"], [role="menuitemradio"], [contenteditable="true"]',
       )
     ) {
       return;
     }
 
-    bookmarkLinkRef.current?.click();
+    if (selection) {
+      if (!selection.disabled) selection.onToggle(event.shiftKey);
+    } else bookmarkLinkRef.current?.click();
   };
 
   const hostname = (() => {
@@ -241,11 +250,24 @@ export default function BookmarkCard({
     <>
       <LibraryCard
         kind="bookmark"
+        layout={layout}
+        compactSummary={displayDomain}
+        compactActionsLabel={bookmark.title}
+        compactSelection={selection ? { checked: selection.checked, disabled: selection.disabled, title: bookmark.title, toggle: selection.onToggle } : undefined}
         collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={showFolderMenu}
         meta={
-          searchShortcut ? (
+          selection ? (
+            <label className="flex min-h-11 cursor-pointer items-center gap-2 px-2">
+              <input type="checkbox" checked={selection.checked} disabled={selection.disabled}
+                aria-label={`Select bookmark: ${bookmark.title}`}
+                className="size-4 accent-[var(--app-primary)]"
+                onChange={() => {}}
+                onClick={(event) => selection.onToggle(event.shiftKey)} />
+              <span>{selection.checked ? "Selected" : "Select"}</span>
+            </label>
+          ) : searchShortcut ? (
             <kbd
               className="inline-flex items-center gap-0.5 font-sans text-[11px] font-semibold tabular-nums"
               title={`Open with ${shortcutModifier.label} + ${searchShortcut}`}
@@ -257,10 +279,11 @@ export default function BookmarkCard({
           ) : undefined
         }
         title={
-          <a
+          selection ? <span title={bookmark.title}>{bookmark.title}</span> : <a
             ref={bookmarkLinkRef}
             href={bookmark.url}
-            onClick={() => markFirstRetrieval(bookmark.user_id)}
+            onClick={() => { markFirstRetrieval(bookmark.user_id); recordBookmarkOpen(bookmark.id); }}
+            onAuxClick={(event) => { if (event.button === 1) recordBookmarkOpen(bookmark.id); }}
             target="_blank"
             rel="noopener noreferrer"
             title={bookmark.title}
@@ -311,7 +334,7 @@ export default function BookmarkCard({
                     </Badge>
                   );
 
-                  return tagSlug ? (
+                  return tagSlug && !selection ? (
                     <Link
                       key={tag.id}
                       to={`/t/${tagSlug}`}
@@ -330,7 +353,7 @@ export default function BookmarkCard({
           </div>
         }
         category={
-          <div className="relative" ref={menuRef}>
+          selection ? <Badge color={getCollectionBadgeColor(currentFolder?.color)}><span className="truncate">{currentFolder?.name ?? "No collection"}</span></Badge> : <div className="relative" ref={menuRef}>
               <BadgeButton
                 ref={folderMenuButtonRef}
                 onClick={() => {
@@ -455,7 +478,7 @@ export default function BookmarkCard({
           </div>
         }
         actions={
-          <>
+          selection ? null : <>
               <Button
                 onClick={handleToggleFavorite}
                 plain

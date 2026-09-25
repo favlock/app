@@ -5,6 +5,7 @@ import {
   searchStoredBookmarks,
   type StoredBookmark,
 } from "./bookmarkCache";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS } from "./librarySearchFilters";
 
 const bookmark: StoredBookmark = {
   id: "bookmark-1",
@@ -108,5 +109,19 @@ describe("bookmark search helpers", () => {
         (item) => item.id,
       ),
     ).toEqual(["newer", "older"]);
+  });
+
+  it("searches a selected bookmark field and combines tag, collection, and favorite filters", () => {
+    const stored = [{ ...bookmark, is_favorite: true }, { ...bookmark, id: "other", title: "Frontend", is_favorite: false, tags: [] }];
+    const filters = {
+      ...DEFAULT_LIBRARY_SEARCH_FILTERS,
+      field: "title" as const,
+      tagId: "tag-1",
+      collectionId: "folder-1",
+      favoritesOnly: true,
+    };
+    expect(searchStoredBookmarks(stored, "frontend", { filters }).total).toBe(0);
+    expect(searchStoredBookmarks(stored, "react", { filters }).bookmarks.map((item) => item.id)).toEqual(["bookmark-1"]);
+    expect(searchStoredBookmarks(stored, "", { filters }).total).toBe(1);
   });
 });

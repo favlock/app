@@ -187,7 +187,7 @@ export default function EncryptionSetup() {
         try {
           userInfo = await queryClient.fetchQuery({
             queryKey: userInfoQueryKey(user.id),
-            queryFn: () => fetchUserInfo(session.access_token),
+            queryFn: () => fetchUserInfo(session.access_token, user.id),
             staleTime: USER_INFO_STALE_TIME,
           });
         } catch (error) {

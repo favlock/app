@@ -1,3 +1,7 @@
+import BookmarkSortControl from "../components/BookmarkSortControl";
+import LibraryLayoutControl from "../components/LibraryLayoutControl";
+import { useLibraryLayout } from "../hooks/useLibraryLayout";
+import { useSortPreferenceSync } from "../hooks/useSortPreferenceSync";
 import {
   useEffect,
   useMemo,
@@ -67,6 +71,11 @@ import { useHighlights } from "../hooks/useHighlightsQuery";
 import { useBookmarks } from "../hooks/useBookmarksQuery";
 import { searchHighlights } from "../lib/highlightSearch";
 import HighlightSearchResults from "../components/HighlightSearchResults";
+import { useBookmarkUsage } from "../hooks/useBookmarkUsage";
+import { DEFAULT_LIBRARY_SEARCH_FILTERS, hasActiveLibrarySearch, hasRefinedLibrarySearch, type LibrarySearchFilters } from "../lib/librarySearchFilters";
+import { useSavedSmartViews } from "../hooks/useSavedSmartViews";
+import SaveSmartViewDialog from "../components/SaveSmartViewDialog";
+import SmartViewHeaderActions from "../components/SmartViewHeaderActions";
 
 export default function Dashboard() {
   const { setIsMobileSidebarOpen, openAddBookmark } =
@@ -77,26 +86,64 @@ export default function Dashboard() {
     bookmarkCacheError,
     retryBookmarkCacheSync,
     isLocalAccount,
+    user,
   } = useAuth();
-  const { collectionSlug, tagSlug } = useParams();
+  const sortSync = useSortPreferenceSync();
+  const { value: sortPreference, update: setSortPreference } = sortSync;
+  const { layout, update: setLayout } = useLibraryLayout(user?.id);
+  const { collectionSlug, tagSlug, smartViewId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
 
   const { data: folders = [] } = useFolders();
   const { data: tags = [], isLoading: loadingTags } = useTags();
   const cachedBookmarksQuery = useCachedBookmarks();
+  const { searchQuery, setSearchQuery } = useBookmarkStore();
   const cachedBookmarks = useMemo(
     () => cachedBookmarksQuery.data ?? [],
     [cachedBookmarksQuery.data],
   );
+  const usageQuery = useBookmarkUsage(sortPreference.order === "most-used" && !searchQuery.trim());
+  const rankedBookmarks = useMemo(() => sortPreference.order === "most-used" && usageQuery.isPending
+    ? [] : cachedBookmarks.map((bookmark) => ({
+    ...bookmark, open_count: usageQuery.data?.[bookmark.id] ?? 0,
+  })), [cachedBookmarks, usageQuery.data, usageQuery.isPending, sortPreference.order]);
   const updateSearchEngine = useUpdateSearchEngine();
   const { data: userInfo } = useUserInfo();
   const searchHistory = useSearchHistory();
   const { data: accountPlan } = useAccountPlan();
   const fullTextSearchEnabled = accountPlan?.id === "pro";
+  const [searchFilters, setSearchFilters] = useState<LibrarySearchFilters>(DEFAULT_LIBRARY_SEARCH_FILTERS);
+  const [saveSmartViewOpen, setSaveSmartViewOpen] = useState(false);
+  const previousSmartViewId = useRef(smartViewId);
+  const detachingSmartView = useRef(false);
+  const smartViews = useSavedSmartViews();
+  const selectedSmartView = smartViews.views.find((view) => view.id === smartViewId);
   const bookmarkSearchInputRef = useRef<HTMLInputElement>(null);
 
-  const { searchQuery } = useBookmarkStore();
+  useEffect(() => {
+    if (previousSmartViewId.current && !smartViewId) {
+      if (!detachingSmartView.current) {
+        setSearchQuery("");
+        setSearchFilters(DEFAULT_LIBRARY_SEARCH_FILTERS);
+      }
+      detachingSmartView.current = false;
+    }
+    previousSmartViewId.current = smartViewId;
+  }, [smartViewId, setSearchQuery]);
+
+  useEffect(() => {
+    if (!selectedSmartView) return;
+    setSearchQuery(selectedSmartView.query);
+    setSearchFilters(selectedSmartView.filters);
+  }, [selectedSmartView, setSearchQuery]);
+
+  useEffect(() => {
+    if (smartViewId && smartViews.ready && !smartViews.isLoading && !smartViews.error && !selectedSmartView) {
+      navigate("/", { replace: true });
+    }
+  }, [smartViewId, smartViews.ready, smartViews.isLoading, smartViews.error, selectedSmartView, navigate]);
+
   const [bookmarkSearchResults, setBookmarkSearchResults] = useState(0);
   const [bookmarkSearchLoading, setBookmarkSearchLoading] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
@@ -170,7 +217,7 @@ export default function Dashboard() {
   const selectedFolderName = selectedFolder?.name;
   const selectedTagName = selectedTag?.name;
   const normalizedBookmarkSearch = debouncedBookmarkSearch.trim();
-  const isSearchView = normalizedBookmarkSearch.length > 0;
+  const isSearchView = hasActiveLibrarySearch(normalizedBookmarkSearch, searchFilters);
   const cloudSearchEnabled = isSearchView && !isLocalAccount;
   const highlightsQuery = useHighlights(cloudSearchEnabled);
   const highlightSourceBookmarksQuery = useBookmarks(null, {
@@ -186,7 +233,21 @@ export default function Dashboard() {
       : selectedFolderId;
   const isAllBookmarksView = !effectiveFolderId && !selectedTagId;
   const isCollectionView = Boolean(selectedFolderId);
-  const pageTitle = isSearchView
+  const mixedLibrary = !isSearchView && (isAllBookmarksView || isCollectionView);
+  const sorting = useMemo(() => ({
+    ...sortPreference,
+    order: sortPreference.order === "most-used" && isSearchView
+      ? "default" as const
+      : sortPreference.order.startsWith("favorited-") && (!isFavoritesView || isSearchView)
+      ? "default" as const
+      : sortPreference.order.startsWith("website-") && mixedLibrary && !sortPreference.bookmarksOnly
+        ? "default" as const : sortPreference.order,
+  }), [sortPreference, isFavoritesView, isSearchView, mixedLibrary]);
+  const pageTitle = selectedSmartView
+    ? selectedSmartView.name
+    : smartViewId && (!smartViews.ready || smartViews.isLoading)
+      ? "Loading Smart View…"
+      : isSearchView
     ? "Search results"
     : isFavoritesView
       ? "Favorites"
@@ -195,8 +256,12 @@ export default function Dashboard() {
         : selectedTagId
           ? `#${loadingTags ? "" : (selectedTagName ?? selectedTagId)}`
           : (selectedFolderName ?? "Library");
-  const pageDescription = isSearchView
-    ? `Across your entire library for “${normalizedBookmarkSearch}”`
+  const pageDescription = selectedSmartView
+    ? "Saved Smart View · Results update as your library changes"
+    : isSearchView
+    ? normalizedBookmarkSearch
+      ? `Across your entire library for “${normalizedBookmarkSearch}”`
+      : "Across your entire library with the selected filters"
     : isAllBookmarksView
       ? "Everything you have saved, in one private workspace"
       : isFavoritesView
@@ -220,10 +285,10 @@ export default function Dashboard() {
   }, [bookmarkCacheSyncing, bookmarkCacheSyncedAt, currentTime]);
 
   const shouldLoadCollectionEntries =
-    isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0;
+    isAllBookmarksView || isCollectionView || isSearchView;
   const readspaceQuery = useReadspace(
     !isLocalAccount &&
-      (isAllBookmarksView || isCollectionView || normalizedBookmarkSearch.length > 0),
+      (isAllBookmarksView || isCollectionView || isSearchView),
   );
   const deleteReadspaceEntry = useDeleteReadspaceEntry();
   const readspaceArticles = useMemo(
@@ -240,6 +305,7 @@ export default function Dashboard() {
     100,
     fullTextSearchEnabled,
     !isLocalAccount,
+    searchFilters,
   );
   const readspaceSearchResult = readspaceSearchQuery.data ?? {
     matches: [],
@@ -251,11 +317,12 @@ export default function Dashboard() {
       highlightSourceBookmarksQuery.data ?? cachedBookmarks,
       readspaceArticles,
       normalizedBookmarkSearch,
-      { includeAnnotations: fullTextSearchEnabled },
+      { includeAnnotations: fullTextSearchEnabled, filters: searchFilters },
     ),
     [
       cachedBookmarks,
       fullTextSearchEnabled,
+      searchFilters,
       highlightSourceBookmarksQuery.data,
       highlightsQuery.data,
       normalizedBookmarkSearch,
@@ -268,9 +335,9 @@ export default function Dashboard() {
   const noteSearchMatches = useMemo(
     () =>
       searchNotes(notesQuery.data ?? [], normalizedBookmarkSearch, {
-        includeContent: fullTextSearchEnabled,
+        includeContent: fullTextSearchEnabled, filters: searchFilters,
       }),
-    [notesQuery.data, normalizedBookmarkSearch, fullTextSearchEnabled],
+    [notesQuery.data, normalizedBookmarkSearch, fullTextSearchEnabled, searchFilters],
   );
   const todosQuery = useTodos({
     enabled: shouldLoadCollectionEntries,
@@ -278,9 +345,9 @@ export default function Dashboard() {
   const todoSearchMatches = useMemo(
     () =>
       searchTodos(todosQuery.data ?? [], normalizedBookmarkSearch, {
-        includeContent: fullTextSearchEnabled,
+        includeContent: fullTextSearchEnabled, filters: searchFilters,
       }),
-    [normalizedBookmarkSearch, todosQuery.data, fullTextSearchEnabled],
+    [normalizedBookmarkSearch, todosQuery.data, fullTextSearchEnabled, searchFilters],
   );
   const collectionNotes = useMemo(
     () =>
@@ -310,10 +377,10 @@ export default function Dashboard() {
     [readspaceArticles, selectedFolderId],
   );
   const bookmarkSearchStatus = useMemo(() => {
-    if (!normalizedBookmarkSearch) {
+    if (!isSearchView) {
       return fullTextSearchEnabled
         ? `${bookmarkIndexStatus} · Full-content search is on`
-        : `${bookmarkIndexStatus} · Search titles, tags, and collections`;
+        : bookmarkIndexStatus;
     }
     if (
       bookmarkSearchLoading ||
@@ -345,11 +412,13 @@ export default function Dashboard() {
     const highlightLabel = `${highlightSearchMatches.length} ${
       highlightSearchMatches.length === 1 ? "highlight" : "highlights"
     }`;
+    const context = normalizedBookmarkSearch ? ` for \u201c${normalizedBookmarkSearch}\u201d` : " matching filters";
     return isLocalAccount
-      ? `${bookmarkLabel} · ${noteLabel} · ${todoLabel} for \u201c${normalizedBookmarkSearch}\u201d`
-      : `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel} for \u201c${normalizedBookmarkSearch}\u201d`;
+      ? `${bookmarkLabel} · ${noteLabel} · ${todoLabel}${context}`
+      : `${bookmarkLabel} · ${noteLabel} · ${todoLabel} · ${readspaceLabel} · ${highlightLabel}${context}`;
   }, [
     normalizedBookmarkSearch,
+    isSearchView,
     bookmarkIndexStatus,
     fullTextSearchEnabled,
     bookmarkSearchLoading,
@@ -432,7 +501,11 @@ export default function Dashboard() {
                 <h1 className="min-w-0 truncate text-2xl font-semibold tracking-[-0.025em] text-[var(--app-ink)] sm:text-[2rem] sm:leading-tight">
                   {pageTitle}
                 </h1>
-                {!isSearchView && selectedFolderId && selectedFolder ? (
+                {selectedSmartView ? (
+                  <SmartViewHeaderActions key={selectedSmartView.id}
+                    view={selectedSmartView} canEdit={accountPlan?.id === "pro"}
+                    onDeleted={() => navigate("/")} />
+                ) : !isSearchView && selectedFolderId && selectedFolder ? (
                   <CollectionHeaderActions
                     folder={selectedFolder}
                     onDeleted={() => navigate("/")}
@@ -493,6 +566,17 @@ export default function Dashboard() {
         onEngineChange={(engine) => updateSearchEngine.mutate(engine.slug)}
         searchHistory={searchHistory.searches}
         onSearchSubmitted={searchHistory.addSearch}
+        filters={searchFilters}
+        onFiltersChange={(filters) => {
+          if (smartViewId) { detachingSmartView.current = true; navigate("/", { replace: true }); }
+          setSearchFilters(filters);
+        }}
+        onQueryChange={() => { if (smartViewId) { detachingSmartView.current = true; navigate("/", { replace: true }); } }}
+        canSaveSmartView={!isLocalAccount && accountPlan?.id === "pro"}
+        onSaveSmartView={() => setSaveSmartViewOpen(true)}
+        folders={folders}
+        tags={tags}
+        isLocalAccount={isLocalAccount}
         bookmarkSearchStatus={bookmarkSearchStatus}
         bookmarkSearchError={
           bookmarkCacheError ??
@@ -534,8 +618,25 @@ export default function Dashboard() {
           }
         }}
       />
+      <SaveSmartViewDialog open={saveSmartViewOpen} onClose={() => setSaveSmartViewOpen(false)}
+        query={searchQuery} filters={searchFilters} />
+      {smartViewId && smartViews.error ? <div role="alert" className="mx-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm text-red-700 lg:mx-0">
+        Could not load this Saved Smart View. <button type="button" className="font-semibold underline" onClick={() => void smartViews.refetch()}>Retry</button>
+      </div> : null}
 
-      {normalizedBookmarkSearch ? (
+      <div className="flex flex-wrap items-start justify-between gap-2 px-3 lg:px-0">
+        <div className="min-w-0 flex-1"><BookmarkSortControl
+          disabled={sortSync.busy}
+          value={sorting}
+          onChange={setSortPreference}
+          mixedLibrary={mixedLibrary}
+          favorites={isFavoritesView && !isSearchView}
+          search={isSearchView}
+        /></div>
+        <LibraryLayoutControl layout={layout} onChange={setLayout} />
+      </div>
+
+      {isSearchView ? (
         <div
           className="space-y-3 px-3 lg:px-0"
           aria-label={isLocalAccount
@@ -543,35 +644,59 @@ export default function Dashboard() {
             : "Search results from documents, tasks, articles, and highlights"}
         >
           <NoteSearchResults
+            layout={layout}
             matches={noteSearchMatches}
             query={normalizedBookmarkSearch}
+            refined={hasRefinedLibrarySearch(searchFilters)}
           />
           <TodoSearchResults
+            layout={layout}
             matches={todoSearchMatches}
             query={normalizedBookmarkSearch}
+            refined={hasRefinedLibrarySearch(searchFilters)}
           />
           {!isLocalAccount ? (
             <>
               <ReadspaceSearchResults
+                layout={layout}
                 result={readspaceSearchResult}
                 query={normalizedBookmarkSearch}
+                refined={hasRefinedLibrarySearch(searchFilters)}
               />
               <HighlightSearchResults
+                layout={layout}
                 matches={highlightSearchMatches}
                 query={normalizedBookmarkSearch}
+                refined={hasRefinedLibrarySearch(searchFilters)}
               />
             </>
           ) : null}
         </div>
       ) : null}
 
-      {isAllBookmarksView && !normalizedBookmarkSearch ? (
+      {sortSync.error && (
+        <div role="alert" className="px-3 text-sm text-red-600 dark:text-red-300 lg:px-0">
+          {sortSync.error.message}
+          <Button plain onClick={sortSync.reload}>Reload cloud settings</Button>
+        </div>
+      )}
+      {sorting.order === "most-used" && usageQuery.error && (
+        <div role="alert" className="px-3 text-sm text-red-600 dark:text-red-300 lg:px-0">
+          Could not load bookmark usage. <Button plain onClick={() => void usageQuery.refetch()}>Try again</Button>
+        </div>
+      )}
+      {isAllBookmarksView && !isSearchView ? (
         <HomeLibraryGrid
-          bookmarks={cachedBookmarks}
+          layout={layout}
+          key={user?.id}
+          sorting={sorting}
+          bookmarksOnly={sorting.bookmarksOnly}
+          bookmarks={rankedBookmarks}
           notes={notesQuery.data ?? []}
           todos={todosQuery.data ?? []}
           articles={readspaceArticles}
           isLoading={
+            (sorting.order === "most-used" && usageQuery.isPending) ||
             cachedBookmarksQuery.isPending ||
             (bookmarkCacheSyncing && !bookmarkCacheSyncedAt) ||
             notesQuery.isLoading ||
@@ -617,11 +742,16 @@ export default function Dashboard() {
             setDeleteTarget(article);
           }}
         />
-      ) : isCollectionView && selectedFolderId && !normalizedBookmarkSearch ? (
+      ) : isCollectionView && selectedFolderId && !isSearchView ? (
         <CollectionLibraryGrid
+          layout={layout}
+          key={user?.id}
+          sorting={sorting}
+          bookmarksOnly={sorting.bookmarksOnly}
           folderId={selectedFolderId}
-          bookmarks={cachedBookmarks}
+          bookmarks={rankedBookmarks}
           bookmarksLoading={
+            (sorting.order === "most-used" && usageQuery.isPending) ||
             cachedBookmarksQuery.isPending ||
             (bookmarkCacheSyncing && !bookmarkCacheSyncedAt)
           }
@@ -678,8 +808,12 @@ export default function Dashboard() {
       ) : (
         <section className="px-3 lg:px-0">
           <BookmarkList
-            bookmarks={cachedBookmarks}
+            layout={layout}
+            key={user?.id}
+            sorting={sorting}
+            bookmarks={rankedBookmarks}
             bookmarksLoading={
+              (sorting.order === "most-used" && usageQuery.isPending) ||
               cachedBookmarksQuery.isPending ||
               (bookmarkCacheSyncing && !bookmarkCacheSyncedAt)
             }
@@ -692,6 +826,7 @@ export default function Dashboard() {
             folderId={selectedTagId ? null : effectiveFolderId}
             tagId={selectedTagId}
             searchQuery={debouncedBookmarkSearch}
+            searchFilters={searchFilters}
             searchShortcutsEnabled={
               userInfo?.bookmark_search_shortcuts_enabled !== false
             }

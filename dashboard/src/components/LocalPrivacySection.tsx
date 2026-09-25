@@ -8,6 +8,7 @@ import {
   clearLibraryContentCacheForUser,
 } from "../lib/bookmarkCache";
 import { clearLocalSearchHistoryForUser } from "../lib/searchHistory";
+import { clearCloudBookmarkUsage } from "../lib/cloudBookmarkUsageQueue";
 import { Button } from "./ui/button";
 import { Description, Label } from "./ui/fieldset";
 import { Switch, SwitchField } from "./ui/switch";
@@ -78,6 +79,7 @@ export default function LocalPrivacySection() {
       clearKey(),
       clearBookmarkCacheForUser(user.id),
       clearLibraryContentCacheForUser(user.id),
+      clearCloudBookmarkUsage(user.id),
     ]);
     const failed = results.some((result) => result.status === "rejected");
 

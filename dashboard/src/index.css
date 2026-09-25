@@ -128,6 +128,11 @@ body {
   background-color: var(--app-bg);
 }
 
+html {
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
 body {
   font-family:
     "Avenir Next", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
@@ -353,6 +358,7 @@ body::before {
   background: color-mix(in oklab, var(--app-navigation) 75%, var(--app-card));
   border: 1px solid color-mix(in oklab, var(--app-line) 13%, transparent);
   box-shadow: 0 12px 32px -26px color-mix(in oklab, var(--app-line) 24%, transparent);
+  scrollbar-gutter: stable;
   scrollbar-width: thin;
   scrollbar-color: color-mix(in oklab, var(--app-line) 16%, transparent) transparent;
 }
@@ -1072,3 +1078,24 @@ body::before {
 .library-show-more.theme-button-base:hover:not(:disabled) { background: var(--app-mint-hover); }
 .library-show-more.theme-button-base::before,
 .library-show-more.theme-button-base::after { border-radius: inherit; box-shadow: none; }
+
+/* Bulk-selection controls share the compact toolbar radius on every surface. */
+.library-select-button.theme-button-plain {
+  border-color: color-mix(in oklab, var(--app-line) 18%, transparent);
+  background: transparent;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+.library-select-button.theme-button-plain:not(:disabled):hover,
+.library-select-button.theme-button-plain[data-hover]:not([data-disabled]),
+.library-select-button.theme-button-plain[data-active]:not([data-disabled]) {
+  border-color: color-mix(in oklab, var(--app-primary) 32%, transparent);
+  background: color-mix(in oklab, var(--app-primary) 5%, transparent);
+}
+
+.bookmark-bulk-toolbar .theme-button-base,
+.bookmark-bulk-toolbar .theme-button-base::before,
+.bookmark-bulk-toolbar .theme-button-base::after {
+  border-radius: 0.75rem;
+}

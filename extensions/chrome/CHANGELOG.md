@@ -1,5 +1,10 @@
 # Chrome extension changelog
 
+## 1.12.0 — September 25, 2026
+
+- Record bookmarks opened from extension search for most-used sorting, with queued sync when connected to a compatible FavLock API.
+- Added the `alarms` permission to retry pending usage updates.
+
 ## 1.11.0 — September 17, 2026
 
 - Aligned the extension version with FavLock 1.11.0. No extension behavior changes.

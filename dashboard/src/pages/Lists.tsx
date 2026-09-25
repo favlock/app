@@ -34,6 +34,7 @@ import {
 } from "../hooks/useListsQuery";
 import { useBookmarks } from "../hooks/useBookmarksQuery";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
+import { useRecordBookmarkOpen } from "../hooks/useBookmarkUsage";
 import { getMainDomain } from "../lib/domains";
 import {
   getListProgress,
@@ -56,6 +57,7 @@ function isYouTubeUrl(url: string) {
 }
 
 export default function Lists() {
+  const recordBookmarkOpen = useRecordBookmarkOpen();
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const listsQuery = useLists();
   const { data: accountPlan } = useAccountPlan();
@@ -441,12 +443,12 @@ export default function Lists() {
                           <VideoIcon size={17} aria-hidden="true" />
                         </span>
                         <div className="min-w-0 flex-1">
-                          <a href={item.bookmark.url} target="_blank" rel="noreferrer" className={`block truncate text-sm font-semibold hover:text-[var(--app-primary)] ${completed ? "text-[var(--app-muted)] line-through" : "text-[var(--app-ink)]"}`}>
+                          <a href={item.bookmark.url} target="_blank" rel="noreferrer" onClick={() => recordBookmarkOpen(item.bookmark.id)} onAuxClick={(event) => { if (event.button === 1) recordBookmarkOpen(item.bookmark.id); }} className={`block truncate text-sm font-semibold hover:text-[var(--app-primary)] ${completed ? "text-[var(--app-muted)] line-through" : "text-[var(--app-ink)]"}`}>
                             {item.bookmark.title}
                           </a>
                           <span className="mt-0.5 block truncate text-xs text-[var(--app-muted)]">{getMainDomain(item.bookmark.url)}</span>
                         </div>
-                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" className="theme-button-icon list-icon-action inline-flex size-11" aria-label={`Open ${item.bookmark.title}`}>
+                        <a href={item.bookmark.url} target="_blank" rel="noreferrer" onClick={() => recordBookmarkOpen(item.bookmark.id)} onAuxClick={(event) => { if (event.button === 1) recordBookmarkOpen(item.bookmark.id); }} className="theme-button-icon list-icon-action inline-flex size-11" aria-label={`Open ${item.bookmark.title}`}>
                           <ExternalLink size={15} aria-hidden="true" />
                         </a>
                         <div className="flex">

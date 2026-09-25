@@ -1,5 +1,6 @@
 import type { HomeReadspaceArticle } from "../lib/homeLibrary";
 import { searchReadspaceArticles } from "../lib/readspaceSearch";
+import type { LibrarySearchFilters } from "../lib/librarySearchFilters";
 
 type WorkerRequest =
   | {
@@ -14,6 +15,7 @@ type WorkerRequest =
       query: string;
       limit: number;
       includeContent: boolean;
+      filters?: LibrarySearchFilters;
     };
 
 type WorkerScope = {
@@ -37,7 +39,7 @@ scope.onmessage = (event) => {
       indexedArticles,
       request.query,
       request.limit,
-      { includeContent: request.includeContent },
+      { includeContent: request.includeContent, filters: request.filters },
     );
     scope.postMessage({
       id: request.id,

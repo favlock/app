@@ -38,6 +38,7 @@ import {
   showHighlightNotice,
 } from "./highlight-page.js";
 import { getUnmatchedHighlightNotice } from "./extension-highlight-status.js";
+import { flushBookmarkUsage, isBookmarkUsageAlarm, scheduleBookmarkUsageSync } from "./bookmark-usage-queue.js";
 
 const DEVELOPMENT_BADGE_TEXT = FAVLOCK_CONFIG.target === "development" ? "DEV" : "";
 let showHighlightsOnWebpages = false;
@@ -193,8 +194,17 @@ async function updateHighlightPreference(enabled) {
   return removedSiteAccess;
 }
 
-chrome.runtime.onInstalled.addListener(initializeSettings);
-chrome.runtime.onStartup.addListener(() => void restoreBuildBadge());
+chrome.runtime.onInstalled.addListener(() => {
+  void initializeSettings();
+  void scheduleBookmarkUsageSync().catch(() => {});
+});
+chrome.runtime.onStartup.addListener(() => {
+  void restoreBuildBadge();
+  void scheduleBookmarkUsageSync().catch(() => {});
+});
+chrome.alarms?.onAlarm?.addListener((alarm) => {
+  if (isBookmarkUsageAlarm(alarm.name)) void flushBookmarkUsage().catch(() => {});
+});
 void restoreBuildBadge();
 void loadHighlightPreference();
 

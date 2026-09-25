@@ -1,3 +1,7 @@
+import SelectableLibraryItem from "./SelectableLibraryItem";
+import { librarySelectionId } from "../lib/libraryBulk";
+import BookmarkBulkEditor from "./BookmarkBulkEditor";
+import { sortLibraryItems, type BookmarkSorting } from "../lib/bookmarkSorting";
 import { useEffect, useMemo, useState } from "react";
 import { Library, PlusIcon } from "lucide-react";
 import {
@@ -11,11 +15,15 @@ import ReadspaceCard from "./ReadspaceCard";
 import TodoCard from "./TodoCard";
 import { Button } from "./ui/button";
 import { bookmarksForView } from "../lib/bookmarkViews";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 const INITIAL_VISIBLE_ITEMS = 24;
 const LOAD_MORE_ITEMS = 24;
 
 export default function CollectionLibraryGrid({
+  layout = "cards",
+  sorting,
+  bookmarksOnly = false,
   folderId,
   bookmarks: cachedBookmarks,
   bookmarksLoading,
@@ -34,7 +42,10 @@ export default function CollectionLibraryGrid({
   onOrganizeArticle,
   onDeleteArticle,
 }: {
+  layout?: LibraryLayout;
   folderId: string;
+  sorting?: BookmarkSorting;
+  bookmarksOnly?: boolean;
   bookmarks: Bookmark[];
   bookmarksLoading: boolean;
   bookmarksError?: string | null;
@@ -58,8 +69,16 @@ export default function CollectionLibraryGrid({
   );
   const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_ITEMS);
   const items = useMemo(
-    () => mergeHomeLibraryItems(bookmarks, notes, todos, articles),
-    [articles, bookmarks, notes, todos],
+    () => {
+      const merged = mergeHomeLibraryItems(
+        bookmarks,
+        bookmarksOnly ? [] : notes,
+        bookmarksOnly ? [] : todos,
+        bookmarksOnly ? [] : articles,
+      );
+      return sorting ? sortLibraryItems(merged, sorting) : merged;
+    },
+    [articles, bookmarks, notes, todos, sorting, bookmarksOnly],
   );
   const visibleItems = items.slice(0, visibleCount);
   const isLoading = bookmarksLoading || entriesLoading;
@@ -69,7 +88,9 @@ export default function CollectionLibraryGrid({
 
   return (
     <section className="px-3 lg:px-0" aria-labelledby="collection-library-title">
-      <div className="mb-3 flex items-center gap-2 px-1">
+      <BookmarkBulkEditor
+        libraryItems
+        heading={<div className="flex items-center gap-2">
         <Library
           size={17}
           className="text-[var(--app-primary)]"
@@ -93,8 +114,13 @@ export default function CollectionLibraryGrid({
             {articles.length} {articles.length === 1 ? "article" : "articles"}
           </p>
         </div>
-      </div>
-
+      </div>}
+        key={`${folderId}:${bookmarksOnly}`}
+        shown={visibleItems.map((item) => ({ id: librarySelectionId(item.kind, item.id) }))}
+        total={items.length}
+        loading={isLoading || !!error}
+        getAll={async () => items.map((item) => ({ id: librarySelectionId(item.kind, item.id) }))}
+      >{(selection) => <>
       {error ? (
         <div
           className="mb-3 rounded-xl border border-red-500/30 bg-red-500/10 px-5 py-4 text-sm text-red-700 dark:text-red-300"
@@ -117,14 +143,14 @@ export default function CollectionLibraryGrid({
 
       {isLoading && items.length === 0 ? (
         <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+          className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}
           role="status"
           aria-label="Loading collection library"
         >
           {[0, 1, 2, 3].map((item) => (
             <div
               key={item}
-              className="min-h-44 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50"
+              className={`${layout === "compact" ? "min-h-18" : "min-h-44"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50`}
             />
           ))}
         </div>
@@ -136,7 +162,7 @@ export default function CollectionLibraryGrid({
             aria-hidden="true"
           />
           <h3 className="mt-3 text-lg font-bold text-[var(--app-ink)]">
-            This collection is empty
+            {bookmarksOnly ? "No bookmarks in this collection" : "This collection is empty"}
           </h3>
           <p className="mt-1 text-sm text-[var(--app-muted)]">
             Add a bookmark or move an existing library item here.
@@ -153,24 +179,31 @@ export default function CollectionLibraryGrid({
         </div>
       ) : (
         <>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <ul className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
             {visibleItems.map((item) => (
               <li
                 key={`${item.kind}:${item.id}`}
-                className="relative h-full list-none"
+                className={`relative h-full list-none rounded-3xl ${selection.active && item.kind === "bookmark" && selection.selected.has(librarySelectionId(item.kind, item.id)) ? "ring-2 ring-[var(--app-primary)]" : ""}`}
               >
+                <SelectableLibraryItem id={librarySelectionId(item.kind, item.id)} title={item.kind === "note" ? item.note.title : item.kind === "todo" ? item.todo.title : item.kind === "read" ? item.article.entry.title : item.bookmark.title} selection={item.kind === "bookmark" ? { ...selection, active: false } : selection}>
                 {item.kind === "bookmark" ? (
                   <BookmarkCard
+                    layout={layout}
                     bookmark={item.bookmark}
+                    selection={selection.active ? {
+                      checked: selection.selected.has(librarySelectionId(item.kind, item.id)), disabled: selection.busy,
+                      onToggle: (range) => selection.toggle(librarySelectionId(item.kind, item.id), range),
+                    } : undefined}
                     onDeleted={() => {}}
                     onMoved={() => {}}
                   />
                 ) : item.kind === "note" ? (
-                  <NoteCard note={item.note} onEdit={onEditNote} />
+                  <NoteCard note={item.note} onEdit={onEditNote} layout={layout} />
                 ) : item.kind === "todo" ? (
-                  <TodoCard todo={item.todo} onEdit={onEditTodo} />
+                  <TodoCard todo={item.todo} onEdit={onEditTodo} layout={layout} />
                 ) : (
                   <ReadspaceCard
+                    layout={layout}
                     entry={item.article.entry}
                     content={item.article.content}
                     onOpen={() => onOpenArticle(item.article)}
@@ -178,6 +211,7 @@ export default function CollectionLibraryGrid({
                     onDelete={() => onDeleteArticle(item.article)}
                   />
                 )}
+                </SelectableLibraryItem>
               </li>
             ))}
           </ul>
@@ -199,6 +233,7 @@ export default function CollectionLibraryGrid({
           ) : null}
         </>
       )}
+      </>}</BookmarkBulkEditor>
     </section>
   );
 }

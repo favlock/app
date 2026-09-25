@@ -11,8 +11,11 @@ import { readOnboardingState } from "../lib/onboarding";
 
 const mocks = vi.hoisted(() => ({
   moveBookmark: vi.fn(),
+  recordBookmarkOpen: vi.fn(),
   isLocalAccount: { current: false },
 }));
+
+vi.mock("../hooks/useBookmarkUsage", () => ({ useRecordBookmarkOpen: () => mocks.recordBookmarkOpen }));
 
 vi.mock("../context/useAuth", () => ({
   useAuth: () => ({ isLocalAccount: mocks.isLocalAccount.current }),
@@ -73,6 +76,7 @@ describe("BookmarkCard", () => {
   let root: Root;
 
   beforeEach(() => {
+    mocks.recordBookmarkOpen.mockReset();
     localStorage.clear();
     mocks.isLocalAccount.current = false;
     mocks.moveBookmark.mockReset().mockResolvedValue(undefined);
@@ -147,6 +151,14 @@ describe("BookmarkCard", () => {
     bookmarkLink.addEventListener("click", (event) => event.preventDefault());
     await act(async () => bookmarkLink.click());
     expect(readOnboardingState("user-1").firstRetrieval).toBe("completed");
+    expect(mocks.recordBookmarkOpen).toHaveBeenCalledExactlyOnceWith("bookmark-1");
+  });
+
+  it("counts a middle-click on the bookmark link", async () => {
+    await act(async () => root.render(<BookmarkCard bookmark={bookmark} onDeleted={() => {}} />));
+    const link = container.querySelector<HTMLAnchorElement>('a[href="https://example.com"]')!;
+    act(() => link.dispatchEvent(new MouseEvent("auxclick", { bubbles: true, button: 1 })));
+    expect(mocks.recordBookmarkOpen).toHaveBeenCalledExactlyOnceWith("bookmark-1");
   });
 
   it("shows the search shortcut hint when one is assigned", async () => {
