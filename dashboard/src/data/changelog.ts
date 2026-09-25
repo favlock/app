@@ -10,6 +10,22 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "September 25, 2026",
+    announcementHighlights: [
+      "Find what you need with library filters and Pro Saved Smart Views.",
+      "Organize multiple bookmarks and entries at once.",
+      "Choose a library layout and sort bookmarks your way.",
+    ],
+    changes: [
+      "Filter library search by item type, field, Collection, tag, or favorites, and save useful searches as encrypted Pro Smart Views.",
+      "Select multiple bookmarks and entries to organize, favorite, or move them to Trash in fewer steps.",
+      "Choose cards or compact list layouts for your library, and sort bookmarks by name, date, or most used.",
+      "Keep sorting preferences on this device, with optional cloud sync for Pro accounts.",
+      "See the configured yearly price when comparing Pro plans, and use collection and tag actions alongside Smart Views.",
+    ],
+  },
+  {
+    version: "1.11.0",
     date: "September 17, 2026",
     announcementHighlights: [
       "Keep your bookmarks tidy with Library health, included with Pro.",
