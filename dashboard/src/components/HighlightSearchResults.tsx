@@ -43,7 +43,7 @@ export default function HighlightSearchResults({
           View all <ArrowRight size={15} aria-hidden="true" />
         </Link> : null}
       </div>
-      <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
+      <ul className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
         {(showAll ? matches : matches.slice(0, 3)).map(({ highlight, sourceTitle }) => (
           <li key={highlight.id}>
             <Link

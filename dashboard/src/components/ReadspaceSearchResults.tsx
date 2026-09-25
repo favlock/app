@@ -57,7 +57,7 @@ export default function ReadspaceSearchResults({
         </Link> : null}
       </div>
 
-      <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
+      <ul className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
         {(showAll ? result.matches : result.matches.slice(0, 3)).map(({ article, excerpt }) => (
           <li key={article.entry.id}>
             <Link

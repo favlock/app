@@ -1,9 +1,10 @@
 import { LibrarySelectionContext } from "../context/LibrarySelectionContext";
-import { useContext, useState } from "react";
+import { useContext, useId, useState } from "react";
 import {
   CalendarDays,
   Check,
   Circle,
+  MoreHorizontal,
   Pencil,
   Trash2,
 } from "lucide-react";
@@ -66,6 +67,8 @@ export default function TodoListRow({
   const updateFolder = useUpdateEntryFolder();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [collectionMenuOpen, setCollectionMenuOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const actionsId = useId();
   const [togglePending, setTogglePending] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -109,21 +112,23 @@ export default function TodoListRow({
   return (
     <>
       <article
-        className={`relative rounded-xl border bg-[color-mix(in_oklab,var(--app-card)_90%,var(--app-highlight))] shadow-[0_3px_0_color-mix(in_oklab,var(--app-line)_8%,transparent)] transition-colors hover:border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)] ${
-          collectionMenuOpen
-            ? "z-40 border-[color-mix(in_oklab,var(--app-primary)_30%,transparent)]"
-            : "z-0 border-[color-mix(in_oklab,var(--app-line)_14%,transparent)]"
-        }`}
+        className={`library-card relative min-w-0 w-full px-3 py-2 ${collectionMenuOpen || actionsOpen ? "z-40" : "z-0"}`}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && actionsOpen) {
+            event.stopPropagation();
+            setActionsOpen(false);
+          }
+        }}
       >
-        <div className="flex min-w-0 items-start gap-2 p-2.5 sm:items-center sm:gap-3">
+        <div className="flex min-h-14 min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={() => void toggle()}
             disabled={togglePending}
-            className={`flex size-11 flex-none items-center justify-center rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/35 disabled:opacity-50 ${
+            className={`library-card-badge flex size-11 shrink-0 items-center justify-center rounded-xl transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--app-primary)] disabled:opacity-50 ${
               todo.is_completed
-                ? "bg-[color-mix(in_oklab,var(--app-primary)_14%,var(--app-highlight))] text-[var(--app-primary)]"
-                : "text-[var(--app-muted)] hover:bg-[color-mix(in_oklab,var(--app-primary)_9%,var(--app-highlight))] hover:text-[var(--app-primary)]"
+                ? "text-[var(--app-primary)]"
+                : "hover:text-[var(--app-primary)]"
             }`}
             aria-label={
               todo.is_completed
@@ -140,129 +145,56 @@ export default function TodoListRow({
             )}
           </button>
 
-          <button
-            type="button"
-            onClick={() => onEdit(todo)}
-            className="min-w-0 flex-1 rounded-lg px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--app-primary)]/30"
-          >
-            <span
-              className={`block truncate text-sm font-semibold text-[var(--app-ink)] sm:text-base ${
-                todo.is_completed ? "line-through opacity-55" : ""
-              }`}
-            >
+          <div className="min-w-0 flex-1">
+            <button type="button" onClick={() => onEdit(todo)} title={todo.title}
+              className={`block w-full truncate rounded-sm text-left text-sm font-semibold leading-5 text-[var(--app-ink)] hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)] ${todo.is_completed ? "line-through opacity-55" : ""}`}>
               {todo.title}
-            </span>
-            {preview ? (
-              <span
-                className={`mt-0.5 block truncate text-xs text-[var(--app-muted)] sm:text-sm ${
-                  todo.is_completed ? "opacity-50" : ""
-                }`}
-              >
-                {preview}
-              </span>
-            ) : null}
-          </button>
-
-          <div className="flex flex-none flex-wrap items-center justify-end gap-1 sm:gap-2">
-            {due && !todo.is_completed ? (
-              <span
-                className={`hidden items-center gap-1 rounded-full border px-2 py-1 text-xs font-semibold sm:inline-flex ${
-                  due.tone === "overdue"
-                    ? "border-red-500/25 bg-red-500/10 text-red-700 dark:text-red-300"
-                    : due.tone === "today"
-                      ? "border-amber-500/30 bg-amber-400/12 text-amber-700 dark:text-amber-300"
-                      : "border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)]/72 text-[var(--app-muted)]"
-                }`}
-              >
-                <CalendarDays size={13} aria-hidden="true" />
-                {due.label}
-              </span>
-            ) : null}
-
-            <div className="hidden min-w-0 max-w-40 xl:block">
-              <CollectionBadgeMenu
-                title={todo.title}
-                folder={todo.folder}
-                onMove={(folderId) =>
-                  updateFolder.mutateAsync({
-                    entryId: todo.id,
-                    kind: "todo",
-                    folderId,
-                  })
-                }
-                movePending={updateFolder.isPending}
-                onOpenChange={setCollectionMenuOpen}
-              />
-            </div>
-
-            <Button
-              type="button"
-              plain
-              onClick={() => onEdit(todo)}
-              className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-[var(--app-primary)]!"
-              aria-label={`Edit ${todo.title}`}
-            >
-              <Pencil size={16} aria-hidden="true" />
-            </Button>
-            <Button
-              type="button"
-              plain
-              onClick={() => setShowDeleteDialog(true)}
-              className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-red-500!"
-              aria-label={isLocalAccount ? `Delete ${todo.title} permanently` : `Move ${todo.title} to Trash`}
-            >
-              <Trash2 size={16} aria-hidden="true" />
-            </Button>
+            </button>
+            <p className="min-w-0 truncate text-xs leading-5 text-[var(--app-muted)]">
+              Task · <span className={due && !todo.is_completed
+                ? due.tone === "overdue" ? "font-semibold text-red-700 dark:text-red-300"
+                  : due.tone === "today" ? "font-semibold text-amber-700 dark:text-amber-300"
+                    : ""
+                : ""}>{todo.is_completed ? "Completed" : due ? due.label : "Open"}</span>
+              {todo.folder ? ` · ${todo.folder.name}` : ""}
+            </p>
           </div>
+          <button type="button" aria-label={`Actions for ${todo.title}`} aria-expanded={actionsOpen} aria-controls={actionsId}
+            onClick={() => setActionsOpen((open) => !open)}
+            className="theme-button-icon flex size-11 shrink-0 items-center justify-center focus-visible:outline-2 focus-visible:outline-offset-2">
+            <MoreHorizontal size={19} aria-hidden="true" />
+          </button>
         </div>
 
-        {(due || todo.tags?.length || todo.folder || toggleError) && (
-          <div className="flex flex-wrap items-center gap-1.5 border-t border-[color-mix(in_oklab,var(--app-line)_9%,transparent)] px-3 py-2 sm:hidden">
-            {due && !todo.is_completed ? (
-              <span
-                className={`inline-flex items-center gap-1 text-xs font-semibold ${
-                  due.tone === "overdue"
-                    ? "text-red-700 dark:text-red-300"
-                    : due.tone === "today"
-                      ? "text-amber-700 dark:text-amber-300"
-                      : "text-[var(--app-muted)]"
-                }`}
-              >
-                <CalendarDays size={13} aria-hidden="true" />
-                {due.label}
-              </span>
-            ) : null}
-            {todo.tags?.map((tag) => (
-              <Badge
-                key={tag.id}
-                color="violet"
-                className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600! dark:text-violet-300!"
-              >
-                <span className="truncate" title={`#${tag.name}`}>
-                  #{tag.name}
-                </span>
-              </Badge>
-            ))}
-            {todo.folder ? (
-              <span className="truncate text-xs text-[var(--app-muted)]">
-                {todo.folder.name}
-              </span>
-            ) : null}
-            {toggleError ? (
-              <p className="w-full text-xs text-red-600 dark:text-red-300" role="alert">
-                {toggleError}
-              </p>
-            ) : null}
+        {actionsOpen ? (
+          <div id={actionsId} className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--card-border)] pt-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+              <CollectionBadgeMenu title={todo.title} folder={todo.folder}
+                onMove={(folderId) => updateFolder.mutateAsync({ entryId: todo.id, kind: "todo", folderId })}
+                movePending={updateFolder.isPending} onOpenChange={setCollectionMenuOpen} />
+              {due && !todo.is_completed ? <span className={`inline-flex items-center gap-1 text-xs ${due.tone === "overdue" ? "text-red-700 dark:text-red-300" : due.tone === "today" ? "text-amber-700 dark:text-amber-300" : "text-[var(--app-muted)]"}`}>
+                <CalendarDays size={13} aria-hidden="true" />{due.label}
+              </span> : null}
+              {todo.tags?.map((tag) => <Badge key={tag.id} color="violet"
+                className="max-w-full bg-violet-500/8! px-1.5! py-0! text-[11px]/4! text-violet-600! dark:text-violet-300!">
+                <span className="truncate" title={`#${tag.name}`}>#{tag.name}</span>
+              </Badge>)}
+            </div>
+            <div className="flex items-center gap-1">
+              <Button type="button" plain onClick={() => onEdit(todo)} aria-label={`Edit ${todo.title}`}
+                className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-[var(--app-primary)]!">
+                <Pencil size={16} aria-hidden="true" />
+              </Button>
+              <Button type="button" plain onClick={() => setShowDeleteDialog(true)}
+                aria-label={isLocalAccount ? `Delete ${todo.title} permanently` : `Move ${todo.title} to Trash`}
+                className="size-10! cursor-pointer justify-center rounded-full! p-0! text-[var(--app-muted)]! hover:text-red-500!">
+                <Trash2 size={16} aria-hidden="true" />
+              </Button>
+            </div>
           </div>
-        )}
-        {toggleError ? (
-          <p
-            className="hidden border-t border-red-500/15 px-4 py-2 text-xs text-red-600 dark:text-red-300 sm:block"
-            role="alert"
-          >
-            {toggleError}
-          </p>
         ) : null}
+        {actionsOpen && preview ? <p className="truncate border-t border-[var(--card-border)] py-2 text-xs text-[var(--app-muted)]">{preview}</p> : null}
+        {toggleError ? <p className="border-t border-red-500/15 py-2 text-xs text-red-600 dark:text-red-300" role="alert">{toggleError}</p> : null}
       </article>
 
       <Dialog
