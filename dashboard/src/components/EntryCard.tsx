@@ -11,6 +11,7 @@ import { getEntryText, sanitizeEntryHtml } from "../lib/entryContent";
 import type { Entry } from "../types/bookmark";
 import CollectionBadgeMenu from "./CollectionBadgeMenu";
 import LibraryCard from "./LibraryCard";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -21,6 +22,7 @@ import {
 } from "./ui/dialog";
 
 interface EntryCardProps<TEntry extends Entry> {
+  layout?: LibraryLayout;
   kind: "note" | "todo";
   entry: TEntry;
   completed?: boolean;
@@ -41,6 +43,7 @@ const entryDateFormatter = new Intl.DateTimeFormat(undefined, {
 });
 
 export default function EntryCard<TEntry extends Entry>({
+  layout = "cards",
   kind,
   entry,
   completed = false,
@@ -63,6 +66,13 @@ export default function EntryCard<TEntry extends Entry>({
   const singular = isTodo ? "task" : "document";
   const previewHtml = sanitizeEntryHtml(entry.content);
   const hasPreview = Boolean(getEntryText(previewHtml).trim());
+  const compactSummary = isTodo
+    ? completed
+      ? "Completed"
+      : "due_date" in entry && entry.due_date
+        ? `Due ${entryDateFormatter.format(new Date(`${entry.due_date}T12:00:00`))}`
+        : "Open"
+    : currentFolder?.name ?? "No collection";
 
   const toggle = async () => {
     if (!onToggle) return;
@@ -104,6 +114,9 @@ export default function EntryCard<TEntry extends Entry>({
     <>
       <LibraryCard
         kind={kind}
+        layout={layout}
+        compactSummary={compactSummary}
+        compactActionsLabel={entry.title}
         collectionColor={currentFolder?.color}
         onClick={handleCardClick}
         raised={collectionMenuOpen}
@@ -219,6 +232,10 @@ export default function EntryCard<TEntry extends Entry>({
           </>
         }
       />
+
+      {layout === "compact" && toggleError ? (
+        <p className="mt-1 px-3 text-xs text-red-600 dark:text-red-300" role="alert">{toggleError}</p>
+      ) : null}
 
       <Dialog
         open={showDeleteDialog}

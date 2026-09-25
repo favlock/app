@@ -15,11 +15,13 @@ import ReadspaceCard from "./ReadspaceCard";
 import TodoCard from "./TodoCard";
 import HomeAddMenu from "./HomeAddMenu";
 import { Button } from "./ui/button";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 const INITIAL_VISIBLE_ITEMS = 24;
 const LOAD_MORE_ITEMS = 24;
 
 interface HomeLibraryGridProps {
+  layout?: LibraryLayout;
   sorting?: BookmarkSorting;
   bookmarksOnly?: boolean;
   bookmarks: Bookmark[];
@@ -40,6 +42,7 @@ interface HomeLibraryGridProps {
 }
 
 export default function HomeLibraryGrid({
+  layout = "cards",
   sorting,
   bookmarksOnly = false,
   bookmarks,
@@ -128,14 +131,14 @@ export default function HomeLibraryGrid({
 
       {isLoading && items.length === 0 ? (
         <div
-          className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+          className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}
           role="status"
           aria-label="Loading library"
         >
           {[0, 1, 2, 3].map((item) => (
             <div
               key={item}
-              className="min-h-48 animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50"
+              className={`${layout === "compact" ? "min-h-18" : "min-h-48"} animate-pulse rounded-xl border border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] bg-[var(--app-highlight)]/50`}
             />
           ))}
         </div>
@@ -161,7 +164,7 @@ export default function HomeLibraryGrid({
         </div>
       ) : (
         <>
-          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
             {visibleItems.map((item) => (
               <li
                 key={`${item.kind}:${item.id}`}
@@ -170,6 +173,7 @@ export default function HomeLibraryGrid({
                 <SelectableLibraryItem id={librarySelectionId(item.kind, item.id)} title={item.kind === "note" ? item.note.title : item.kind === "todo" ? item.todo.title : item.kind === "read" ? item.article.entry.title : item.bookmark.title} selection={item.kind === "bookmark" ? { ...selection, active: false } : selection}>
                 {item.kind === "bookmark" ? (
                   <BookmarkCard
+                    layout={layout}
                     bookmark={item.bookmark}
                     selection={selection.active ? {
                       checked: selection.selected.has(librarySelectionId(item.kind, item.id)), disabled: selection.busy,
@@ -179,11 +183,12 @@ export default function HomeLibraryGrid({
                     onMoved={() => {}}
                   />
                 ) : item.kind === "note" ? (
-                  <NoteCard note={item.note} onEdit={onEditNote} />
+                  <NoteCard note={item.note} onEdit={onEditNote} layout={layout} />
                 ) : item.kind === "todo" ? (
-                  <TodoCard todo={item.todo} onEdit={onEditTodo} />
+                  <TodoCard todo={item.todo} onEdit={onEditTodo} layout={layout} />
                 ) : (
                   <ReadspaceCard
+                    layout={layout}
                     entry={item.article.entry}
                     content={item.article.content}
                     onOpen={() => onOpenArticle(item.article)}

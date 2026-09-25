@@ -2,15 +2,18 @@ import { ArrowRight, Highlighter } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { HighlightSearchMatch } from "../lib/highlightSearch";
 import { useState } from "react";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 export default function HighlightSearchResults({
   matches,
   query,
   refined = false,
+  layout = "cards",
 }: {
   matches: HighlightSearchMatch[];
   query: string;
   refined?: boolean;
+  layout?: LibraryLayout;
 }) {
   const [showAll, setShowAll] = useState(false);
   if (!matches.length) return null;
@@ -40,12 +43,12 @@ export default function HighlightSearchResults({
           View all <ArrowRight size={15} aria-hidden="true" />
         </Link> : null}
       </div>
-      <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
         {(showAll ? matches : matches.slice(0, 3)).map(({ highlight, sourceTitle }) => (
           <li key={highlight.id}>
             <Link
               to={refined ? `/readspace?view=highlights&open=${encodeURIComponent(highlight.id)}` : target}
-              className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
+              className={`group flex h-full gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88 ${layout === "compact" ? "min-h-16 items-center" : "min-h-24 hover:-translate-y-px"}`}
             >
               <span className="mt-1 size-2.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
               <span className="min-w-0">

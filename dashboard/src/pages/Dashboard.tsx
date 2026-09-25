@@ -1,4 +1,6 @@
 import BookmarkSortControl from "../components/BookmarkSortControl";
+import LibraryLayoutControl from "../components/LibraryLayoutControl";
+import { useLibraryLayout } from "../hooks/useLibraryLayout";
 import { useSortPreferenceSync } from "../hooks/useSortPreferenceSync";
 import {
   useEffect,
@@ -88,6 +90,7 @@ export default function Dashboard() {
   } = useAuth();
   const sortSync = useSortPreferenceSync();
   const { value: sortPreference, update: setSortPreference } = sortSync;
+  const { layout, update: setLayout } = useLibraryLayout(user?.id);
   const { collectionSlug, tagSlug, smartViewId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -480,17 +483,6 @@ export default function Dashboard() {
 
   const dashboardIconButtonClass = "theme-button-icon inline-flex";
 
-  const sortControl = (
-    <BookmarkSortControl
-        disabled={sortSync.busy}
-        value={sorting}
-        onChange={setSortPreference}
-        mixedLibrary={mixedLibrary}
-        favorites={isFavoritesView && !isSearchView}
-        search={isSearchView}
-      />
-  );
-
   return (
     <div className="w-full min-w-0 flex-1 space-y-4 lg:space-y-5">
       <header className="px-4 pt-4 sm:px-5 lg:px-1 lg:pt-1">
@@ -632,6 +624,18 @@ export default function Dashboard() {
         Could not load this Saved Smart View. <button type="button" className="font-semibold underline" onClick={() => void smartViews.refetch()}>Retry</button>
       </div> : null}
 
+      <div className="flex flex-wrap items-start justify-between gap-2 px-3 lg:px-0">
+        <div className="min-w-0 flex-1"><BookmarkSortControl
+          disabled={sortSync.busy}
+          value={sorting}
+          onChange={setSortPreference}
+          mixedLibrary={mixedLibrary}
+          favorites={isFavoritesView && !isSearchView}
+          search={isSearchView}
+        /></div>
+        <LibraryLayoutControl layout={layout} onChange={setLayout} />
+      </div>
+
       {isSearchView ? (
         <div
           className="space-y-3 px-3 lg:px-0"
@@ -640,11 +644,13 @@ export default function Dashboard() {
             : "Search results from documents, tasks, articles, and highlights"}
         >
           <NoteSearchResults
+            layout={layout}
             matches={noteSearchMatches}
             query={normalizedBookmarkSearch}
             refined={hasRefinedLibrarySearch(searchFilters)}
           />
           <TodoSearchResults
+            layout={layout}
             matches={todoSearchMatches}
             query={normalizedBookmarkSearch}
             refined={hasRefinedLibrarySearch(searchFilters)}
@@ -652,11 +658,13 @@ export default function Dashboard() {
           {!isLocalAccount ? (
             <>
               <ReadspaceSearchResults
+                layout={layout}
                 result={readspaceSearchResult}
                 query={normalizedBookmarkSearch}
                 refined={hasRefinedLibrarySearch(searchFilters)}
               />
               <HighlightSearchResults
+                layout={layout}
                 matches={highlightSearchMatches}
                 query={normalizedBookmarkSearch}
                 refined={hasRefinedLibrarySearch(searchFilters)}
@@ -677,10 +685,9 @@ export default function Dashboard() {
           Could not load bookmark usage. <Button plain onClick={() => void usageQuery.refetch()}>Try again</Button>
         </div>
       )}
-      {!isSearchView && (isAllBookmarksView || (isCollectionView && selectedFolderId)) ? sortControl : null}
-
       {isAllBookmarksView && !isSearchView ? (
         <HomeLibraryGrid
+          layout={layout}
           key={user?.id}
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
@@ -737,6 +744,7 @@ export default function Dashboard() {
         />
       ) : isCollectionView && selectedFolderId && !isSearchView ? (
         <CollectionLibraryGrid
+          layout={layout}
           key={user?.id}
           sorting={sorting}
           bookmarksOnly={sorting.bookmarksOnly}
@@ -800,7 +808,7 @@ export default function Dashboard() {
       ) : (
         <section className="px-3 lg:px-0">
           <BookmarkList
-            headerControls={sortControl}
+            layout={layout}
             key={user?.id}
             sorting={sorting}
             bookmarks={rankedBookmarks}

@@ -2,15 +2,18 @@ import { ArrowRight, BookOpen } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { ReadspaceSearchPage } from "../lib/readspaceSearch";
 import { useState } from "react";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 export default function ReadspaceSearchResults({
   result,
   query,
   refined = false,
+  layout = "cards",
 }: {
   result: ReadspaceSearchPage;
   query: string;
   refined?: boolean;
+  layout?: LibraryLayout;
 }) {
   const [showAll, setShowAll] = useState(false);
   if (result.total === 0) return null;
@@ -54,12 +57,12 @@ export default function ReadspaceSearchResults({
         </Link> : null}
       </div>
 
-      <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
         {(showAll ? result.matches : result.matches.slice(0, 3)).map(({ article, excerpt }) => (
           <li key={article.entry.id}>
             <Link
               to={buildUrl(article.entry.id)}
-              className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
+              className={`group flex h-full gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88 ${layout === "compact" ? "min-h-16 items-center" : "min-h-24 hover:-translate-y-px"}`}
             >
               <BookOpen
                 size={17}
@@ -70,7 +73,7 @@ export default function ReadspaceSearchResults({
                 <span className="block truncate text-sm font-bold text-[var(--app-ink)] group-hover:text-[var(--app-primary)]">
                   {article.entry.title}
                 </span>
-                {excerpt ? (
+                {excerpt && layout !== "compact" ? (
                   <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--app-muted)]">
                     {excerpt}
                   </span>

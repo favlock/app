@@ -37,7 +37,7 @@ export default function BookmarkSortControl({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-3 px-3 lg:px-0"
+      className="flex flex-wrap items-center gap-3"
       aria-label={search ? "Bookmark sorting" : "Library sorting"}
     >
       <div className="w-full sm:w-auto sm:min-w-64">

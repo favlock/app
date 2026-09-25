@@ -10,12 +10,14 @@ import { Link } from "react-router-dom";
 import type { EntrySearchMatch } from "../lib/entrySearch";
 import type { EntryKind, Todo } from "../types/bookmark";
 import { useState } from "react";
+import type { LibraryLayout } from "../hooks/useLibraryLayout";
 
 interface EntrySearchResultsProps {
   kind: EntryKind;
   matches: EntrySearchMatch[];
   query: string;
   refined?: boolean;
+  layout?: LibraryLayout;
 }
 
 function isCompletedTodo(kind: EntryKind, entry: EntrySearchMatch["entry"]): boolean {
@@ -27,6 +29,7 @@ export default function EntrySearchResults({
   matches,
   query,
   refined = false,
+  layout = "cards",
 }: EntrySearchResultsProps) {
   const [showAll, setShowAll] = useState(false);
   if (matches.length === 0) return null;
@@ -80,14 +83,14 @@ export default function EntrySearchResults({
         </Link> : null}
       </div>
 
-      <ul className="grid grid-cols-1 gap-2 md:grid-cols-3">
+      <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-2 md:grid-cols-3"}>
         {(showAll ? matches : matches.slice(0, 3)).map(({ entry, excerpt }) => {
           const isCompleted = isCompletedTodo(kind, entry);
           return (
             <li key={entry.id}>
               <Link
                 to={buildUrl(entry.id)}
-                className="group flex h-full min-h-24 gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:-translate-y-px hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88"
+                className={`group flex h-full gap-3 rounded-lg border border-[color-mix(in_oklab,var(--app-line)_11%,transparent)] bg-[var(--app-highlight)]/66 p-3 transition hover:border-[color-mix(in_oklab,var(--app-primary)_24%,transparent)] hover:bg-[var(--app-highlight)]/88 ${layout === "compact" ? "min-h-16 items-center" : "min-h-24 hover:-translate-y-px"}`}
               >
                 {isTodo ? (
                   isCompleted ? (
@@ -118,7 +121,7 @@ export default function EntrySearchResults({
                   >
                     {entry.title}
                   </span>
-                  {excerpt ? (
+                  {excerpt && layout !== "compact" ? (
                     <span className="mt-1 line-clamp-2 block text-xs leading-5 text-[var(--app-muted)]">
                       {excerpt}
                     </span>
