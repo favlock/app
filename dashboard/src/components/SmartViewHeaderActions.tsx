@@ -5,7 +5,6 @@ import type { SavedSmartView } from "../lib/savedSmartViews";
 import {
   Dropdown,
   DropdownButton,
-  DropdownDescription,
   DropdownDivider,
   DropdownItem,
   DropdownLabel,
@@ -46,7 +45,6 @@ export default function SmartViewHeaderActions({ view, canEdit, onDeleted }: {
         <DropdownItem disabled={!canEdit} onClick={() => setEditing(true)}>
           <Pencil data-slot="icon" aria-hidden="true" />
           <DropdownLabel>Edit view</DropdownLabel>
-          <DropdownDescription>{canEdit ? "Name, icon, and color" : "Available on Pro"}</DropdownDescription>
         </DropdownItem>
         <DropdownDivider />
         <DropdownItem onClick={() => { setRemoveError(null); setConfirmingRemove(true); }}>
