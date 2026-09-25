@@ -131,7 +131,7 @@ export default function HomeLibraryGrid({
 
       {isLoading && items.length === 0 ? (
         <div
-          className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}
+          className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}
           role="status"
           aria-label="Loading library"
         >
@@ -164,7 +164,7 @@ export default function HomeLibraryGrid({
         </div>
       ) : (
         <>
-          <ul className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
+          <ul className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"}>
             {visibleItems.map((item) => (
               <li
                 key={`${item.kind}:${item.id}`}

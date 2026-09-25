@@ -733,7 +733,7 @@ function CloudReadspace() {
           }}>
           {(selection) => <>{isLoading ? (
           <div
-            className={layout === "compact" ? "space-y-2" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}
+            className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"}
             role="status"
           >
             {[0, 1, 2].map((item) => (
@@ -804,7 +804,7 @@ function CloudReadspace() {
                 matching articles.
               </p>
             ) : null}
-            <div className={layout === "compact" ? "space-y-2" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
+            <div className={layout === "compact" ? "grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3" : "grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3"}>
               {visibleEntries.map(({ entry, content }) => (
                 <SelectableLibraryItem key={entry.id} id={librarySelectionId(entry.kind, entry.id)} title={entry.title} selection={selection}>
                 <ReadspaceCard
