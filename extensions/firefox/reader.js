@@ -1,0 +1,150 @@
+import { renderArticleContent } from "./reader-content.js";
+import { FAVLOCK_CONFIG } from "./config.js";
+import { saveReadspaceArticle } from "./extension-data.js";
+
+const captureId = new URLSearchParams(location.search).get("capture");
+const articleDateFormatter = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+let article = null;
+
+function setStatus(message) {
+  const status = document.getElementById("status");
+  status.textContent = message;
+  status.hidden = !message;
+}
+
+function setArticleDate(elementId, label, value) {
+  const element = document.getElementById(elementId);
+  if (!value) {
+    element.textContent = "";
+    return;
+  }
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    element.textContent = "";
+    return;
+  }
+  element.dateTime = date.toISOString();
+  element.textContent = `${label} ${articleDateFormatter.format(date)}`;
+}
+
+function datesDisplayTheSame(publishedAt, updatedAt) {
+  const published = new Date(publishedAt || "");
+  const updated = new Date(updatedAt || "");
+  return (
+    !Number.isNaN(published.getTime()) &&
+    !Number.isNaN(updated.getTime()) &&
+    articleDateFormatter.format(published) === articleDateFormatter.format(updated)
+  );
+}
+
+async function loadArticle() {
+  if (!captureId) {
+    setStatus("This reading view has expired. Open it again from the FavLock extension.");
+    return;
+  }
+
+  const stored = await browser.storage.session.get(`readerCapture:${captureId}`);
+  article = stored[`readerCapture:${captureId}`] || null;
+  if (!article?.html) {
+    setStatus("This reading view has expired. Open it again from the FavLock extension.");
+    return;
+  }
+
+  document.title = `${article.title} | FavLock Reader`;
+  document.getElementById("title").textContent = article.title;
+  document.getElementById("siteName").textContent = article.siteName || "Article";
+  setArticleDate("publishedDate", "Published", article.publishedAt);
+  setArticleDate(
+    "updatedDate",
+    "Updated",
+    datesDisplayTheSame(article.publishedAt, article.updatedAt)
+      ? ""
+      : article.updatedAt,
+  );
+  const source = document.getElementById("sourceLink");
+  const sourceUrl = new URL(article.sourceUrl);
+  if (!["http:", "https:"].includes(sourceUrl.protocol)) throw new Error("Invalid article source.");
+  source.href = sourceUrl.href;
+  renderArticleContent(document.getElementById("content"), article.html);
+  document.getElementById("article").hidden = false;
+  setStatus("");
+}
+
+async function saveToReading() {
+  if (!article || !captureId) return;
+  const button = document.getElementById("saveButton");
+  const buttonLabel = document.getElementById("saveButtonLabel");
+  button.disabled = true;
+  buttonLabel.textContent = "Saving…";
+
+  try {
+    await saveReadspaceArticle(article);
+    await browser.storage.session.remove(`readerCapture:${captureId}`);
+    buttonLabel.textContent = "Saved";
+    setStatus("Article encrypted and saved to Readspace.");
+  } catch (error) {
+    console.error("Failed to save the article:", error);
+    setStatus(error instanceof Error ? error.message : "Could not save this article.");
+    button.disabled = false;
+    buttonLabel.textContent = "Save to Readspace";
+  }
+}
+
+function changeSize(delta) {
+  const current = Number.parseFloat(
+    getComputedStyle(document.documentElement).getPropertyValue("--reader-size"),
+  );
+  const next = Math.min(25, Math.max(15, current + delta));
+  document.documentElement.style.setProperty("--reader-size", `${next}px`);
+  browser.storage.local.set({ readerFontSize: next });
+}
+
+async function loadPreferences() {
+  const { readerFontSize, readerTheme } = await browser.storage.local.get([
+    "readerFontSize",
+    "readerTheme",
+  ]);
+  if (Number.isFinite(readerFontSize)) {
+    document.documentElement.style.setProperty("--reader-size", `${readerFontSize}px`);
+  }
+  const savedTheme = ["white", "yellow", "dark"].includes(readerTheme)
+    ? readerTheme
+    : "yellow";
+  applyReaderTheme(savedTheme);
+}
+
+function applyReaderTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelectorAll("[data-reader-theme]").forEach((button) => {
+    button.setAttribute(
+      "aria-pressed",
+      String(button.dataset.readerTheme === theme),
+    );
+  });
+}
+
+document.getElementById("decreaseSize").addEventListener("click", () => changeSize(-1));
+document.getElementById("increaseSize").addEventListener("click", () => changeSize(1));
+document.querySelectorAll("[data-reader-theme]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const theme = button.dataset.readerTheme;
+    applyReaderTheme(theme);
+    browser.storage.local.set({ readerTheme: theme });
+  });
+});
+document.getElementById("saveButton").addEventListener("click", saveToReading);
+document.getElementById("favlockDashboardLink").href =
+  FAVLOCK_CONFIG.dashboardUrl;
+
+window.addEventListener("pagehide", () => {
+  if (captureId) {
+    void browser.storage.session.remove(`readerCapture:${captureId}`);
+  }
+});
+
+void loadPreferences();
+void loadArticle().catch(() => setStatus("This article could not be opened safely. Capture it again."));

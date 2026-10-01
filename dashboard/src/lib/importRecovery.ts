@@ -34,7 +34,7 @@ export type ImportRecoveryJournal = {
   userId: string;
   operationId: string;
   sourceFingerprint: string;
-  sourceKind: "html" | "safari-zip" | "chrome";
+  sourceKind: "html" | "safari-zip" | "chrome" | "firefox";
   itemCount: number;
   states: string;
   decisions: ImportRecoveryDecision[];
@@ -94,7 +94,7 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     !isUuid(value.operationId) ||
     typeof value.sourceFingerprint !== "string" ||
     !/^[0-9a-f]{64}$/.test(value.sourceFingerprint) ||
-    !["html", "safari-zip", "chrome"].includes(String(value.sourceKind)) ||
+    !["html", "safari-zip", "chrome", "firefox"].includes(String(value.sourceKind)) ||
     !Number.isSafeInteger(itemCount) ||
     (itemCount as number) < 1 ||
     (itemCount as number) > MAX_ITEMS ||

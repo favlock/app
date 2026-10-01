@@ -30,6 +30,7 @@ const DataTransfer = lazy(() => import("./pages/DataTransfer"));
 const Duplicates = lazy(() => import("./pages/Duplicates"));
 const BrokenLinks = lazy(() => import("./pages/BrokenLinks"));
 const Support = lazy(() => import("./pages/Support"));
+const FirefoxExtensionPair = lazy(() => import("./pages/FirefoxExtensionPair"));
 const ExtensionPair = lazy(() => import("./pages/ExtensionPair"));
 
 function RouteFallback() {
@@ -77,6 +78,10 @@ function App() {
                   element={<RegisterRedirect />}
                 />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route
+                  path="/extension/firefox/pair"
+                  element={<ProtectedRoute><FirefoxExtensionPair /></ProtectedRoute>}
+                />
                 <Route
                   path="/extension/pair"
                   element={

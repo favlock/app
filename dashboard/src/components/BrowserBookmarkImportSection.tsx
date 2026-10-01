@@ -1,3 +1,4 @@
+import FirefoxBookmarkImportControl from "./FirefoxBookmarkImportControl";
 import {
   useCallback,
   useEffect,
@@ -1070,6 +1071,11 @@ export default function BrowserBookmarkImportSection() {
         {chromeExtensionOrigin ? (
           <iframe ref={chromeBridgeRef} src={`${chromeExtensionOrigin}/bookmark-import-bridge.html`} title="FavLock Chrome bookmark importer" className="hidden" tabIndex={-1} onLoad={handleChromeBridgeLoad} />
         ) : null}
+
+        <FirefoxBookmarkImportControl
+          disabled={isBusy || !user || !cryptoKey || keyLoading}
+          onImport={(result) => prepareImport(async () => result, "Reading Firefox bookmarks...", "firefox")}
+        />
 
         <Field className="mt-6">
           <Label htmlFor="browser-bookmark-import-file">Bookmark export</Label>

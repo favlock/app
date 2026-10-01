@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FavLock Extension Settings</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="ambient ambient-amber" aria-hidden="true"></div>
+    <div class="ambient ambient-blue" aria-hidden="true"></div>
+    <main class="settings-shell">
+      <header class="topbar">
+        <img class="logo" src="favlock-logo.svg" alt="FavLock" />
+        <span class="extension-badge">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M8.5 3.75v3.5h-3.5m10.5-3.5v3.5h3.5M8.5 20.25v-3.5h-3.5m10.5 3.5v-3.5h3.5" />
+          </svg>
+          Firefox extension
+        </span>
+      </header>
+
+      <div class="settings-grid">
+        <section class="container" aria-labelledby="settings-title">
+          <div class="section-heading">
+            <span class="heading-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M4 13h6V4H4v9Zm0 7h6v-4H4v4Zm10 0h6v-9h-6v9Zm0-16v4h6V4h-6Z" />
+              </svg>
+            </span>
+            <div>
+              <p class="eyebrow">Extension settings</p>
+              <h1 id="settings-title">FavLock for Firefox</h1>
+            </div>
+          </div>
+
+          <p class="description">
+            Manage webpage highlights, your new-tab preference, or bring your
+            Firefox bookmarks into your private FavLock library.
+          </p>
+
+          <form id="settingsForm">
+            <label class="checkbox-field" for="showHighlightsOnWebpages">
+              <input id="showHighlightsOnWebpages" type="checkbox" />
+              <span class="checkbox-copy">
+                <strong>Show my highlights on webpages</strong>
+                <span>
+                  Restore saved highlights on websites you approve. Turning
+                  this off removes FavLock’s website permissions.
+                </span>
+              </span>
+            </label>
+
+            <label class="checkbox-field" for="useFavLockNewTab">
+              <input id="useFavLockNewTab" type="checkbox" />
+              <span class="checkbox-copy">
+                <strong>Use FavLock as my new tab page</strong>
+                <span>
+                  Open FavLock in every new tab. This stays off until you
+                  choose to enable it.
+                </span>
+              </span>
+            </label>
+
+            <div class="form-footer">
+              <button id="saveButton" type="submit">
+                Save settings
+              </button>
+              <button
+                id="importBookmarksButton"
+                type="button"
+                class="secondary-button"
+              >
+                Import Firefox bookmarks
+              </button>
+              <p id="status" role="status" aria-live="polite"></p>
+            </div>
+            <p class="permission-note">
+              Firefox asks for website access when you first save a highlight
+              there, and for bookmark access only when you start an import.
+            </p>
+          </form>
+
+          <section class="account-card" aria-labelledby="account-title">
+            <div>
+              <p class="eyebrow">Account</p>
+              <h2 id="account-title">Extension connection</h2>
+            </div>
+            <p id="accountDescription" class="account-description" aria-live="polite">
+              Checking the extension connection…
+            </p>
+            <button id="disconnectButton" type="button" class="danger-button" hidden>
+              Disconnect extension
+            </button>
+            <p id="accountStatus" role="status" aria-live="polite"></p>
+          </section>
+        </section>
+
+        <aside class="info-card" aria-labelledby="info-title">
+          <span class="info-kicker">Your library, close at hand</span>
+          <h2 id="info-title">Save, search, and read from Firefox.</h2>
+          <ul>
+            <li>
+              <span class="number">01</span>
+              <span><strong>Quick save</strong> recognizes saved pages and updates their organization without duplicating them.</span>
+            </li>
+            <li>
+              <span class="number">02</span>
+              <span><strong>Search</strong> finds saved bookmarks by title, URL, Collection, or tag.</span>
+            </li>
+            <li>
+              <span class="number">03</span>
+              <span><strong>Reader and sessions</strong> keep articles focused and open tabs together.</span>
+            </li>
+          </ul>
+          <p class="privacy-note">
+            <span aria-hidden="true"></span>
+            Your extension preferences are synced by Firefox. Protected bookmark details are encrypted by FavLock before storage.
+          </p>
+        </aside>
+      </div>
+    </main>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

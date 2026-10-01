@@ -1,0 +1,26 @@
+{
+  "name": "favlock-firefox-extension",
+  "version": "1.13.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "configure": "node scripts/configure.mjs",
+    "test": "node scripts/configure.mjs --test && vitest run",
+    "test:browser": "npm run build:development && python3 scripts/test-firefox-browser.py",
+    "build": "node scripts/package.mjs",
+    "build:app-dist": "node scripts/package.mjs --app-dist",
+    "build:app-dist:development": "node scripts/package.mjs --development --app-dist",
+    "build:development": "node scripts/package.mjs --development",
+    "lint": "web-ext lint --source-dir dist/production --warnings-as-errors"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.2",
+    "jsdom": "^30.0.1",
+    "vitest": "5.0.0",
+    "web-ext": "10.7.0"
+  }
+}

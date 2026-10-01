@@ -10,6 +10,22 @@ export interface Release {
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "October 1, 2026",
+    announcementHighlights: [
+      "New Firefox extension.",
+      "Save bookmarks, articles, and highlights from Firefox.",
+      "Import Firefox bookmarks with a preview before saving.",
+    ],
+    changes: [
+      "New Firefox extension for desktop, connected to your FavLock account.",
+      "Save and search bookmarks directly from the extension.",
+      "Organize bookmarks with Collections, tags, and Lists, and save open tabs as a session.",
+      "Capture articles and highlights for Readspace.",
+      "Import Firefox bookmarks with a preview and duplicate review before saving.",
+    ],
+  },
+  {
+    version: "1.12.0",
     date: "September 25, 2026",
     announcementHighlights: [
       "Find what you need with library filters and Pro Saved Smart Views.",
