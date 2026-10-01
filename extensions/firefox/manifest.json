@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "FavLock \u2013 Save, Search & Organize Bookmarks",
   "description": "Save, search, and organize bookmarks with encrypted titles and URLs. Add Collections, tags, tab sessions, and article snapshots.",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "permissions": [
     "activeTab",
     "alarms",
