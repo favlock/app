@@ -36,6 +36,7 @@ import BookmarkLimitRecovery, { BookmarkLimitGraceNotice } from "../components/B
 import { useBookmarkCounts } from "../hooks/useBookmarksQuery";
 import { useOnboardingProgressSync } from "../hooks/useOnboardingProgressSync";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
+import FirefoxExtensionPrompt from "../components/FirefoxExtensionPrompt";
 import LocalVaultBanner from "../components/LocalVaultBanner";
 import LocalVaultCloudMergeDialog from "../components/LocalVaultCloudMergeDialog";
 import ReleaseAnnouncementDialog from "../components/ReleaseAnnouncementDialog";
@@ -476,6 +477,17 @@ export default function DashboardLayout() {
         }
       />
       <ChromeExtensionPrompt
+        enabled={
+          !isLocalAccount &&
+          hasFinishedInitialOnboarding &&
+          !isOnboardingOpen &&
+          !isAddBookmarkOpen &&
+          location.pathname !== "/readspace" &&
+          activeDataTransferView === null
+        }
+        userId={user?.id ?? ""}
+      />
+      <FirefoxExtensionPrompt
         enabled={
           !isLocalAccount &&
           hasFinishedInitialOnboarding &&

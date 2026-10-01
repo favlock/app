@@ -82,7 +82,9 @@ fixture configuration.
   content-script bridge. It does not use `externally_connectable` or service workers.
 - Pairing checks the exact extension ID, dashboard origin, top frame, initiating
   tab, bounded payload, verified account, and a short-lived attempt consumed once
-  before token exchange. The bridge exposes only the pairing operation.
+  before token exchange. The bridge exposes pairing and a minimal installation
+  acknowledgment used to hide the dashboard install suggestion; the installation
+  check returns no account, session, or library data.
 - Keys stay as non-extractable Web Crypto keys in extension IndexedDB. Session
   credentials remain in the extension's local storage, matching Chrome. Raw pairing
   keys are never written to extension storage. Explicit disconnect clears credentials,
