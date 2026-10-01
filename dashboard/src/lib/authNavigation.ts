@@ -5,7 +5,7 @@ export const PRO_CHECKOUT_PATH = "/checkout";
 
 // Keep aligned with the protected routes in App.tsx, including legacy aliases.
 const POST_AUTH_PATHS = new Set([
-  "/", "/checkout", "/extension/pair", "/favorites", "/unsorted",
+  "/", "/checkout", "/extension/pair", "/extension/firefox/pair", "/favorites", "/unsorted",
   "/write", "/notes", "/tasks", "/todos", "/readspace", "/lists",
   "/trash", "/support", "/settings",
 ]);

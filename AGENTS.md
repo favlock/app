@@ -189,11 +189,12 @@ these values identical for every release:
 - `dashboard/package.json` version;
 - `packages/shared/package.json` version;
 - `packages/shared/src/version.ts` product version;
-- Chrome extension manifest `version` and `version_name`.
+- Chrome extension manifest `version` and `version_name`;
+- Firefox extension manifest `version` and `extensions/firefox/package.json` version.
 
-Every Chrome Web Store submission is a FavLock app release and must increment
-the shared version. Never reuse a Chrome manifest version previously submitted
-to the store. Earlier extension releases used independent version numbers;
+Every Chrome Web Store or Firefox Add-ons submission is a FavLock app release
+and must increment the shared version. Never reuse a manifest version previously
+submitted to its store. Earlier extension releases used independent version numbers;
 preserve their published changelog history.
 
 ### Choosing the version bump
@@ -217,15 +218,18 @@ inflate the version for implementation size alone. Refactors, tests,
 documentation, CI, and development-only dependency changes require no product
 version bump unless they are included in a product or store release.
 
-Any Chrome Web Store submission must still use at least a PATCH bump, even when
-the submitted change would otherwise require no product version change. Version
+Any Chrome Web Store or Firefox Add-ons submission must still use at least a
+PATCH bump, even when the submitted change would otherwise require no product
+version change. Version
 numbers are monotonically increasing and must never be reused, decremented, or
 changed after submission.
 
 ### Applying the version bump
 
 For a release, update all version fields listed above in one focused change and
-regenerate `package-lock.json` so its root and workspace versions match. Also:
+regenerate `package-lock.json` so its root and workspace versions match. Update
+`extensions/firefox/package-lock.json` separately so its root and package records
+match the same product version. Also:
 
 - add the dated customer-visible dashboard changelog entry when dashboard
   behavior changed;
@@ -255,3 +259,17 @@ Store listings, screenshots, README text, security statements, and release notes
 must describe shipped behavior accurately. Never use absolute privacy or
 security claims when metadata, account information, browser permissions, or
 service visibility create a meaningful limitation.
+
+## Independent Firefox extension
+
+`extensions/firefox` owns its source, assets, dependencies/lockfile, tests,
+configuration, and packaging. Its release version matches the app and Chrome.
+Never import or symlink Chrome, Safari, dashboard, or shared-package code into
+Firefox; never regenerate it from
+another extension during a build. Maintain intentional duplication when matching
+Chrome behavior. Run its own `npm ci --ignore-scripts`, `npm test`, `npm run build`,
+and `npm run lint` in that directory. Firefox is not part of the root npm workspace,
+but participates in the app release-version equality rule. Its build checks app
+version metadata when built inside this repository without importing app code.
+Keep its API/encrypted-data contracts compatible, and validate dashboard
+pairing/import consumers together.

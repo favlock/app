@@ -346,8 +346,8 @@ determine the bump.
 
 Documentation, tests, refactors, CI changes, and development-only tooling changes
 do not need a product bump unless they are included in a product release. Every
-Chrome Web Store submission is an exception and requires at least a PATCH bump
-because Chrome store versions cannot be reused.
+Chrome Web Store or Firefox Add-ons submission is an exception and requires at
+least a PATCH bump; never reuse a version previously submitted to that store.
 
 A release bump must update these values together:
 
@@ -356,7 +356,13 @@ A release bump must update these values together:
 - `packages/shared/package.json`;
 - `packages/shared/src/version.ts`;
 - `extensions/chrome/manifest.json` `version` and `version_name`;
+- `extensions/firefox/manifest.json` `version`;
+- `extensions/firefox/package.json` and its separate `package-lock.json` version records;
 - the corresponding root and workspace records in `package-lock.json`.
+
+Firefox shares the product version while keeping its source, assets, dependencies,
+tests, configuration, and packaging independent. Its build rejects version drift
+when run inside the app repository.
 
 Update the relevant dated changelogs, run the complete release quality gate, and
 verify every value before creating `vX.Y.Z`. Use
