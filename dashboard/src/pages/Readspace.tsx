@@ -40,6 +40,7 @@ import { useLibraryLayout } from "../hooks/useLibraryLayout";
 import ReadspaceOrganizationDialog from "../components/ReadspaceOrganizationDialog";
 import ReadspaceOrganizationFields from "../components/ReadspaceOrganizationFields";
 import ChromeExtensionPrompt from "../components/ChromeExtensionPrompt";
+import FirefoxExtensionPrompt from "../components/FirefoxExtensionPrompt";
 import { prepareBookmarkTags } from "../lib/bookmarkWrites";
 import { Button } from "../components/ui/button";
 import {
@@ -541,6 +542,11 @@ function CloudReadspace() {
       <section className="px-3 lg:px-0">
         <div className="app-surface rounded-[1.15rem] p-3 sm:p-4">
           <ChromeExtensionPrompt
+            enabled
+            userId={user?.id ?? ""}
+            variant="inline"
+          />
+          <FirefoxExtensionPrompt
             enabled
             userId={user?.id ?? ""}
             variant="inline"

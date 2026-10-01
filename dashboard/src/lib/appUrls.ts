@@ -32,6 +32,12 @@ export const CHROME_EXTENSION_URL = readPublicUrl(
     "https://chromewebstore.google.com/search/FavLock",
 );
 
+export const FIREFOX_EXTENSION_URL = readPublicUrl(
+  "VITE_FIREFOX_EXTENSION_URL",
+  import.meta.env.VITE_FIREFOX_EXTENSION_URL ??
+    "https://addons.mozilla.org/en-US/firefox/search/?q=FavLock",
+);
+
 export const CREEM_PRO_PRODUCT_URL =
   import.meta.env.VITE_CREEM_PRO_PRODUCT_URL ?? "";
 

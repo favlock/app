@@ -35,3 +35,25 @@ describe("Firefox page bridge", () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 });
+
+
+describe("Firefox installation detection", () => {
+  it("acknowledges installation on dashboard routes without forwarding account data", () => {
+    const { window, receive, sendMessage } = bridge();
+    window.location.pathname = "/";
+    receive({ source: window, origin: window.location.origin, data: { type: "favlock.firefox.installation-request", requestId: "install-check" } });
+    expect(window.postMessage).toHaveBeenCalledWith({ type: "favlock.firefox.installation-response", requestId: "install-check", extensionId: "firefox@favlock.app" }, window.location.origin);
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+  it.each(["origin", "source", "frame", "size", "empty"])("ignores invalid installation request %s", (kind) => {
+    const { window, receive } = bridge();
+    const event = { source: window, origin: window.location.origin, data: { type: "favlock.firefox.installation-request", requestId: "install-check" } };
+    if (kind === "origin") event.origin = "https://attacker.example";
+    if (kind === "source") event.source = {};
+    if (kind === "frame") window.top = {};
+    if (kind === "size") event.data.requestId = "x".repeat(65);
+    if (kind === "empty") event.data.requestId = "";
+    receive(event);
+    expect(window.postMessage).not.toHaveBeenCalled();
+  });
+});

@@ -5,8 +5,19 @@ const PAIR_KEY_MESSAGE = "favlock.firefox.pair-key";
 window.addEventListener("message", (event) => {
   if (event.source !== window || event.origin !== window.location.origin) return;
 
-  if (window.top !== window || window.location.pathname !== "/extension/firefox/pair") return;
+  if (window.top !== window) return;
   const request = event.data;
+  if (request?.type === "favlock.firefox.installation-request") {
+    if (typeof request.requestId !== "string" || !request.requestId || request.requestId.length > 64) return;
+    window.postMessage({
+      type: "favlock.firefox.installation-response",
+      requestId: request.requestId,
+      extensionId: browser.runtime.id,
+    }, event.origin);
+    return;
+  }
+
+  if (window.location.pathname !== "/extension/firefox/pair") return;
   if (
     request?.type !== PAIR_REQUEST_TYPE ||
     request.extensionId !== browser.runtime.id ||
