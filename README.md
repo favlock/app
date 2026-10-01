@@ -12,6 +12,7 @@ self-hosted FavLock service.
 
 - `dashboard` — React and Vite dashboard
 - `extensions/chrome` — Chrome Manifest V3 extension
+- `extensions/firefox` — independent Firefox extension ([setup and packaging](extensions/firefox/README.md))
 - `packages/shared` — shared code used inside this repository
 - `scripts` — extension configuration and packaging tools
 
@@ -27,7 +28,8 @@ npm run dev
 ```
 
 Fill `.env.local` with the public configuration for the FavLock environment you
-want to use. The dashboard and extensions share this root configuration.
+want to use. The dashboard and Chrome extension share this root configuration. Firefox owns
+its configuration and dependencies inside `extensions/firefox`.
 `VITE_AUTH_URL` is the existing HTTPS Auth origin used only for interactive
 authorization. It may be the project's default Auth URL; a custom domain is an
 optional branding improvement described in
@@ -54,6 +56,11 @@ npm run build:chrome
 ```
 
 The Chrome Web Store ZIP is written to `dist/extensions/chrome`.
+Run `npm run build:firefox` from this directory to build the independent Firefox
+extension and copy its production ZIP to `dist/extensions/firefox`.
+Run `npm run dev:firefox` for a separate development ZIP in the same directory.
+Use `npm run test:firefox` for its unit tests, or `npm run test:firefox-browser`
+for its native Firefox smoke test after installing the Python QA requirements.
 Production extension packaging always uses `https://api.favlock.app` and the
 generated production manifest allowlists exactly that API origin for extension
 fetches. Extension connection opens the protected FavLock dashboard pairing

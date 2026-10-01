@@ -1,0 +1,9 @@
+<svg width="184" height="44" viewBox="0 0 184 44" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">FavLock</title>
+  <path d="M12 5h24a6 6 0 0 1 6 6v28.18a2 2 0 0 1-3.03 1.72L24 32.08 9.03 40.9A2 2 0 0 1 6 39.18V11a6 6 0 0 1 6-6Z" fill="#1d2230" opacity=".18"/>
+  <path d="M12 2h22a6 6 0 0 1 6 6v27.18a2 2 0 0 1-3.03 1.72L23 28.66 9.03 36.9A2 2 0 0 1 6 35.18V8a6 6 0 0 1 6-6Z" fill="#0f766e" stroke="#1d2230" stroke-width="2" stroke-linejoin="round"/>
+  <circle cx="23" cy="16" r="8" fill="#f59e0b" stroke="#1d2230" stroke-width="1.75"/>
+  <path d="M23 12.25a2.5 2.5 0 0 0-1.38 4.59l-1.12 3.41h5l-1.12-3.41A2.5 2.5 0 0 0 23 12.25Z" fill="#1d2230"/>
+  <text x="51" y="29.5" fill="#202229" font-family="'Space Grotesk','Avenir Next','Segoe UI',sans-serif" font-size="25.5" font-weight="650" letter-spacing="-1.15">Fav</text>
+  <text x="94" y="29.5" fill="#0f766e" font-family="'Space Grotesk','Avenir Next','Segoe UI',sans-serif" font-size="25.5" font-weight="800" letter-spacing="-1.15">Lock</text>
+</svg>

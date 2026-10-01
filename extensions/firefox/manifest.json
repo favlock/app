@@ -1,0 +1,85 @@
+{
+  "manifest_version": 3,
+  "name": "FavLock \u2013 Save, Search & Organize Bookmarks",
+  "description": "Save, search, and organize bookmarks with encrypted titles and URLs. Add Collections, tags, tab sessions, and article snapshots.",
+  "version": "1.12.0",
+  "permissions": [
+    "activeTab",
+    "alarms",
+    "contextMenus",
+    "scripting",
+    "storage",
+    "tabs"
+  ],
+  "optional_permissions": [
+    "bookmarks"
+  ],
+  "optional_host_permissions": [
+    "http://*/*",
+    "https://*/*"
+  ],
+  "host_permissions": [
+    "https://api.favlock.app/*",
+    "https://vault.favlock.app/*"
+  ],
+  "background": {
+    "scripts": [
+      "background.js"
+    ],
+    "type": "module"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://api.favlock.app"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://vault.favlock.app/*"
+      ],
+      "js": [
+        "pairing-bridge.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "icons": {
+    "16": "icons/favlock-16.png",
+    "32": "icons/favlock-32.png",
+    "48": "icons/favlock-48.png",
+    "128": "icons/favlock-128.png"
+  },
+  "options_page": "options.html",
+  "action": {
+    "default_title": "Save or search with FavLock",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/favlock-16.png",
+      "32": "icons/favlock-32.png"
+    }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "bookmark-import-bridge.html"
+      ],
+      "matches": [
+        "https://vault.favlock.app/*"
+      ]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "firefox@favlock.app",
+      "strict_min_version": "142.0",
+      "data_collection_permissions": {
+        "required": [
+          "authenticationInfo",
+          "bookmarksInfo",
+          "browsingActivity",
+          "websiteContent",
+          "websiteActivity"
+        ]
+      }
+    }
+  }
+}
