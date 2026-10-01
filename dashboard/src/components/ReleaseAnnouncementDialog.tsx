@@ -3,6 +3,7 @@ import { useState } from "react";
 import { changelog, type Release } from "../data/changelog";
 import {
   getAnnounceableReleaseSeries,
+  getReleaseAnnouncementContent,
   readSeenReleaseSeries,
   saveSeenReleaseSeries,
 } from "../lib/releaseAnnouncement";
@@ -19,6 +20,7 @@ import {
 interface ReleaseAnnouncementDialogProps {
   enabled: boolean;
   release?: Release;
+  releases?: readonly Release[];
 }
 
 function ReleaseHighlight({ text }: { text: string }) {
@@ -42,6 +44,7 @@ function ReleaseHighlight({ text }: { text: string }) {
 export default function ReleaseAnnouncementDialog({
   enabled,
   release = changelog[0],
+  releases = changelog,
 }: ReleaseAnnouncementDialogProps) {
   const [seenReleaseSeries, setSeenReleaseSeries] = useState(
     readSeenReleaseSeries,
@@ -61,6 +64,10 @@ export default function ReleaseAnnouncementDialog({
   };
 
   if (!release || !releaseSeries) return null;
+  const content = getReleaseAnnouncementContent(release, releases);
+  const highlights = content.announcementHighlights?.length
+    ? content.announcementHighlights
+    : content.changes;
 
   return (
     <Dialog open={open} onClose={dismiss} size="md">
@@ -77,7 +84,7 @@ export default function ReleaseAnnouncementDialog({
         <div className="pr-10">
           <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.15em] text-[var(--app-primary)]">
             <Sparkles className="size-4" aria-hidden="true" />
-            New in version {release.version}
+            {content.version === release.version ? "New in version" : "Updated to version"} {release.version}
           </p>
           <DialogTitle>What’s new in FavLock</DialogTitle>
           <DialogDescription>{release.date}</DialogDescription>
@@ -88,9 +95,9 @@ export default function ReleaseAnnouncementDialog({
             FavLock has been updated with new features and improvements across
             the app.
           </p>
-          {release.announcementHighlights?.length ? (
+          {highlights.length ? (
             <ul className="mt-4 space-y-2.5">
-              {release.announcementHighlights.map((highlight) => (
+              {highlights.map((highlight) => (
                 <li
                   key={highlight}
                   className="flex items-start gap-3 text-sm leading-6 text-[var(--app-muted)]"

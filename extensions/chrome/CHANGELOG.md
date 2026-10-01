@@ -1,5 +1,9 @@
 # Chrome extension changelog
 
+## 1.13.1 — October 1, 2026
+
+- Aligned the extension version with FavLock 1.13.1. No Chrome extension behavior changes.
+
 ## 1.13.0 — October 1, 2026
 
 - Aligned the extension version with FavLock 1.13.0. No Chrome extension behavior changes.
