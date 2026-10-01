@@ -11,6 +11,14 @@ export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
     date: "October 1, 2026",
+    changes: [
+      "Fixed the Firefox extension install link so it opens the configured Firefox Add-ons listing.",
+      "See the latest minor release highlights on your first visit, including when starting on a patch version.",
+    ],
+  },
+  {
+    version: "1.13.0",
+    date: "October 1, 2026",
     announcementHighlights: [
       "New Firefox extension.",
       "Save bookmarks, articles, and highlights from Firefox.",

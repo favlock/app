@@ -32,7 +32,7 @@ describe("ReleaseAnnouncementDialog", () => {
   ) => {
     await act(async () => {
       root.render(
-        <ReleaseAnnouncementDialog enabled={enabled} release={release} />,
+        <ReleaseAnnouncementDialog enabled={enabled} release={release} releases={[minorRelease]} />,
       );
     });
   };
@@ -50,10 +50,10 @@ describe("ReleaseAnnouncementDialog", () => {
     document.body.innerHTML = "";
   });
 
-  it("recognizes major and minor releases but excludes patches", () => {
+  it("recognizes major, minor, and patch release series", () => {
     expect(getAnnounceableReleaseSeries("1.9.0")).toBe("1.9");
     expect(getAnnounceableReleaseSeries("2.0.0")).toBe("2.0");
-    expect(getAnnounceableReleaseSeries("1.9.1")).toBeNull();
+    expect(getAnnounceableReleaseSeries("1.9.1")).toBe("1.9");
     expect(getAnnounceableReleaseSeries("invalid")).toBeNull();
   });
 
@@ -84,7 +84,7 @@ describe("ReleaseAnnouncementDialog", () => {
     ).toBe("View full changelog");
   });
 
-  it("stores the acknowledged major and minor release series", async () => {
+  it("stores the acknowledged minor release series", async () => {
     await render();
 
     await act(async () => {
@@ -116,14 +116,47 @@ describe("ReleaseAnnouncementDialog", () => {
     expect(document.body.textContent).toContain("New in version 1.10.0");
   });
 
-  it("does not show for patch releases", async () => {
-    await render({
+  it("shows the minor highlights once when the first visit is on a patch", async () => {
+    const patch = {
       version: "1.9.1",
       date: "September 6, 2026",
       changes: ["A reliability fix."],
-    });
+    };
+    await render(patch);
 
+    expect(document.body.textContent).toContain("Updated to version 1.9.1");
+    expect(document.body.textContent).toContain("FavLock has been updated with new features and improvements across the app.");
+    expect(document.body.textContent).toContain(minorRelease.announcementHighlights[1]);
+    expect(document.body.textContent).not.toContain("A reliability fix.");
+
+    await act(async () => {
+      document.querySelector<HTMLButtonElement>('button[aria-label="Dismiss release announcement"]')!.click();
+    });
+    expect(localStorage.getItem(RELEASE_ANNOUNCEMENT_SEEN_KEY)).toBe("1.9");
+
+    act(() => root.unmount());
+    root = createRoot(container);
+    await render(patch);
     expect(document.body.textContent).not.toContain("What’s new in FavLock");
-    expect(localStorage.getItem(RELEASE_ANNOUNCEMENT_SEEN_KEY)).toBeNull();
+
+    await render({ ...patch, version: "1.9.2" });
+    expect(document.body.textContent).not.toContain("What’s new in FavLock");
+  });
+
+  it.each(["1.9", "1.9.0", "1.9.1"])("does not repeat a patch announcement after acknowledgment %s", async (seen) => {
+    localStorage.setItem(RELEASE_ANNOUNCEMENT_SEEN_KEY, seen);
+    await render({ ...minorRelease, version: "1.9.2" });
+    expect(document.body.textContent).not.toContain("What’s new in FavLock");
+  });
+
+  it("uses current release changes when its minor entry is unavailable", async () => {
+    await render({ version: "1.10.1", date: "October 1, 2026", changes: ["A reliability fix."] });
+    expect(document.body.textContent).toContain("A reliability fix.");
+    expect(document.body.textContent).not.toContain(minorRelease.announcementHighlights[1]);
+  });
+
+  it("does not show an invalid version", async () => {
+    await render({ ...minorRelease, version: "invalid" });
+    expect(document.body.textContent).not.toContain("What’s new in FavLock");
   });
 });
