@@ -14,7 +14,7 @@ configuration, package metadata, and its lockfile. It has no runtime dependencie
 and does not import, symlink, bundle, or build from Chrome, Safari, dashboard,
 or `packages/shared`. The initial visual and feature baseline was copied from
 Chrome; subsequent changes are maintained independently. Firefox shares the app
-and Chrome release version, currently **1.12.0**. Update its manifest, package
+and Chrome release version, currently **1.13.0**. Update its manifest, package
 metadata, and separate lockfile with every app release. The build checks these
 local versions and, when present, the app package version. A standalone copy can
 still build using its own metadata; no app code is imported.
@@ -39,9 +39,9 @@ and select `dist/production/manifest.json`. Temporary installs are removed when
 Firefox closes. Open the toolbar extension, then choose **Connect FavLock**.
 The dashboard changes described below must be deployed before production pairing.
 
-`dist/favlock-firefox-v1.12.0-production.zip` is an unsigned submission artifact.
+`dist/favlock-firefox-v1.13.0-production.zip` is an unsigned submission artifact.
 From the app repository root, `npm run build:firefox` also writes a versioned
-copy to `dist/extensions/firefox/favlock-firefox-extension-v1.12.0.zip`. The Firefox
+copy to `dist/extensions/firefox/favlock-firefox-extension-v1.13.0.zip`. The Firefox
 package remains responsible for building and packaging its own runtime files.
 Normal permanent installation requires Mozilla signing; nothing here publishes
 or signs an add-on. The proposed fixed ID is `firefox@favlock.app`; AMO uniqueness
@@ -56,7 +56,7 @@ npm run build:development
 ```
 
 From the app repository root, `npm run dev:firefox` writes
-`dist/extensions/firefox/[dev]-favlock-firefox-extension-v1.12.0.zip`; it keeps the
+`dist/extensions/firefox/[dev]-favlock-firefox-extension-v1.13.0.zip`; it keeps the
 production ZIP separate. Root `npm run test:firefox` runs this package's unit
 tests. Root `npm run test:firefox-browser` builds the development fixture and
 runs the native smoke test with the Python QA dependencies installed.
