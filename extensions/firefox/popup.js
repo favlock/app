@@ -19,6 +19,7 @@ let searchableBookmarks = [];
 let visibleSearchResults = [];
 let searchBookmarksLoaded = false;
 let connectionReady = false;
+let creatingCollection = false;
 
 function setStatus(message, kind = "error") {
   const status = document.getElementById("status");
@@ -254,17 +255,163 @@ async function openSearchResult(index) {
   window.close();
 }
 
+function normalizePickerQuery(value) {
+  return value.trim().toLocaleLowerCase();
+}
+
 function renderCollections(folders) {
-  const select = document.getElementById("collectionSelect");
-  select.querySelectorAll("option[data-folder]").forEach((option) => option.remove());
-  const createOption = select.querySelector('option[value="__new__"]');
+  const container = document.getElementById("collectionOptions");
+  container.querySelectorAll("label[data-folder]").forEach((label) => label.remove());
+  const namesById = new Map(folders.map((folder) => [folder.id, folder.name]));
   for (const folder of folders) {
-    const option = document.createElement("option");
-    option.value = folder.id;
-    option.textContent = `${folder.parent_id ? "↳ " : ""}${folder.name}`;
-    option.dataset.folder = "true";
-    select.insertBefore(option, createOption);
+    const label = document.createElement("label");
+    label.className = "collection-option";
+    label.dataset.folder = "true";
+    const parentName = folder.parent_id ? namesById.get(folder.parent_id) : "";
+    label.dataset.search = normalizePickerQuery(
+      parentName ? `${folder.name} ${parentName}` : folder.name,
+    );
+    if (parentName) label.title = `${parentName} / ${folder.name}`;
+    const input = document.createElement("input");
+    input.type = "radio";
+    input.name = "collection";
+    input.value = folder.id;
+    const text = document.createElement("span");
+    text.textContent = `${folder.parent_id ? "↳ " : ""}${folder.name}`;
+    label.append(input, text);
+    container.append(label);
   }
+  document.getElementById("collectionSearch").parentElement.hidden = !folders.length;
+}
+
+function getSelectedCollectionId() {
+  return (
+    document.querySelector('#collectionOptions input[name="collection"]:checked')?.value || ""
+  );
+}
+
+function updateCollectionPickerLabel() {
+  const label = document.getElementById("collectionPickerLabel");
+  if (creatingCollection) {
+    label.textContent = "New collection";
+    return;
+  }
+  const selected = document.querySelector(
+    '#collectionOptions input[name="collection"]:checked',
+  );
+  label.textContent =
+    selected?.nextElementSibling?.textContent.replace(/^↳ /, "") || "No collection";
+}
+
+function setCollectionSelection(folderId) {
+  const inputs = Array.from(
+    document.querySelectorAll('#collectionOptions input[name="collection"]'),
+  );
+  const match = inputs.find((input) => input.value === folderId) || inputs[0];
+  if (match) match.checked = true;
+  creatingCollection = false;
+  document.getElementById("newCollectionField").hidden = true;
+  updateCollectionPickerLabel();
+}
+
+function filterCollectionOptions() {
+  const rawQuery = document.getElementById("collectionSearch").value.trim();
+  const query = normalizePickerQuery(rawQuery);
+  let visibleCount = 0;
+  let exactMatch = false;
+  document.querySelectorAll("#collectionOptions label").forEach((label) => {
+    const searchText =
+      label.dataset.search ?? normalizePickerQuery(label.textContent);
+    label.hidden = !!query && !searchText.includes(query);
+    if (!label.hidden) visibleCount += 1;
+    const name = normalizePickerQuery(
+      label.querySelector("span").textContent.replace(/^↳ /, ""),
+    );
+    if (name === query) exactMatch = true;
+  });
+  document.getElementById("collectionNoMatches").hidden = visibleCount > 0;
+  document.getElementById("showNewCollectionButton").textContent =
+    rawQuery && !exactMatch
+      ? `+ Create collection "${rawQuery}"`
+      : "+ Create a collection";
+}
+
+function filterTagOptions() {
+  const rawQuery = document.getElementById("tagSearch").value.trim();
+  const query = normalizePickerQuery(rawQuery);
+  const labels = Array.from(document.querySelectorAll("#tagOptions label"));
+  let visibleCount = 0;
+  let exactMatch = false;
+  for (const label of labels) {
+    const name = normalizePickerQuery(label.textContent);
+    label.hidden = !!query && !name.includes(query);
+    if (!label.hidden) visibleCount += 1;
+    if (name === query) exactMatch = true;
+  }
+  document.getElementById("tagNoMatches").hidden =
+    !labels.length || visibleCount > 0;
+  document.getElementById("showNewTagsButton").textContent =
+    rawQuery && !exactMatch ? `+ Create tag "${rawQuery}"` : "+ Create tags";
+}
+
+function resetPickerSearch(searchId, filter) {
+  const search = document.getElementById(searchId);
+  if (!search.value) return;
+  search.value = "";
+  filter();
+}
+
+function handlePickerSearchKeydown(event, { pickerId, filter, onEnter }) {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    onEnter();
+  } else if (event.key === "Escape") {
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.target.value) {
+      event.target.value = "";
+      filter();
+    } else {
+      const picker = document.getElementById(pickerId);
+      picker.open = false;
+      picker.querySelector("summary").focus();
+    }
+  }
+}
+
+function selectFirstVisibleCollection() {
+  const first = document.querySelector(
+    '#collectionOptions label:not([hidden]) input[name="collection"]',
+  );
+  if (!first) return;
+  first.checked = true;
+  first.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+function toggleFirstVisibleTag() {
+  const first = document.querySelector(
+    '#tagOptions label:not([hidden]) input[type="checkbox"]:not(:disabled)',
+  );
+  if (first) {
+    first.checked = !first.checked;
+    updateTagPickerLabel();
+    return;
+  }
+  if (document.getElementById("tagSearch").value.trim()) showNewTagsFromSearch();
+}
+
+function showNewTagsFromSearch() {
+  const search = document.getElementById("tagSearch");
+  const query = search.value.trim();
+  const newTags = document.getElementById("newTags");
+  if (query) {
+    const existing = newTags.value.split(",").map((tag) => tag.trim()).filter(Boolean);
+    if (!existing.some((tag) => tag.toLocaleLowerCase() === query.toLocaleLowerCase())) {
+      newTags.value = [...existing, query].join(", ");
+    }
+  }
+  resetPickerSearch("tagSearch", filterTagOptions);
+  revealCreationField("newTagsField", "newTags", "tagPicker");
 }
 
 function renderLists(lists) {
@@ -301,6 +448,7 @@ function renderTags(tags) {
     empty.textContent = "No tags yet";
     container.append(empty);
     document.getElementById("tagPickerLabel").textContent = "No tags available";
+    document.getElementById("tagSearch").parentElement.hidden = true;
     return;
   }
   for (const tag of tags) {
@@ -314,6 +462,8 @@ function renderTags(tags) {
     label.append(input, text);
     container.append(label);
   }
+  document.getElementById("tagSearch").parentElement.hidden = false;
+  filterTagOptions();
   updateTagPickerLabel();
 }
 
@@ -377,13 +527,12 @@ function updateMoreOptionsLabel() {
 function applySavedPageState(state) {
   savedPageState = state;
   const saveButton = document.getElementById("saveBookmarkButton");
-  const collectionSelect = document.getElementById("collectionSelect");
   const tagIds = new Set(state?.tagIds || []);
   const listIds = new Set(state?.listIds || []);
 
   if (state) {
     document.getElementById("bookmarkTitle").value = state.title;
-    collectionSelect.value = state.folderId || "";
+    setCollectionSelection(state.folderId || "");
     setPageStateBadge(
       state.isHighlightSource ? "Not saved" : "Saved",
       state.isHighlightSource ? "unsaved" : "saved",
@@ -478,7 +627,7 @@ async function submitQuickAdd(event) {
     setStatus("This page cannot be saved as a bookmark.");
     return;
   }
-  const collectionSelect = document.getElementById("collectionSelect");
+  const selectedCollectionId = getSelectedCollectionId();
   const selectedTagIds = Array.from(
     document.querySelectorAll('#tagOptions input[type="checkbox"]:checked'),
   ).map((input) => input.value);
@@ -495,14 +644,10 @@ async function submitQuickAdd(event) {
       title: document.getElementById("bookmarkTitle").value,
       url: activeTab.url,
       existingBookmarkId: savedPageState?.id || null,
-      folderId:
-        collectionSelect.value && collectionSelect.value !== "__new__"
-          ? collectionSelect.value
-          : null,
-      newCollectionName:
-        collectionSelect.value === "__new__"
-          ? document.getElementById("newCollectionName").value
-          : "",
+      folderId: creatingCollection ? null : selectedCollectionId || null,
+      newCollectionName: creatingCollection
+        ? document.getElementById("newCollectionName").value
+        : "",
       selectedListIds,
       newListName: document.getElementById("newListName").value,
       selectedTagIds,
@@ -697,12 +842,57 @@ document.getElementById("listOptions").addEventListener("change", updateListPick
 document.getElementById("showNewListButton").addEventListener("click", () => {
   revealCreationField("newListField", "newListName", "listPicker");
 });
-document.getElementById("showNewTagsButton").addEventListener("click", () => {
-  revealCreationField("newTagsField", "newTags", "tagPicker");
+document.getElementById("showNewTagsButton").addEventListener("click", showNewTagsFromSearch);
+document.getElementById("tagSearch").addEventListener("input", filterTagOptions);
+document.getElementById("tagSearch").addEventListener("keydown", (event) => {
+  handlePickerSearchKeydown(event, {
+    pickerId: "tagPicker",
+    filter: filterTagOptions,
+    onEnter: toggleFirstVisibleTag,
+  });
 });
-document.getElementById("collectionSelect").addEventListener("change", (event) => {
-  document.getElementById("newCollectionField").hidden =
-    event.target.value !== "__new__";
+document.getElementById("tagPicker").addEventListener("toggle", (event) => {
+  if (event.target.open) {
+    document.getElementById("tagSearch").focus();
+  } else {
+    resetPickerSearch("tagSearch", filterTagOptions);
+  }
+});
+document.getElementById("collectionOptions").addEventListener("change", () => {
+  creatingCollection = false;
+  document.getElementById("newCollectionField").hidden = true;
+  updateCollectionPickerLabel();
+  const picker = document.getElementById("collectionPicker");
+  picker.open = false;
+  picker.querySelector("summary").focus();
+});
+document.getElementById("collectionSearch").addEventListener("input", filterCollectionOptions);
+document.getElementById("collectionSearch").addEventListener("keydown", (event) => {
+  handlePickerSearchKeydown(event, {
+    pickerId: "collectionPicker",
+    filter: filterCollectionOptions,
+    onEnter: selectFirstVisibleCollection,
+  });
+});
+document.getElementById("collectionPicker").addEventListener("toggle", (event) => {
+  if (event.target.open) {
+    document.getElementById("collectionSearch").focus();
+  } else {
+    resetPickerSearch("collectionSearch", filterCollectionOptions);
+  }
+});
+document.getElementById("showNewCollectionButton").addEventListener("click", () => {
+  const name = document.getElementById("collectionSearch").value.trim();
+  const nameInput = document.getElementById("newCollectionName");
+  if (name) nameInput.value = name;
+  document
+    .querySelectorAll('#collectionOptions input[name="collection"]')
+    .forEach((input) => {
+      input.checked = false;
+    });
+  creatingCollection = true;
+  updateCollectionPickerLabel();
+  revealCreationField("newCollectionField", "newCollectionName", "collectionPicker");
 });
 document.getElementById("openReaderButton").addEventListener("click", openReaderMode);
 document.getElementById("openDashboardButton").addEventListener("click", openDashboard);

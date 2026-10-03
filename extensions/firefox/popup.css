@@ -489,6 +489,8 @@ select:hover {
   position: absolute;
   width: 1px;
   height: 1px;
+  min-height: 0;
+  padding: 0;
   opacity: 0;
 }
 
@@ -682,3 +684,74 @@ body[data-mode="search"] .helper {
 .current-badge[data-state="unsaved"] { background: #fff2da; color: #725720; }
 #status { border-radius: 16px; background: #fff0e8; border-color: #e6bdab; }
 #status[data-kind="success"] { background: #eef8f4; border-color: #a6d6cb; }
+
+.picker-search {
+  border-top: 1px solid var(--app-line);
+  padding: 8px 9px 0;
+}
+
+.picker-search input {
+  min-height: 34px;
+  border-radius: 10px;
+  padding: 6px 9px;
+  font-size: 0.74rem;
+}
+
+.picker-search + .tag-options,
+.picker-search + .collection-options {
+  border-top: 0;
+}
+
+.collection-options {
+  display: grid;
+  max-height: 168px;
+  overflow-y: auto;
+  gap: 2px;
+  border-top: 1px solid var(--app-line);
+  padding: 8px 6px;
+}
+
+.collection-option {
+  position: relative;
+  cursor: pointer;
+}
+
+.collection-option input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.collection-option span {
+  display: block;
+  overflow: hidden;
+  border-radius: 9px;
+  padding: 7px 9px;
+  color: var(--app-ink);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collection-option:hover span {
+  background: rgba(15, 118, 110, 0.07);
+}
+
+.collection-option input:checked + span {
+  color: var(--app-primary);
+  background: rgba(15, 118, 110, 0.09);
+}
+
+.collection-option input:focus-visible + span {
+  outline: 2px solid rgba(15, 118, 110, 0.5);
+  outline-offset: -2px;
+}
+
+.picker-no-matches {
+  display: block;
+  padding: 0 12px 10px;
+}
