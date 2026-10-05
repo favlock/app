@@ -69,6 +69,14 @@ describe("authentication navigation", () => {
     expect(getDashboardRedirectUrl(next)).toContain(next);
   });
 
+  it("returns to Data transfer after signup so imports can start immediately", () => {
+    expect(normalizePostAuthPath("/data-transfer")).toBe("/data-transfer");
+    expect(normalizePostAuthPath("/data-transfer#export")).toBe("/data-transfer#export");
+    expect(getPostAuthPath(new URLSearchParams("mode=sign-up&next=%2Fdata-transfer"))).toBe("/data-transfer");
+    expect(normalizePostAuthPath("/data-transfer/../../evil")).toBe("/");
+    expect(normalizePostAuthPath("/data-transfer-extra")).toBe("/");
+  });
+
   it("rejects external and public-auth destinations", () => {
     expect(normalizePostAuthPath("https://example.com")).toBe("/");
     expect(normalizePostAuthPath("//example.com/path")).toBe("/");
