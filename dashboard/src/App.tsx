@@ -11,6 +11,7 @@ import AuthCallbackBoundary from "./components/AuthCallbackBoundary";
 import EncryptionSetup from "./components/EncryptionSetup";
 import NewTabLoadingShell from "./components/NewTabLoadingShell";
 import LegacyNotesRedirect from "./components/LegacyNotesRedirect";
+import { DuplicatePreviewProvider } from "./context/DuplicatePreviewContext";
 import { DuplicateScanProvider } from "./context/DuplicateScanContext";
 import { LinkHealthProvider } from "./context/LinkHealthContext";
 import LibraryHealthProGate from "./components/LibraryHealthProGate";
@@ -103,9 +104,11 @@ function App() {
                     <ProtectedRoute>
                       <DuplicateScanProvider>
                         <LinkHealthProvider>
-                          <UnlockDialog />
-                          <EncryptionSetup />
-                          <DashboardLayout />
+                          <DuplicatePreviewProvider>
+                            <UnlockDialog />
+                            <EncryptionSetup />
+                            <DashboardLayout />
+                          </DuplicatePreviewProvider>
                         </LinkHealthProvider>
                       </DuplicateScanProvider>
                     </ProtectedRoute>
@@ -137,11 +140,11 @@ function App() {
                   <Route path="/library-health" element={<Navigate to="/library-health/duplicates" replace />} />
                   <Route
                     path="/library-health/duplicates"
-                    element={<LibraryHealthProGate><Duplicates /></LibraryHealthProGate>}
+                    element={<LibraryHealthProGate feature="duplicates"><Duplicates /></LibraryHealthProGate>}
                   />
                   <Route
                     path="/library-health/broken-links"
-                    element={<LibraryHealthProGate><BrokenLinks /></LibraryHealthProGate>}
+                    element={<LibraryHealthProGate feature="broken-links"><BrokenLinks /></LibraryHealthProGate>}
                   />
                   <Route path="/duplicates" element={<Navigate to="/library-health/duplicates" replace />} />
                   <Route path="/broken-links" element={<Navigate to="/library-health/broken-links" replace />} />
