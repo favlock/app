@@ -21,6 +21,8 @@ let searchBookmarksLoaded = false;
 let connectionReady = false;
 let creatingCollection = false;
 
+const POPUP_MODE_STORAGE_KEY = "favlockPopupMode";
+
 function setStatus(message, kind = "error") {
   const status = document.getElementById("status");
   status.textContent = message;
@@ -127,6 +129,9 @@ function setConnectionView({ connected, unlocked, email = "", cloudStatus = "ava
 function setModeSelection(mode) {
   const saveSelected = mode === "save";
   document.body.dataset.mode = mode;
+  void browser.storage.local
+    .set({ [POPUP_MODE_STORAGE_KEY]: mode })
+    .catch(() => {});
   document.getElementById("saveModeButton").setAttribute(
     "aria-pressed",
     String(saveSelected),
@@ -901,7 +906,12 @@ document.getElementById("openSettingsButton").addEventListener("click", openSett
 document.getElementById("developmentBadge").hidden =
   FAVLOCK_CONFIG.target !== "development";
 await loadCurrentTabPreview();
-await initializeConnection();
+if (await initializeConnection()) {
+  const stored = await browser.storage.local
+    .get(POPUP_MODE_STORAGE_KEY)
+    .catch(() => ({}));
+  if (stored[POPUP_MODE_STORAGE_KEY] === "search") void showBookmarkSearch();
+}
 
 // Close stale forms when this device explicitly switches or clears its account.
 browser.storage.onChanged.addListener((changes, area) => {
