@@ -104,6 +104,7 @@ import { useTodoCount } from "../hooks/useTodosQuery";
 import { useReadspaceCount } from "../hooks/useReadspaceQuery";
 import { useTrashCount } from "../hooks/useTrashQuery";
 import { useListCount } from "../hooks/useListsQuery";
+import LibraryHealthPreviewBadge from "./LibraryHealthPreviewBadge";
 import ProUpgradeDialog from "./ProUpgradeDialog";
 import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 import { useSavedSmartViews } from "../hooks/useSavedSmartViews";
@@ -769,12 +770,7 @@ export default function FolderSidebar({
                 Library health
               </span>
               {accountPlan?.id !== "pro" ? (
-                <span
-                  className="rounded-md border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[var(--app-lavender)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-primary)]"
-                  aria-label="FavLock Pro feature"
-                >
-                  Pro
-                </span>
+                <LibraryHealthPreviewBadge />
               ) : duplicateScanPhase === "scanning" || linkHealthPhase === "scanning" ? (
                 <span
                   className="flex items-center rounded-md px-1.5 py-0.5 text-[var(--app-muted)]"
