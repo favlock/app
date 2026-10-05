@@ -7,7 +7,7 @@ export const PRO_CHECKOUT_PATH = "/checkout";
 const POST_AUTH_PATHS = new Set([
   "/", "/checkout", "/extension/pair", "/extension/firefox/pair", "/favorites", "/unsorted",
   "/write", "/notes", "/tasks", "/todos", "/readspace", "/lists",
-  "/trash", "/support", "/settings",
+  "/trash", "/support", "/settings", "/data-transfer",
 ]);
 
 export type AuthMode = "sign-in" | "sign-up";
