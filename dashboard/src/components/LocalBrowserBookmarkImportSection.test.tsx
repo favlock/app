@@ -44,14 +44,16 @@ vi.mock("../lib/browserBookmarkImport", async (importOriginal) => {
   return { ...original, parseBrowserBookmarksFile: parseFile };
 });
 
-vi.mock("../lib/browserBookmarkImportPlan", () => ({
-  prepareBrowserBookmarkImport: prepareImport,
-}));
+vi.mock("../lib/browserBookmarkImportPlan", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../lib/browserBookmarkImportPlan")>();
+  return { ...original, prepareBrowserBookmarkImport: prepareImport };
+});
 
 vi.mock("../lib/localVault", () => ({
   importLocalBookmarks: importBookmarks,
   readLocalBookmarks: readBookmarks,
   readLocalFolders: readFolders,
+  readLocalTags: vi.fn(async () => []),
 }));
 
 vi.mock("../lib/onboarding", () => ({ setLibraryPopulated: vi.fn() }));
@@ -73,6 +75,7 @@ function preview(overrides: Record<string, unknown> = {}) {
         title: "New",
         url: "https://new.test/",
         folderPath: ["Work"],
+        tags: [],
         duplicate: null,
         existingBookmark: null,
       },
@@ -80,6 +83,10 @@ function preview(overrides: Record<string, unknown> = {}) {
     invalidItems: [],
     folderPaths: [["Work"]],
     newFolderPaths: [["Work"]],
+    tagNames: [],
+    newTagNames: [],
+    taggedCount: 0,
+    skippedTagCount: 0,
     totalCount: 1,
     validCount: 1,
     invalidCount: 0,
@@ -93,6 +100,7 @@ function preview(overrides: Record<string, unknown> = {}) {
     collectionLimit: 0,
     collectionUsage: 0,
     availableCollections: null,
+    availableTags: null,
     blockedReason: null,
     ...overrides,
   };
@@ -118,6 +126,7 @@ describe("LocalBrowserBookmarkImportSection", () => {
       added: 1,
       overwritten: 0,
       collectionsCreated: 1,
+      tagsCreated: 0,
     });
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -147,7 +156,7 @@ describe("LocalBrowserBookmarkImportSection", () => {
 
     expect(importBookmarks).toHaveBeenCalledWith(
       "local-user",
-      [{ title: "New", url: "https://new.test/", folderPath: ["Work"] }],
+      [{ title: "New", url: "https://new.test/", folderPath: ["Work"], tags: [] }],
       {},
     );
     expect(document.body.textContent).toContain(
@@ -187,6 +196,7 @@ describe("LocalBrowserBookmarkImportSection", () => {
       added: 0,
       overwritten: 1,
       collectionsCreated: 1,
+      tagsCreated: 0,
     });
 
     await act(async () => root.render(<LocalBrowserBookmarkImportSection />));
@@ -202,6 +212,7 @@ describe("LocalBrowserBookmarkImportSection", () => {
           title: "Imported title",
           url: "https://new.test/",
           folderPath: ["Work"],
+          tags: [],
           overwriteBookmarkId: existing.id,
         },
       ],

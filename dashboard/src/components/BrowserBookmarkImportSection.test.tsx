@@ -6,6 +6,7 @@ import BrowserBookmarkImportSection from "./BrowserBookmarkImportSection";
 import { fingerprintBrowserBookmarkImport } from "../lib/browserBookmarkImportPlan";
 import { createImportRecoveryJournal } from "../lib/importRecovery";
 import { readOnboardingState } from "../lib/onboarding";
+import { CloudAccessError } from "../lib/cloudAccess";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -15,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   decryptField: vi.fn(async (value: string) => value),
   encryptField: vi.fn(async (value: string) => value),
   createFolder: vi.fn(),
+  createTag: vi.fn(),
   createBookmark: vi.fn(),
   moveBookmarkToFolder: vi.fn(),
   overwriteBookmarkImportContent: vi.fn(),
@@ -58,7 +60,7 @@ vi.mock("../hooks/useFoldersQuery", () => ({
 vi.mock("../hooks/useAccountPlanQuery", () => ({
   useAccountPlan: () => ({
     data: {
-      limits: { bookmarks: mocks.bookmarkLimit, collections: 100 },
+      limits: { bookmarks: mocks.bookmarkLimit, collections: 100, tags: 0 },
     },
     refetch: mocks.refetchAccountPlan,
   }),
@@ -99,6 +101,7 @@ vi.mock("../lib/importRecovery", async () => {
 });
 vi.mock("../lib/taxonomyRepository", () => ({
   createFolder: mocks.createFolder,
+  createTag: mocks.createTag,
 }));
 vi.mock("../lib/bookmarkRepository", () => ({
   createBookmark: mocks.createBookmark,
@@ -129,7 +132,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     mocks.invalidateQueries.mockReset();
     mocks.refetchAccountPlan.mockReset();
     mocks.refetchAccountPlan.mockImplementation(async () => ({
-      data: { limits: { bookmarks: mocks.bookmarkLimit, collections: 100 } },
+      data: { limits: { bookmarks: mocks.bookmarkLimit, collections: 100, tags: 0 } },
     }));
     mocks.refetchResourceUsage.mockReset();
     mocks.refetchResourceUsage.mockImplementation(async () => ({
@@ -146,6 +149,7 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
       async () => ({
         bookmarks: mocks.authoritativeBookmarks,
         folders: mocks.authoritativeFolders,
+        tags: [],
       }),
     );
     window.history.replaceState({}, "", "/settings");
@@ -466,6 +470,84 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     expect(document.body.textContent).not.toContain("Retry failed records");
   });
 
+  it("creates each missing Pocket tag once and attaches tag IDs to new bookmarks", async () => {
+    mocks.createTag
+      .mockReset()
+      .mockResolvedValueOnce({ tagId: "66666666-6666-4666-8666-666666666666", createdAt: "2026-08-20T09:00:00.000Z" });
+    mocks.loadAuthoritativeImportLibrary.mockReset().mockResolvedValue({
+      bookmarks: [],
+      folders: [{ id: "11111111-1111-4111-8111-111111111111", name: "Pocket", parent_id: null, sort_order: 0 }],
+      tags: [{ id: "77777777-7777-4777-8777-777777777777", user_id: "user-1", name: "Work", created_at: "2026-08-01T00:00:00.000Z" }],
+    });
+    await act(async () => {
+      root.render(
+        <BrowserRouter>
+          <BrowserBookmarkImportSection />
+        </BrowserRouter>,
+      );
+    });
+    const input = container.querySelector<HTMLInputElement>("#browser-bookmark-import-file")!;
+    const file = new File(
+      [
+        "title,url,time_added,tags,status\n" +
+          "One,https://one.test,1,news|work,unread\n" +
+          "Two,https://two.test,2,News,unread\n",
+      ],
+      "part_000000.csv",
+      { type: "text/csv" },
+    );
+    Object.defineProperty(input, "files", { configurable: true, value: [file] });
+    await act(async () => {
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      await new Promise((resolve) => window.setTimeout(resolve, 20));
+    });
+
+    expect(document.body.textContent).toContain("2 records have tags; 1 new tag will be created.");
+    await clickButton("Start import");
+    await waitForImportWork();
+
+    expect(mocks.createTag).toHaveBeenCalledTimes(1);
+    expect(mocks.createTag).toHaveBeenCalledWith("current.jwt.token", "news");
+    expect(mocks.createBookmark).toHaveBeenCalledWith("current.jwt.token", expect.objectContaining({
+      url: "https://one.test/",
+      existingTagIds: ["66666666-6666-4666-8666-666666666666", "77777777-7777-4777-8777-777777777777"],
+      newEncryptedTagNames: [],
+    }));
+    expect(mocks.createBookmark).toHaveBeenCalledWith("current.jwt.token", expect.objectContaining({
+      url: "https://two.test/",
+      existingTagIds: ["66666666-6666-4666-8666-666666666666"],
+    }));
+  });
+
+  it("waits out API rate limiting and retries without reporting unknown outcomes", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mocks.createBookmark.mockRejectedValueOnce(
+        new CloudAccessError("rate_limited", "Too many requests right now."),
+      );
+      const { bridge, extensionOrigin, requestId } = await launchChromeImport();
+      await sendChromeBookmarks(bridge, extensionOrigin, requestId, [
+        { title: "Paced", url: "https://paced.test" },
+      ]);
+
+      await clickButton("Start import");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(document.body.textContent).toContain("Resuming in 15 seconds");
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+      await waitForImportWork();
+
+      expect(mocks.createBookmark).toHaveBeenCalledTimes(2);
+      expect(document.body.textContent).toContain("1 added, 0 duplicates, 0 failed, 0 remaining");
+      expect(document.body.textContent).not.toContain("unknown");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("reconciles a timeout after a possible commit before replaying", async () => {
     const committed = {
       id: "55555555-5555-4555-8555-555555555555",
@@ -479,9 +561,9 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     mocks.createBookmark.mockRejectedValueOnce(new Error("timeout"));
     mocks.loadAuthoritativeImportLibrary
       .mockReset()
-      .mockResolvedValueOnce({ bookmarks: [], folders: [] })
-      .mockResolvedValueOnce({ bookmarks: [], folders: [] })
-      .mockResolvedValueOnce({ bookmarks: [committed], folders: [] });
+      .mockResolvedValueOnce({ bookmarks: [], folders: [], tags: [] })
+      .mockResolvedValueOnce({ bookmarks: [], folders: [], tags: [] })
+      .mockResolvedValueOnce({ bookmarks: [committed], folders: [], tags: [] });
     const { bridge, extensionOrigin, requestId } = await launchChromeImport();
     await sendChromeBookmarks(bridge, extensionOrigin, requestId, [
       { title: "Committed", url: "https://committed.test" },
@@ -500,8 +582,8 @@ describe("BrowserBookmarkImportSection Chrome extension launch", () => {
     mocks.createBookmark.mockRejectedValueOnce(new Error("network interrupted"));
     mocks.loadAuthoritativeImportLibrary
       .mockReset()
-      .mockResolvedValueOnce({ bookmarks: [], folders: [] })
-      .mockResolvedValueOnce({ bookmarks: [], folders: [] })
+      .mockResolvedValueOnce({ bookmarks: [], folders: [], tags: [] })
+      .mockResolvedValueOnce({ bookmarks: [], folders: [], tags: [] })
       .mockRejectedValueOnce(new Error("still offline"));
     const { bridge, extensionOrigin, requestId } = await launchChromeImport();
     await sendChromeBookmarks(bridge, extensionOrigin, requestId, [

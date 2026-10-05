@@ -63,6 +63,27 @@ describe("encrypted bookmark import recovery", () => {
     await expect(readImportRecoveryJournal("user-2", key)).resolves.toBeNull();
   });
 
+  it("restores journals saved before tag import without tag IDs", async () => {
+    const key = await importRawKey("abcd efgh ijkl mnop qrst uvwx yzAB CDEF");
+    const { tagIds: _tagIds, ...legacy } = createImportRecoveryJournal("user-1", "f".repeat(64), "html", 1);
+    void _tagIds;
+    await saveImportRecoveryJournal(legacy as never, key);
+
+    await expect(readImportRecoveryJournal("user-1", key)).resolves.toMatchObject({ tagIds: [] });
+  });
+
+  it.each(["pocket", "raindrop"] as const)("restores a %s import journal", async (sourceKind) => {
+    const key = await importRawKey("abcd efgh ijkl mnop qrst uvwx yzAB CDEF");
+    await saveImportRecoveryJournal(
+      createImportRecoveryJournal("user-1", "e".repeat(64), sourceKind, 1),
+      key,
+    );
+
+    await expect(readImportRecoveryJournal("user-1", key)).resolves.toMatchObject({
+      sourceKind,
+    });
+  });
+
   it("clears recovery data on completion or account cleanup", async () => {
     const key = await importRawKey("abcd efgh ijkl mnop qrst uvwx yzAB CDEF");
     await saveImportRecoveryJournal(

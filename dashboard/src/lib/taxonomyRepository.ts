@@ -77,6 +77,24 @@ export function deleteFolder(
   );
 }
 
+export interface CreatedTag {
+  tagId: string;
+  createdAt: string;
+}
+
+export async function createTag(
+  accessToken: string,
+  encryptedName: string,
+): Promise<CreatedTag> {
+  const payload = await postAuthenticatedJson(
+    "/v1/tags",
+    accessToken,
+    { encryptedName },
+    "Could not create the encrypted tag.",
+  );
+  return parseCreatedTag(payload);
+}
+
 export function updateTag(
   accessToken: string,
   tagId: string,
@@ -116,4 +134,20 @@ function parseCreatedFolder(payload: unknown): CreatedFolder {
     throw new Error("Could not create the encrypted collection.");
   }
   return { folderId, createdAt };
+}
+
+function parseCreatedTag(payload: unknown): CreatedTag {
+  if (!isRecord(payload) || !isRecord(payload.data)) {
+    throw new Error("Could not create the encrypted tag.");
+  }
+  const { tagId, createdAt } = payload.data;
+  if (
+    typeof tagId !== "string" ||
+    !UUID_PATTERN.test(tagId) ||
+    typeof createdAt !== "string" ||
+    Number.isNaN(Date.parse(createdAt))
+  ) {
+    throw new Error("Could not create the encrypted tag.");
+  }
+  return { tagId, createdAt };
 }

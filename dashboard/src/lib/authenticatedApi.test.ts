@@ -234,6 +234,14 @@ describe("session-aware authenticated requests", () => {
     expect(cloudFailure).not.toHaveBeenCalled();
   });
 
+  it("reports rate limiting as retryable without marking the cloud unavailable", async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse({ error: { code: "rate_limited" } }, 429));
+    await expect(readLibrary()).rejects.toMatchObject({ code: "rate_limited" });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(auth.refreshRequestSession).not.toHaveBeenCalled();
+    expect(cloudFailure).not.toHaveBeenCalled();
+  });
+
   it("rejects missing credentials and offline work before resolving a request session", async () => {
     await expect(fetchAuthenticatedJson(path, "", failureMessage)).rejects.toMatchObject({ code: "reconnect_required" });
     vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);

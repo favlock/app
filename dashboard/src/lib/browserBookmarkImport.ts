@@ -1,16 +1,30 @@
 import { strFromU8, unzip, type Unzipped } from "fflate";
 import { parse, type DefaultTreeAdapterTypes } from "parse5";
+import {
+  pocketFolderPath,
+  parseReadLaterCsv,
+  splitImportedTags,
+  type ReadLaterImportSource,
+} from "./readLaterImport";
 export { normalizeImportedBookmarkUrl } from "./bookmarkUrl";
 
 export interface BrowserBookmarkImportItem {
   title: string;
   url: string;
   folderPath: string[];
+  tags?: string[];
 }
 
 export interface BrowserBookmarkImportResult {
   bookmarks: BrowserBookmarkImportItem[];
   folderPaths: string[][];
+}
+
+export type BookmarkImportFileSource = "html" | "safari-zip" | ReadLaterImportSource;
+
+export interface ParsedBookmarkImportFile {
+  source: BookmarkImportFileSource;
+  result: BrowserBookmarkImportResult;
 }
 
 export interface ExistingImportFolder {
@@ -23,6 +37,10 @@ const MAX_CHROME_IMPORT_NODES = 100_000;
 const MAX_HTML_IMPORT_BOOKMARKS = 100_000;
 const MAX_ZIP_FILE_SIZE = 250 * 1024 * 1024;
 const MAX_BOOKMARK_HTML_SIZE = 25 * 1024 * 1024;
+const POCKET_HTML_SECTIONS = new Map([
+  ["unread", "unread"],
+  ["read archive", "archive"],
+]);
 
 interface BrowserBookmarkImportFile {
   name: string;
@@ -136,6 +154,11 @@ function getAttribute(node: HtmlElement, name: string): string | null {
   return node.attrs.find((attribute) => attribute.name === name)?.value ?? null;
 }
 
+function getAnchorTags(anchor: HtmlElement): { tags?: string[] } {
+  const tags = splitImportedTags(getAttribute(anchor, "tags") ?? "", ",");
+  return tags.length > 0 ? { tags } : {};
+}
+
 function getBookmarkAnchors(root: HtmlNode): HtmlElement[] {
   const anchors: HtmlElement[] = [];
   const pending = getChildElements(root).reverse();
@@ -194,10 +217,72 @@ function getAnchorFolderPath(
   return folderPathByDl.get(anchorDl) ?? [];
 }
 
+function getDocumentElements(root: HtmlNode): HtmlElement[] {
+  const elements: HtmlElement[] = [];
+  const pending = getChildElements(root).reverse();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current) continue;
+    elements.push(current);
+
+    const children = getChildElements(current);
+    for (let index = children.length - 1; index >= 0; index -= 1) {
+      pending.push(children[index]);
+    }
+  }
+
+  return elements;
+}
+
+// Pocket's legacy ril_export.html lists links under <h1>Unread</h1> and
+// <h1>Read Archive</h1> instead of Netscape <DL> folders.
+function parsePocketHtmlExport(
+  elements: HtmlElement[],
+): BrowserBookmarkImportResult | null {
+  if (elements.some((element) => element.tagName === "dl")) return null;
+  const isPocketExport = elements.some((element) =>
+    element.tagName === "h1" &&
+    POCKET_HTML_SECTIONS.has(getElementText(element).toLowerCase()),
+  );
+  if (!isPocketExport) return null;
+
+  const bookmarks: BrowserBookmarkImportItem[] = [];
+  const folderMap = new Map<string, string[]>();
+  let status = "unread";
+
+  for (const element of elements) {
+    if (element.tagName === "h1") {
+      status = POCKET_HTML_SECTIONS.get(getElementText(element).toLowerCase()) ?? status;
+      continue;
+    }
+    if (element.tagName !== "a") continue;
+    const url = getAttribute(element, "href")?.trim() ?? "";
+    if (!url) continue;
+    const folderPath = pocketFolderPath(status);
+    folderMap.set(folderPathKey(folderPath), folderPath);
+    bookmarks.push({
+      title: getElementText(element),
+      url,
+      folderPath,
+      ...getAnchorTags(element),
+    });
+  }
+
+  if (bookmarks.length > MAX_HTML_IMPORT_BOOKMARKS) {
+    throw new Error("The bookmark export contains too many records to import safely.");
+  }
+
+  return { bookmarks, folderPaths: Array.from(folderMap.values()) };
+}
+
 export function parseBrowserBookmarksHtml(
   html: string,
 ): BrowserBookmarkImportResult {
   const document = parse(html);
+  const pocketResult = parsePocketHtmlExport(getDocumentElements(document));
+  if (pocketResult) return pocketResult;
+
   const anchors = getBookmarkAnchors(document);
 
   if (anchors.length > MAX_HTML_IMPORT_BOOKMARKS) {
@@ -226,6 +311,7 @@ export function parseBrowserBookmarksHtml(
       title: getElementText(anchor),
       url,
       folderPath,
+      ...getAnchorTags(anchor),
     });
   }
 
@@ -240,6 +326,10 @@ function isZipFile(file: BrowserBookmarkImportFile): boolean {
     file.name.toLowerCase().endsWith(".zip") ||
     ["application/zip", "application/x-zip-compressed"].includes(file.type)
   );
+}
+
+function isCsvFile(file: BrowserBookmarkImportFile): boolean {
+  return file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
 }
 
 function unzipAsync(
@@ -273,7 +363,7 @@ function bookmarkHtmlPriority(path: string): number {
 
 async function parseBrowserBookmarksZip(
   file: BrowserBookmarkImportFile,
-): Promise<BrowserBookmarkImportResult> {
+): Promise<ParsedBookmarkImportFile> {
   if (file.size > MAX_ZIP_FILE_SIZE) {
     throw new Error("The selected ZIP file is too large to import safely.");
   }
@@ -281,12 +371,18 @@ async function parseBrowserBookmarksZip(
   let foundHtmlFile = false;
   let foundBookmarkHtmlFile = false;
   let foundOversizedHtmlFile = false;
+  let foundOversizedCsvFile = false;
   let files: Unzipped;
 
   try {
     files = await unzipAsync(
       new Uint8Array(await file.arrayBuffer()),
       (name, originalSize) => {
+        if (/\.csv$/i.test(name)) {
+          if (originalSize <= MAX_BOOKMARK_HTML_SIZE) return true;
+          foundOversizedCsvFile = true;
+          return false;
+        }
         if (!/\.html?$/i.test(name)) return false;
         foundHtmlFile = true;
         if (bookmarkHtmlPriority(name) < 2) {
@@ -303,22 +399,34 @@ async function parseBrowserBookmarksZip(
     );
   } catch {
     throw new Error(
-      "Could not read the selected ZIP file. Choose Safari's exported ZIP file and try again.",
+      "Could not read the selected ZIP file. Choose a Safari, Pocket, or Raindrop ZIP export and try again.",
     );
   }
 
-  const htmlFiles = Object.entries(files).sort(([left], [right]) => {
-    const priorityDifference =
-      bookmarkHtmlPriority(left) - bookmarkHtmlPriority(right);
-    return priorityDifference || left.localeCompare(right);
-  });
+  const csvFiles = Object.entries(files)
+    .filter(([name]) => /\.csv$/i.test(name))
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([, contents]) => strFromU8(contents));
+  const readLater = parseReadLaterCsv(csvFiles);
+  if (readLater?.result.bookmarks.length) return readLater;
+  if (foundOversizedCsvFile) {
+    throw new Error("The CSV export inside the ZIP file is too large to import safely.");
+  }
+
+  const htmlFiles = Object.entries(files)
+    .filter(([name]) => /\.html?$/i.test(name))
+    .sort(([left], [right]) => {
+      const priorityDifference =
+        bookmarkHtmlPriority(left) - bookmarkHtmlPriority(right);
+      return priorityDifference || left.localeCompare(right);
+    });
   const candidateFiles = foundBookmarkHtmlFile
     ? htmlFiles.filter(([name]) => bookmarkHtmlPriority(name) < 2)
     : htmlFiles;
 
   for (const [, contents] of candidateFiles) {
     const result = parseBrowserBookmarksHtml(strFromU8(contents));
-    if (result.bookmarks.length > 0) return result;
+    if (result.bookmarks.length > 0) return { source: "safari-zip", result };
   }
 
   if (foundOversizedHtmlFile) {
@@ -338,10 +446,24 @@ async function parseBrowserBookmarksZip(
   );
 }
 
-export async function parseBrowserBookmarksFile(
+export async function parseBookmarkImportFile(
   file: BrowserBookmarkImportFile,
-): Promise<BrowserBookmarkImportResult> {
+): Promise<ParsedBookmarkImportFile> {
   if (isZipFile(file)) return parseBrowserBookmarksZip(file);
+
+  if (isCsvFile(file)) {
+    if (file.size > MAX_BOOKMARK_HTML_SIZE) {
+      throw new Error("The selected CSV export is too large to import safely.");
+    }
+    const readLater = parseReadLaterCsv([await file.text()]);
+    if (!readLater) {
+      throw new Error("This CSV file is not a Pocket or Raindrop.io export.");
+    }
+    if (readLater.result.bookmarks.length === 0) {
+      throw new Error("No bookmarks were found in the selected CSV export.");
+    }
+    return readLater;
+  }
 
   if (file.size > MAX_BOOKMARK_HTML_SIZE) {
     throw new Error("The selected bookmark HTML file is too large to import safely.");
@@ -352,7 +474,13 @@ export async function parseBrowserBookmarksFile(
     throw new Error("No bookmarks were found in the selected HTML export.");
   }
 
-  return result;
+  return { source: "html", result };
+}
+
+export async function parseBrowserBookmarksFile(
+  file: BrowserBookmarkImportFile,
+): Promise<BrowserBookmarkImportResult> {
+  return (await parseBookmarkImportFile(file)).result;
 }
 
 export function parseChromeBookmarksTree(

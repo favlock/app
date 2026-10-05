@@ -396,7 +396,7 @@ describe("local encrypted vault", () => {
         ],
         key,
       ),
-    ).resolves.toEqual({ added: 1, overwritten: 1, collectionsCreated: 2 });
+    ).resolves.toEqual({ added: 1, overwritten: 1, collectionsCreated: 2, tagsCreated: 0 });
 
     const bookmarks = await readLocalBookmarks("local-import", key);
     expect(bookmarks).toHaveLength(2);
@@ -412,6 +412,37 @@ describe("local encrypted vault", () => {
     const preview = await readLocalEncryptedPreview("local-import");
     expect(JSON.stringify(preview)).not.toContain("Updated title");
     expect(JSON.stringify(preview)).not.toContain("https://new.test/");
+  });
+
+  it("creates imported Tags once, reuses existing Tags, and encrypts their names", async () => {
+    const key = await importRawKey("12345678901234567890123456789012");
+    await createLocalBookmark("local-import", {
+      encryptedTitle: await encryptField("Existing", key),
+      encryptedUrl: await encryptField("https://existing.test/", key),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encryptField("Work", key)],
+    });
+
+    await expect(
+      importLocalBookmarks(
+        "local-import",
+        [
+          { title: "One", url: "https://one.test/", folderPath: [], tags: ["research", "work"] },
+          { title: "Two", url: "https://two.test/", folderPath: [], tags: ["research"] },
+        ],
+        key,
+      ),
+    ).resolves.toMatchObject({ added: 2, tagsCreated: 1 });
+
+    const bookmarks = await readLocalBookmarks("local-import", key);
+    const one = bookmarks.find((item) => item.title === "One");
+    const two = bookmarks.find((item) => item.title === "Two");
+    expect(one?.tags?.map((tag) => tag.name).sort()).toEqual(["Work", "research"]);
+    expect(two?.tags?.map((tag) => tag.id)).toEqual(
+      one?.tags?.filter((tag) => tag.name === "research").map((tag) => tag.id),
+    );
+    expect(JSON.stringify(await readLocalEncryptedPreview("local-import"))).not.toContain("research");
   });
 
   it("rolls back the whole import if a reviewed duplicate changed", async () => {
