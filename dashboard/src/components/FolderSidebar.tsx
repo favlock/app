@@ -2,6 +2,7 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
   type SubmitEvent,
   type ChangeEvent,
   type KeyboardEvent,
@@ -56,6 +57,8 @@ import {
   ArrowDownUp,
   HeartPulse,
   LoaderCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
@@ -81,6 +84,20 @@ import {
   resolveFolderDragIntent,
   type FolderDragIntent,
 } from "../lib/folderOrder";
+import {
+  SIDEBAR_SEARCH_THRESHOLD,
+  filterSidebarFolders,
+  filterSidebarTags,
+  hasSidebarQuery,
+  limitSidebarItems,
+  selectedFolderKeepIds,
+} from "../lib/sidebarFilter";
+import { useSidebarSectionExpansion } from "../hooks/useSidebarSectionExpansion";
+import {
+  getSidebarItemLimit,
+  sidebarItemLimitCount,
+  subscribeSidebarItemLimit,
+} from "../lib/sidebarItemLimit";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { useNoteCount } from "../hooks/useNotesQuery";
 import { useTodoCount } from "../hooks/useTodosQuery";
@@ -136,6 +153,8 @@ interface SortableCollectionProps {
   previewDepth?: 0 | 1;
   isNestTarget: boolean;
   isBlocked: boolean;
+  dragDisabled: boolean;
+  isContext: boolean;
 }
 
 function SortableCollection({
@@ -146,6 +165,8 @@ function SortableCollection({
   previewDepth,
   isNestTarget,
   isBlocked,
+  dragDisabled,
+  isContext,
 }: SortableCollectionProps) {
   const {
     attributes,
@@ -154,7 +175,7 @@ function SortableCollection({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: folder.id });
+  } = useSortable({ id: folder.id, disabled: dragDisabled });
   const displayAsChild =
     previewDepth === 1 || (previewDepth === undefined && !!folder.parent_id);
 
@@ -176,16 +197,20 @@ function SortableCollection({
           }`}
         />
       )}
-      <button
-        type="button"
-        aria-label={`Move ${folder.name}`}
-        title="Drag right by one-third of the name width to nest, or left to move up"
-        className="flex size-10 touch-none cursor-grab items-center justify-center rounded-lg text-[color-mix(in_oklab,var(--app-muted)_58%,transparent)] transition-colors hover:bg-[color-mix(in_oklab,var(--app-line)_5%,transparent)] hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)] active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical size={14} />
-      </button>
+      {dragDisabled ? (
+        <span className="size-10 flex-none" aria-hidden="true" />
+      ) : (
+        <button
+          type="button"
+          aria-label={`Move ${folder.name}`}
+          title="Drag right by one-third of the name width to nest, or left to move up"
+          className="flex size-10 touch-none cursor-grab items-center justify-center rounded-lg text-[color-mix(in_oklab,var(--app-muted)_58%,transparent)] transition-colors hover:bg-[color-mix(in_oklab,var(--app-line)_5%,transparent)] hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)] active:cursor-grabbing"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical size={14} />
+        </button>
+      )}
       <button
         type="button"
         onClick={onSelect}
@@ -194,7 +219,7 @@ function SortableCollection({
           selected
             ? "theme-nav-button-active"
             : ""
-        }`}
+        } ${isContext ? "opacity-60" : ""}`}
       >
         <span
           className={`h-3 w-3 flex-none rounded-full ring-1 ring-inset ring-black/10 ${
@@ -226,6 +251,30 @@ function SortableCollection({
         </span>
       </button>
     </li>
+  );
+}
+
+function SidebarShowMoreButton({
+  hiddenCount,
+  onToggle,
+}: {
+  hiddenCount: number;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={hiddenCount === 0}
+      className="mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-[var(--app-muted)] transition-colors hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)]"
+    >
+      <ChevronDown
+        size={14}
+        className={hiddenCount === 0 ? "rotate-180" : ""}
+        aria-hidden="true"
+      />
+      {hiddenCount > 0 ? `Show ${hiddenCount} more` : "Show less"}
+    </button>
   );
 }
 
@@ -268,6 +317,64 @@ export default function FolderSidebar({
     refetch: retryTags,
   } = useTags();
   const { data: tagCounts = {} } = useTagBookmarkCounts();
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const { expansion, setExpanded } = useSidebarSectionExpansion(user?.id);
+  const sectionLimit = sidebarItemLimitCount(
+    useSyncExternalStore(subscribeSidebarItemLimit, getSidebarItemLimit),
+  );
+  const searching = hasSidebarQuery(sidebarQuery);
+  const showSidebarSearch =
+    searching || folders.length + tags.length > SIDEBAR_SEARCH_THRESHOLD;
+  const folderRows = useMemo(
+    () => filterSidebarFolders(folders, sidebarQuery),
+    [folders, sidebarQuery],
+  );
+  const matchingTags = useMemo(
+    () => filterSidebarTags(tags, sidebarQuery),
+    [tags, sidebarQuery],
+  );
+  const collapsedFolderRows = useMemo(
+    () =>
+      searching
+        ? { visible: folderRows, hiddenCount: 0 }
+        : limitSidebarItems(
+            folderRows,
+            (row) => row.folder.id,
+            sectionLimit,
+            selectedFolderKeepIds(folders, selectedFolderId),
+          ),
+    [folderRows, folders, searching, sectionLimit, selectedFolderId],
+  );
+  const collapsedTags = useMemo(
+    () =>
+      searching
+        ? { visible: matchingTags, hiddenCount: 0 }
+        : limitSidebarItems(
+            matchingTags,
+            (tag) => tag.id,
+            sectionLimit,
+            new Set(selectedTagId ? [selectedTagId] : []),
+          ),
+    [matchingTags, searching, sectionLimit, selectedTagId],
+  );
+  const limitedFolderRows = expansion.collections
+    ? { visible: folderRows, hiddenCount: 0 }
+    : collapsedFolderRows;
+  const limitedTags = expansion.tags
+    ? { visible: matchingTags, hiddenCount: 0 }
+    : collapsedTags;
+  const canCollapseFolders =
+    expansion.collections && collapsedFolderRows.hiddenCount > 0;
+  const canCollapseTags = expansion.tags && collapsedTags.hiddenCount > 0;
+
+  const openFirstSidebarMatch = () => {
+    const firstFolder = folderRows.find((row) => !row.isContext)?.folder;
+    if (firstFolder) {
+      onSelectFolder(firstFolder.id);
+    } else if (matchingTags[0]) {
+      onSelectTag?.(matchingTags[0].id);
+    }
+  };
   const addFolderMutation = useAddFolder();
   const reorderFoldersMutation = useReorderFolders();
   const sensors = useSensors(
@@ -335,6 +442,10 @@ export default function FolderSidebar({
       setNewColor(COLOR_NONE);
       setNewParentId("");
       setCreating(false);
+      setSidebarQuery("");
+      if (folders.length + 1 > sectionLimit + 1 && !expansion.collections) {
+        setExpanded("collections", true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create folder");
     }
@@ -776,6 +887,49 @@ export default function FolderSidebar({
           aria-label="User collections"
         />
 
+        {showSidebarSearch && (
+          <div className="relative mb-3">
+            <Search
+              size={15}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--app-muted)]"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              aria-label="Find collections and tags"
+              placeholder="Find collection or tag"
+              value={sidebarQuery}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setSidebarQuery(e.target.value)
+              }
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter" && searching) {
+                  e.preventDefault();
+                  openFirstSidebarMatch();
+                } else if (e.key === "Escape") {
+                  if (sidebarQuery) {
+                    e.preventDefault();
+                    setSidebarQuery("");
+                  } else {
+                    e.currentTarget.blur();
+                  }
+                }
+              }}
+              className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] pr-10 pl-9 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] [&::-webkit-search-cancel-button]:hidden"
+            />
+            {sidebarQuery && (
+              <button
+                type="button"
+                onClick={() => setSidebarQuery("")}
+                className="absolute top-1/2 right-0.5 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-[var(--app-muted)] hover:text-[var(--app-ink)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)]"
+                aria-label="Clear search"
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between px-2">
           <h3 className="app-sidebar-label">Collections</h3>
           <button
@@ -931,11 +1085,11 @@ export default function FolderSidebar({
             }}
           >
             <SortableContext
-              items={folders.map((folder) => folder.id)}
+              items={limitedFolderRows.visible.map((row) => row.folder.id)}
               strategy={verticalListSortingStrategy}
             >
               <ul className="mt-2 space-y-0.5">
-                {folders.map((folder) => (
+                {limitedFolderRows.visible.map(({ folder, isContext }) => (
                   <SortableCollection
                     key={folder.id}
                     folder={folder}
@@ -959,13 +1113,28 @@ export default function FolderSidebar({
                       dragIntent?.action === "blocked" &&
                       dragIntent.activeId === folder.id
                     }
+                    dragDisabled={searching}
+                    isContext={isContext}
                   />
                 ))}
               </ul>
             </SortableContext>
           </DndContext>
         ) : null}
-        {folders.length > 1 && (
+        {searching && folders.length > 0 && folderRows.length === 0 && (
+          <p className="mt-2 px-2 text-sm text-[var(--app-muted)]">
+            No matching collections
+          </p>
+        )}
+        {(limitedFolderRows.hiddenCount > 0 || canCollapseFolders) && (
+          <SidebarShowMoreButton
+            hiddenCount={limitedFolderRows.hiddenCount}
+            onToggle={() =>
+              setExpanded("collections", limitedFolderRows.hiddenCount > 0)
+            }
+          />
+        )}
+        {folders.length > 1 && !searching && (
           <p
             className={`mt-2 min-h-4 px-1 text-xs font-medium transition-colors ${
               dragIntent?.action === "nest"
@@ -1019,7 +1188,7 @@ export default function FolderSidebar({
           </div>
         ) : tags.length > 0 ? (
           <ul className="mt-2 space-y-0.5">
-            {tags.map((tag) => (
+            {limitedTags.visible.map((tag) => (
               <li key={tag.id}>
                 <button
                   type="button"
@@ -1049,6 +1218,17 @@ export default function FolderSidebar({
             ))}
           </ul>
         ) : null}
+        {searching && tags.length > 0 && matchingTags.length === 0 && (
+          <p className="mt-2 px-2 text-sm text-[var(--app-muted)]">
+            No matching tags
+          </p>
+        )}
+        {(limitedTags.hiddenCount > 0 || canCollapseTags) && (
+          <SidebarShowMoreButton
+            hiddenCount={limitedTags.hiddenCount}
+            onToggle={() => setExpanded("tags", limitedTags.hiddenCount > 0)}
+          />
+        )}
       </div>
 
       {accountPlan?.id === "free" ? (

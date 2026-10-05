@@ -40,6 +40,7 @@ import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySecti
 import BillingSection from "../components/BillingSection";
 import AppearancePreference from "../components/AppearancePreference";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
+import SidebarItemLimitPreference from "../components/SidebarItemLimitPreference";
 import { hasPasswordSignIn } from "../lib/auth";
 
 type SettingsTab = "profile" | "preferences" | "security" | "usage";
@@ -363,6 +364,7 @@ export default function Settings() {
                 aria-labelledby="preferences-tab"
               >
                 <AppearancePreference />
+                <SidebarItemLimitPreference />
                 <BookmarkSearchShortcutPreference />
               </div>
             ) : activeTab === "security" ? (
