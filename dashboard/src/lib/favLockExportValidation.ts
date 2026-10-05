@@ -32,6 +32,8 @@ const MAX_ENTRIES = 1_000;
 const MAX_READSPACE = 250;
 const MAX_HIGHLIGHTS = 100_000;
 const MAX_RELATION_IDS = 10;
+// FavLock stores each bookmark in at most one Collection.
+const MAX_BOOKMARK_COLLECTIONS = 1;
 const MAX_NAME_LENGTH = 5_000;
 const MAX_BOOKMARK_VALUE_LENGTH = 10_000;
 const MAX_ENTRY_TITLE_LENGTH = 120;
@@ -177,11 +179,22 @@ function parseBookmark(value: unknown): ExportedBookmark {
   const isFavorite = requireBoolean(bookmark.isFavorite);
   const favoritedAt = requireNullableDate(bookmark.favoritedAt);
   if (isFavorite !== (favoritedAt !== null)) throw invalidArchive();
+  if (
+    Array.isArray(bookmark.collectionIds) &&
+    bookmark.collectionIds.length > MAX_BOOKMARK_COLLECTIONS
+  ) {
+    throw new Error(
+      "This archive has bookmarks in more than one Collection. FavLock keeps each bookmark in a single Collection.",
+    );
+  }
   return {
     id: requireUuid(bookmark.id),
     title: requireString(bookmark.title, MAX_BOOKMARK_VALUE_LENGTH).trim(),
     url,
-    collectionIds: requireUuidArray(bookmark.collectionIds, MAX_COLLECTIONS),
+    collectionIds: requireUuidArray(
+      bookmark.collectionIds,
+      MAX_BOOKMARK_COLLECTIONS,
+    ),
     tagIds: requireUuidArray(bookmark.tagIds),
     isFavorite,
     favoritedAt,

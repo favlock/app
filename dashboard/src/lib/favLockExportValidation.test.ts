@@ -208,6 +208,15 @@ describe("FavLock export validation", () => {
     expect(() => parseFavLockExport(nestedTooDeep)).toThrow("not a valid");
   });
 
+  it("rejects bookmarks in more than one Collection", () => {
+    const archive = buildFavLockExport(source, selection);
+    archive.data.bookmarks![0].collectionIds = [rootFolder.id, childFolder.id];
+
+    expect(() => parseFavLockExport(archive)).toThrow(
+      "more than one Collection",
+    );
+  });
+
   it("rejects inconsistent completion metadata and duplicate ids", () => {
     const archive = buildFavLockExport(source, selection);
     const inconsistentTodo = structuredClone(archive);
