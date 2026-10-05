@@ -22,11 +22,12 @@ export type ImportRecoveryDecision = {
 };
 
 export type ImportRecoveryInFlight = {
-  kind: "create" | "overwrite-content" | "move-folder" | "create-folder";
+  kind: "create" | "overwrite-content" | "move-folder" | "create-folder" | "create-tag";
   index: number;
   existingIds?: string[];
   bookmarkId?: string;
   folderKey?: string;
+  tagKey?: string;
 };
 
 export type ImportRecoveryJournal = {
@@ -34,11 +35,12 @@ export type ImportRecoveryJournal = {
   userId: string;
   operationId: string;
   sourceFingerprint: string;
-  sourceKind: "html" | "safari-zip" | "chrome" | "firefox";
+  sourceKind: "html" | "safari-zip" | "pocket" | "raindrop" | "chrome" | "firefox";
   itemCount: number;
   states: string;
   decisions: ImportRecoveryDecision[];
   folderIds: Array<[string, string]>;
+  tagIds: Array<[string, string]>;
   inFlight: ImportRecoveryInFlight[];
   startedAt: string;
   updatedAt: string;
@@ -94,7 +96,7 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     !isUuid(value.operationId) ||
     typeof value.sourceFingerprint !== "string" ||
     !/^[0-9a-f]{64}$/.test(value.sourceFingerprint) ||
-    !["html", "safari-zip", "chrome", "firefox"].includes(String(value.sourceKind)) ||
+    !["html", "safari-zip", "pocket", "raindrop", "chrome", "firefox"].includes(String(value.sourceKind)) ||
     !Number.isSafeInteger(itemCount) ||
     (itemCount as number) < 1 ||
     (itemCount as number) > MAX_ITEMS ||
@@ -105,6 +107,8 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     value.decisions.length > itemCount ||
     !Array.isArray(value.folderIds) ||
     value.folderIds.length > itemCount * 2 ||
+    (value.tagIds !== undefined &&
+      (!Array.isArray(value.tagIds) || value.tagIds.length > itemCount * 10)) ||
     !Array.isArray(value.inFlight) ||
     value.inFlight.length > 8 ||
     !isTimestamp(value.startedAt) ||
@@ -142,11 +146,26 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     folderIds.push([entry[0], entry[1]]);
   }
 
+  // Journals written before tag import have no tagIds field.
+  const tagIds: Array<[string, string]> = [];
+  for (const entry of Array.isArray(value.tagIds) ? value.tagIds : []) {
+    if (
+      !Array.isArray(entry) ||
+      entry.length !== 2 ||
+      typeof entry[0] !== "string" ||
+      entry[0].length > 2_000 ||
+      !isUuid(entry[1])
+    ) {
+      return null;
+    }
+    tagIds.push([entry[0], entry[1]]);
+  }
+
   const inFlight: ImportRecoveryInFlight[] = [];
   for (const entry of value.inFlight) {
     if (
       !isRecord(entry) ||
-      !["create", "overwrite-content", "move-folder", "create-folder"].includes(
+      !["create", "overwrite-content", "move-folder", "create-folder", "create-tag"].includes(
         String(entry.kind),
       ) ||
       !Number.isSafeInteger(entry.index) ||
@@ -170,6 +189,12 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     ) {
       return null;
     }
+    if (
+      entry.tagKey !== undefined &&
+      (typeof entry.tagKey !== "string" || entry.tagKey.length > 2_000)
+    ) {
+      return null;
+    }
     inFlight.push(entry as ImportRecoveryInFlight);
   }
 
@@ -177,6 +202,7 @@ function parseJournal(value: unknown, expectedUserId: string): ImportRecoveryJou
     ...(value as unknown as ImportRecoveryJournal),
     decisions,
     folderIds,
+    tagIds,
     inFlight,
   };
 }
@@ -201,6 +227,7 @@ export function createImportRecoveryJournal(
     states: "p".repeat(itemCount),
     decisions: [],
     folderIds: [],
+    tagIds: [],
     inFlight: [],
     startedAt: now,
     updatedAt: now,

@@ -116,6 +116,11 @@ async function requestAuthenticated(
         }
       }
     }
+    if (response.status === 429) {
+      // The API rejects rate-limited requests before running the route, so
+      // nothing was written and the caller may retry after waiting.
+      throw new CloudAccessError("rate_limited", "Too many requests right now. Please wait a moment and try again.");
+    }
     if (response.status >= 500) reportCloudFailure(session.accessToken, "unavailable");
     throw new Error(failureMessage);
   }

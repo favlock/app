@@ -1,7 +1,7 @@
 export type CloudStatus = "signed_out" | "available" | "offline" | "reconnect_required" | "restricted" | "unavailable";
 
 export class CloudAccessError extends Error {
-  readonly code: "reconnect_required" | "restricted" | "unavailable" | "quota_exceeded";
+  readonly code: "reconnect_required" | "restricted" | "unavailable" | "quota_exceeded" | "rate_limited";
   readonly details?: { resource: string; limit: number };
   constructor(
     code: CloudAccessError["code"],

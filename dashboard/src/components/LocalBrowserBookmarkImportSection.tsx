@@ -9,6 +9,7 @@ import {
   parseBrowserBookmarksFile,
 } from "../lib/browserBookmarkImport";
 import {
+  describeImportTags,
   prepareBrowserBookmarkImport,
   type BrowserBookmarkImportPreview,
 } from "../lib/browserBookmarkImportPlan";
@@ -16,6 +17,7 @@ import {
   importLocalBookmarks,
   readLocalBookmarks,
   readLocalFolders,
+  readLocalTags,
   type LocalBookmarkImportItem,
 } from "../lib/localVault";
 import { setLibraryPopulated } from "../lib/onboarding";
@@ -97,16 +99,18 @@ export default function LocalBrowserBookmarkImportSection() {
     setIsPreparing(true);
     try {
       const result = await parseBrowserBookmarksFile(file);
-      const [bookmarks, folders] = await Promise.all([
+      const [bookmarks, folders, tags] = await Promise.all([
         readLocalBookmarks(user.id, cryptoKey),
         readLocalFolders(user.id, cryptoKey),
+        readLocalTags(user.id, cryptoKey),
       ]);
       const prepared = await prepareBrowserBookmarkImport(
         result,
         bookmarks,
         folders,
+        tags,
         LOCAL_PLAN,
-        { bookmarks: bookmarks.length, collections: folders.length },
+        { bookmarks: bookmarks.length, collections: folders.length, tags: tags.length },
       );
       setPreview(prepared);
       setStatus({
@@ -127,7 +131,7 @@ export default function LocalBrowserBookmarkImportSection() {
     const items: LocalBookmarkImportItem[] = preview.items.flatMap((item) => {
       if (item.duplicate === "source") return [];
       if (item.duplicate === null) {
-        return [{ title: item.title, url: item.url, folderPath: item.folderPath }];
+        return [{ title: item.title, url: item.url, folderPath: item.folderPath, tags: item.tags }];
       }
       const decision = decisions.get(item.index) ?? "skip";
       if (decision === "skip") return [];
@@ -135,6 +139,7 @@ export default function LocalBrowserBookmarkImportSection() {
         title: item.title,
         url: item.url,
         folderPath: item.folderPath,
+        tags: decision === "overwrite" ? [] : item.tags,
         ...(decision === "overwrite" && item.existingBookmark
           ? { overwriteBookmarkId: item.existingBookmark.id }
           : {}),
@@ -162,7 +167,7 @@ export default function LocalBrowserBookmarkImportSection() {
       }
       setStatus({
         type: "success",
-        message: `${result.added.toLocaleString()} added, ${result.overwritten.toLocaleString()} overwritten, ${skipped.toLocaleString()} skipped. ${result.collectionsCreated.toLocaleString()} Collection${result.collectionsCreated === 1 ? "" : "s"} created.`,
+        message: `${result.added.toLocaleString()} added, ${result.overwritten.toLocaleString()} overwritten, ${skipped.toLocaleString()} skipped. ${result.collectionsCreated.toLocaleString()} Collection${result.collectionsCreated === 1 ? "" : "s"} created.${result.tagsCreated > 0 ? ` ${result.tagsCreated.toLocaleString()} Tag${result.tagsCreated === 1 ? "" : "s"} created.` : ""}`,
       });
       setPreview(null);
       setFileName(null);
@@ -262,7 +267,7 @@ export default function LocalBrowserBookmarkImportSection() {
         <DataTransferSectionHeader
           id="local-bookmark-import-heading"
           title="Import bookmarks locally"
-          description="Import an HTML export from Chrome, Edge, or Firefox, or a Safari ZIP. Bookmark titles, URLs, and Collection names are encrypted before they are saved."
+          description="Import an HTML export from Chrome, Edge, or Firefox, a Safari ZIP, or a Pocket or Raindrop.io export. Tags are added to new bookmarks. Bookmark titles, URLs, Collection names, and Tags are encrypted before they are saved."
         />
 
         <Field className="mt-6">
@@ -274,7 +279,7 @@ export default function LocalBrowserBookmarkImportSection() {
             id="local-browser-bookmark-import-file"
             descriptionId="local-browser-bookmark-import-file-description"
             inputRef={fileInputRef}
-            accept=".html,.htm,.zip,text/html,application/zip,application/x-zip-compressed"
+            accept=".html,.htm,.csv,.zip,text/html,text/csv,application/zip,application/x-zip-compressed"
             fileName={fileName}
             emptyLabel="No bookmark file selected"
             disabled={isPreparing || isImporting || keyLoading}
@@ -309,7 +314,7 @@ export default function LocalBrowserBookmarkImportSection() {
               ))}
             </dl>
             <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
-              {preview.readyToAddCount} can be added immediately. {preview.libraryDuplicateCount} existing duplicates need a choice; {preview.sourceDuplicateCount} repeated records in the file will be skipped.
+              {preview.readyToAddCount} can be added immediately. {preview.libraryDuplicateCount} existing duplicates need a choice; {preview.sourceDuplicateCount} repeated records in the file will be skipped. {describeImportTags(preview)}
             </p>
             {preview.invalidItems.length > 0 ? (
               <details className="mt-3 rounded-xl border border-gray-200 dark:border-[var(--app-line)]/20 bg-[var(--app-highlight)] px-4 py-3 text-sm">

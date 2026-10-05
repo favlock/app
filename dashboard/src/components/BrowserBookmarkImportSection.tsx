@@ -26,11 +26,12 @@ import { withBrowserBookmarkImportLock } from "../lib/browserBookmarkImportLock"
 import {
   folderPathKey,
   folderPathLabel,
-  parseBrowserBookmarksFile,
+  parseBookmarkImportFile,
   parseChromeBookmarksTree,
   type BrowserBookmarkImportResult,
 } from "../lib/browserBookmarkImport";
 import {
+  describeImportTags,
   prepareBrowserBookmarkImport,
   type BrowserBookmarkImportPreview,
   type InvalidBrowserBookmarkImportItem,
@@ -40,6 +41,7 @@ import {
   bookmarkMatchesImportedOverwrite,
   findReconciledCreatedBookmark,
   getAuthoritativeFolderIdByPath,
+  getAuthoritativeTagIdByName,
   loadAuthoritativeImportLibrary,
 } from "../lib/browserBookmarkImportReconciliation";
 import {
@@ -56,7 +58,8 @@ import {
   type ImportRecoveryJournal,
 } from "../lib/importRecovery";
 import { CloudAccessError } from "../lib/cloudAccess";
-import { createFolder } from "../lib/taxonomyRepository";
+import { withRateLimitRetry } from "../lib/rateLimitRetry";
+import { createFolder, createTag } from "../lib/taxonomyRepository";
 import {
   createBookmark,
   moveBookmarkToFolder,
@@ -108,6 +111,14 @@ const CHROME_BOOKMARK_RESULT = "FAVLOCK_CHROME_BOOKMARKS_RESULT";
 const CHROME_EXTENSION_READY = "FAVLOCK_CHROME_EXTENSION_READY";
 const CHROME_EXTENSION_PING = "FAVLOCK_CHROME_EXTENSION_PING";
 const WRITE_BATCH_SIZE = 4;
+const SOURCE_LABELS: Record<ImportRecoveryJournal["sourceKind"], string> = {
+  html: "HTML file",
+  "safari-zip": "Safari ZIP",
+  pocket: "Pocket export",
+  raindrop: "Raindrop.io export",
+  chrome: "Chrome bookmark source",
+  firefox: "Firefox bookmark source",
+};
 const VISIBLE_IMPORT_ISSUE_LIMIT = 25;
 
 function getChromeExtensionId(search: string): string | null {
@@ -282,6 +293,18 @@ export default function BrowserBookmarkImportSection() {
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  const retryWhenRateLimited = useCallback(
+    <T,>(operation: () => Promise<T>) => withRateLimitRetry(operation, {
+      onWait: (delayMs) => {
+        if (mountedRef.current) {
+          setProgress(`FavLock is pacing requests to stay within the API limit. Resuming in ${Math.round(delayMs / 1000)} seconds...`);
+        }
+      },
+      shouldStop: () => cancelRequestedRef.current || !mountedRef.current,
+    }),
+    [],
+  );
+
   const loadLimits = useCallback(async () => {
     const [planResult, usageResult] = await Promise.all([
       refetchAccountPlan(),
@@ -298,9 +321,8 @@ export default function BrowserBookmarkImportSection() {
 
   const prepareImport = useCallback(
     async (
-      loadImport: () => Promise<BrowserBookmarkImportResult>,
+      loadImport: () => Promise<Pick<PreparedImport, "result" | "sourceKind">>,
       initialProgress: string,
-      sourceKind: PreparedImport["sourceKind"],
     ) => {
       if (!user || !accessToken || !cryptoKey) {
         setStatus({ type: "error", message: "Unlock your signed-in library before importing." });
@@ -311,19 +333,20 @@ export default function BrowserBookmarkImportSection() {
       setStatus(null);
       setPreparedImport(null);
       try {
-        const result = await loadImport();
+        const { result, sourceKind } = await loadImport();
         if (result.bookmarks.length === 0) {
           throw new Error("No bookmarks were found to import.");
         }
         setProgress("Checking duplicates and current allowances...");
         const [library, limits] = await Promise.all([
-          loadAuthoritativeImportLibrary(accessToken, user.id, decryptField),
+          retryWhenRateLimited(() => loadAuthoritativeImportLibrary(accessToken, user.id, decryptField)),
           loadLimits(),
         ]);
         const preview = await prepareBrowserBookmarkImport(
           result,
           library.bookmarks,
           library.folders,
+          library.tags,
           limits.plan,
           limits.usage,
         );
@@ -353,7 +376,7 @@ export default function BrowserBookmarkImportSection() {
         setIsBusy(false);
       }
     },
-    [accessToken, cryptoKey, decryptField, loadLimits, user],
+    [accessToken, cryptoKey, decryptField, loadLimits, retryWhenRateLimited, user],
   );
 
   const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -362,9 +385,11 @@ export default function BrowserBookmarkImportSection() {
     setSelectedFileName(file.name);
     const isZip = file.name.toLowerCase().endsWith(".zip");
     await prepareImport(
-      () => parseBrowserBookmarksFile(file),
-      isZip ? "Reading Safari bookmark archive..." : "Reading bookmark export...",
-      isZip ? "safari-zip" : "html",
+      async () => {
+        const { source, result } = await parseBookmarkImportFile(file);
+        return { result, sourceKind: source };
+      },
+      isZip ? "Reading bookmark archive..." : "Reading bookmark export...",
     );
     resetInput();
   };
@@ -413,11 +438,11 @@ export default function BrowserBookmarkImportSection() {
 
       try {
         await trackLocalVaultWork(user.id, withBrowserBookmarkImportLock(user.id, async () => {
-          let library = await loadAuthoritativeImportLibrary(
+          let library = await retryWhenRateLimited(() => loadAuthoritativeImportLibrary(
             accessToken,
             user.id,
             decryptField,
-          );
+          ));
 
           if (journal.inFlight.length > 0) {
             setProgress("Reconciling interrupted writes before retrying...");
@@ -432,6 +457,18 @@ export default function BrowserBookmarkImportSection() {
                   journal.folderIds = [
                     ...journal.folderIds.filter(([key]) => key !== operation.folderKey),
                     [operation.folderKey, folderId],
+                  ];
+                }
+                continue;
+              }
+              if (operation.kind === "create-tag") {
+                const tagId = operation.tagKey
+                  ? getAuthoritativeTagIdByName(library.tags).get(operation.tagKey)
+                  : null;
+                if (tagId && operation.tagKey) {
+                  journal.tagIds = [
+                    ...journal.tagIds.filter(([key]) => key !== operation.tagKey),
+                    [operation.tagKey, tagId],
                   ];
                 }
                 continue;
@@ -489,11 +526,12 @@ export default function BrowserBookmarkImportSection() {
             }
           }
           await persistJournal(journal);
-          const requiredAdds = prepared.preview.items.filter((item) => {
+          const itemsToCreate = prepared.preview.items.filter((item) => {
             if (getImportItemState(journal, item.index) !== "pending") return false;
             if (item.duplicate === null) return true;
             return item.duplicate === "library" && decisions.get(item.index)?.resolution === "keep";
-          }).length;
+          });
+          const requiredAdds = itemsToCreate.length;
           const available = getRemainingResourceLimit(
             limits.usage.bookmarks,
             limits.plan.limits.bookmarks,
@@ -537,12 +575,13 @@ export default function BrowserBookmarkImportSection() {
             await persistJournal(journal);
             try {
               const sortOrder = nextSortOrderByParentId.get(parentId ?? null) ?? 0;
-              const created = await createFolder(accessToken, {
-                encryptedName: await encryptField(folderPath.at(-1) ?? ""),
+              const encryptedName = await encryptField(folderPath.at(-1) ?? "");
+              const created = await retryWhenRateLimited(() => createFolder(accessToken, {
+                encryptedName,
                 color: null,
                 parentId: parentId ?? null,
                 sortOrder,
-              });
+              }));
               folderIdByPath.set(key, created.folderId);
               nextSortOrderByParentId.set(parentId ?? null, sortOrder + 1);
               journal = {
@@ -552,7 +591,7 @@ export default function BrowserBookmarkImportSection() {
               };
               await persistJournal(journal);
             } catch (error) {
-              library = await loadAuthoritativeImportLibrary(accessToken, user.id, decryptField);
+              library = await retryWhenRateLimited(() => loadAuthoritativeImportLibrary(accessToken, user.id, decryptField));
               const reconciledId = getAuthoritativeFolderIdByPath(library.folders).get(key);
               if (!reconciledId) throw error;
               folderIdByPath.set(key, reconciledId);
@@ -563,6 +602,35 @@ export default function BrowserBookmarkImportSection() {
               };
               await persistJournal(journal);
             }
+          }
+
+          const tagIdByName = getAuthoritativeTagIdByName(library.tags);
+          for (const [key, id] of journal.tagIds) tagIdByName.set(key, id);
+          const missingTagNames = [...new Set(itemsToCreate.flatMap((item) => item.tags))]
+            .filter((name) => !tagIdByName.has(name));
+          for (let tagIndex = 0; tagIndex < missingTagNames.length; tagIndex += 1) {
+            if (cancelRequestedRef.current) break;
+            const name = missingTagNames[tagIndex];
+            setProgress(`Creating tag ${tagIndex + 1} of ${missingTagNames.length}...`);
+            journal = { ...journal, inFlight: [{ kind: "create-tag", index: 0, tagKey: name }] };
+            await persistJournal(journal);
+            let tagId: string;
+            try {
+              const encryptedName = await encryptField(name);
+              tagId = (await retryWhenRateLimited(() => createTag(accessToken, encryptedName))).tagId;
+            } catch (error) {
+              library = await retryWhenRateLimited(() => loadAuthoritativeImportLibrary(accessToken, user.id, decryptField));
+              const reconciledId = getAuthoritativeTagIdByName(library.tags).get(name);
+              if (!reconciledId) throw error;
+              tagId = reconciledId;
+            }
+            tagIdByName.set(name, tagId);
+            journal = {
+              ...journal,
+              tagIds: [...journal.tagIds.filter(([key]) => key !== name), [name, tagId]],
+              inFlight: [],
+            };
+            await persistJournal(journal);
           }
 
           const pendingItems = prepared.preview.items.filter(
@@ -615,29 +683,35 @@ export default function BrowserBookmarkImportSection() {
                     library,
                   );
                   if (!matches.content) {
-                    await overwriteBookmarkImportContent(
+                    const encryptedTitle = await encryptField(item.title);
+                    const encryptedUrl = await encryptField(item.url);
+                    await retryWhenRateLimited(() => overwriteBookmarkImportContent(
                       accessToken,
                       decision.existingBookmarkId,
-                      await encryptField(item.title),
-                      await encryptField(item.url),
-                    );
+                      encryptedTitle,
+                      encryptedUrl,
+                    ));
                   }
                   if (!matches.folder) {
-                    await moveBookmarkToFolder(
+                    await retryWhenRateLimited(() => moveBookmarkToFolder(
                       accessToken,
                       decision.existingBookmarkId,
                       folderId,
-                    );
+                    ));
                   }
                   return { state: "overwritten" as const };
                 }
-                await createBookmark(accessToken, {
+                const values = {
                   title: await encryptField(item.title),
                   url: await encryptField(item.url),
                   folderId,
-                  existingTagIds: [],
+                  existingTagIds: item.tags.flatMap((name) => {
+                    const tagId = tagIdByName.get(name);
+                    return tagId ? [tagId] : [];
+                  }),
                   newEncryptedTagNames: [],
-                });
+                };
+                await retryWhenRateLimited(() => createBookmark(accessToken, values));
                 return { state: "added" as const };
               }),
             );
@@ -655,7 +729,7 @@ export default function BrowserBookmarkImportSection() {
             );
             if (failures.length > 0) {
               try {
-                library = await loadAuthoritativeImportLibrary(accessToken, user.id, decryptField);
+                library = await retryWhenRateLimited(() => loadAuthoritativeImportLibrary(accessToken, user.id, decryptField));
               } catch {
                 for (const { index } of failures) {
                   journal = setImportItemState(journal, batch[index].index, "unknown");
@@ -724,6 +798,7 @@ export default function BrowserBookmarkImportSection() {
       finishRun,
       loadLimits,
       persistJournal,
+      retryWhenRateLimited,
       preparedImport,
       user,
     ],
@@ -896,9 +971,11 @@ export default function BrowserBookmarkImportSection() {
         return;
       }
       void prepareImport(
-        async () => parseChromeBookmarksTree(event.data.tree),
+        async () => ({
+          result: parseChromeBookmarksTree(event.data.tree),
+          sourceKind: "chrome",
+        }),
         "Reading Chrome bookmarks...",
-        "chrome",
       );
     };
     window.addEventListener("message", handleChromeMessage);
@@ -1061,9 +1138,9 @@ export default function BrowserBookmarkImportSection() {
           description={
             <>
               {chromeExtensionId
-                ? "Import directly from Chrome, or choose an HTML or Safari ZIP export."
-                : "Import HTML exports from Chrome, Edge, or Firefox, and ZIP exports from Safari."}{" "}
-              Folder nesting is preserved as collections and subcollections.
+                ? "Import directly from Chrome, or choose an HTML, Safari ZIP, Pocket, or Raindrop.io export."
+                : "Import HTML exports from Chrome, Edge, or Firefox, ZIP exports from Safari, and Pocket or Raindrop.io exports."}{" "}
+              Folder nesting is preserved as collections and subcollections, and tags are added to new bookmarks.
             </>
           }
         />
@@ -1074,19 +1151,19 @@ export default function BrowserBookmarkImportSection() {
 
         <FirefoxBookmarkImportControl
           disabled={isBusy || !user || !cryptoKey || keyLoading}
-          onImport={(result) => prepareImport(async () => result, "Reading Firefox bookmarks...", "firefox")}
+          onImport={(result) => prepareImport(async () => ({ result, sourceKind: "firefox" }), "Reading Firefox bookmarks...")}
         />
 
         <Field className="mt-6">
           <Label htmlFor="browser-bookmark-import-file">Bookmark export</Label>
           <Description id="browser-bookmark-import-file-description">
-            Choose an HTML export or Safari ZIP file. FavLock previews it before writing.
+            Choose an HTML, CSV, or ZIP export. FavLock previews it before writing.
           </Description>
           <DataTransferFileControl
             id="browser-bookmark-import-file"
             descriptionId="browser-bookmark-import-file-description"
             inputRef={fileInputRef}
-            accept=".html,.htm,.zip,text/html,application/zip,application/x-zip-compressed"
+            accept=".html,.htm,.csv,.zip,text/html,text/csv,application/zip,application/x-zip-compressed"
             fileName={selectedFileName}
             emptyLabel={recoveryJournal ? "Reselect the original source to resume" : "No bookmark file selected"}
             disabled={isBusy || keyLoading}
@@ -1132,7 +1209,7 @@ export default function BrowserBookmarkImportSection() {
               ))}
             </dl>
             <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-[var(--app-muted)]">
-              {preparedImport.preview.readyToAddCount} records can be added immediately. {preparedImport.preview.libraryDuplicateCount} library duplicates require a choice; {preparedImport.preview.sourceDuplicateCount} repeated source records will be skipped. {preparedImport.preview.bookmarkLimit === 0 ? "Your plan has no bookmark-count limit." : `Your ${preparedImport.preview.bookmarkLimit.toLocaleString("en-US")}-bookmark plan limit is unchanged.`}
+              {preparedImport.preview.readyToAddCount} records can be added immediately. {preparedImport.preview.libraryDuplicateCount} library duplicates require a choice; {preparedImport.preview.sourceDuplicateCount} repeated source records will be skipped. {preparedImport.preview.bookmarkLimit === 0 ? "Your plan has no bookmark-count limit." : `Your ${preparedImport.preview.bookmarkLimit.toLocaleString("en-US")}-bookmark plan limit is unchanged.`} {describeImportTags(preparedImport.preview)}
             </p>
             <ImportIssueDetails
               title="Invalid / unsupported records"
@@ -1157,7 +1234,7 @@ export default function BrowserBookmarkImportSection() {
           <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50/70 dark:bg-[var(--app-butter)] p-4">
             <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-200">Interrupted import</h3>
             <p className="mt-1 text-sm leading-6 text-amber-900 dark:text-amber-200">
-              {resultMessage(recoveryJournal!)}. Reselect the original {recoveryJournal?.sourceKind === "safari-zip" ? "Safari ZIP" : recoveryJournal?.sourceKind === "chrome" ? "Chrome bookmark source" : "HTML file"} to verify and resume.
+              {resultMessage(recoveryJournal!)}. Reselect the original {SOURCE_LABELS[recoveryJournal!.sourceKind]} to verify and resume.
             </p>
             <DataTransferActionBar className="mt-3">
               <Button type="button" plain onClick={discardRecovery}>Discard recovery</Button>
@@ -1194,6 +1271,7 @@ export default function BrowserBookmarkImportSection() {
           </summary>
           <div className="mt-3 space-y-2.5 leading-6">
             <p>{bookmarkExportGuide?.instructions ?? "Export your bookmarks as an HTML file, or as a ZIP file from Safari."}</p>
+            <p>From Pocket, choose the ZIP or ril_export.html file you downloaded before its export closed. From Raindrop.io, export your collections as CSV or HTML. Pocket items go into a Pocket collection, with archived items in Pocket › Archive.</p>
             <p className="border-t border-gray-200/80 dark:border-[var(--app-line)]/20 pt-2.5 text-gray-500 dark:text-[var(--app-muted)]">
               After exporting, select Choose file above and open the saved HTML or Safari ZIP file. For another browser, see the{" "}
               <a href={`${WEB_DOCS_URL}/bookmarks#import`} target="_blank" rel="noreferrer" className="font-medium text-emerald-700 dark:text-emerald-300 underline decoration-emerald-700/30 underline-offset-2 hover:decoration-emerald-700">complete export guide</a>.
