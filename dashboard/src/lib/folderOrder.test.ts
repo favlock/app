@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   applyFolderPlacements,
   buildFolderPlacements,
-  moveFolder,
-  resolveFolderDragIntent,
+  folderSiblings,
+  nestTargets,
+  placeFolder,
   sortFolders,
 } from "./folderOrder";
 import type { Folder } from "../types/bookmark";
@@ -48,7 +49,7 @@ describe("folder ordering", () => {
 
   it("nests a root collection under another root", () => {
     const folders = [folder("a", "Alpha", 0), folder("b", "Bravo", 1)];
-    const moved = moveFolder(folders, "b", "a", "a");
+    const moved = placeFolder(folders, "b", "a", Number.MAX_SAFE_INTEGER);
 
     expect(moved.map(({ id }) => id)).toEqual(["a", "b"]);
     expect(moved.find(({ id }) => id === "b")?.parent_id).toBe("a");
@@ -64,7 +65,7 @@ describe("folder ordering", () => {
       folder("child", "Child", 0, "a"),
       folder("b", "Bravo", 1),
     ];
-    const moved = moveFolder(folders, "child", "b", null);
+    const moved = placeFolder(folders, "child", null, 1);
 
     expect(moved.map(({ id }) => id)).toEqual(["a", "child", "b"]);
     expect(moved.find(({ id }) => id === "child")?.parent_id).toBeNull();
@@ -81,54 +82,78 @@ describe("folder ordering", () => {
     expect(reordered[1].parent_id).toBe("b");
   });
 
-  it("previews nesting under the root of the hovered branch", () => {
+  it("moves a collection within its siblings and keeps children attached", () => {
+    const folders = [
+      folder("a", "Alpha", 0),
+      folder("child", "Child", 0, "a"),
+      folder("b", "Bravo", 1),
+      folder("c", "Charlie", 2),
+    ];
+
+    const moved = placeFolder(folders, "a", null, 2);
+
+    expect(moved.map(({ id }) => id)).toEqual(["b", "c", "a", "child"]);
+    expect(buildFolderPlacements(moved)).toEqual([
+      { id: "b", parentId: null, sortOrder: 0 },
+      { id: "c", parentId: null, sortOrder: 1 },
+      { id: "a", parentId: null, sortOrder: 2 },
+      { id: "child", parentId: "a", sortOrder: 0 },
+    ]);
+  });
+
+  it("clamps out-of-range positions", () => {
+    const folders = [folder("a", "Alpha", 0), folder("b", "Bravo", 1)];
+
+    expect(placeFolder(folders, "b", null, -5).map(({ id }) => id)).toEqual([
+      "b",
+      "a",
+    ]);
+    expect(placeFolder(folders, "a", null, 99).map(({ id }) => id)).toEqual([
+      "b",
+      "a",
+    ]);
+  });
+
+  it("renumbers the sibling group a subcollection leaves", () => {
+    const folders = [
+      folder("a", "Alpha", 0),
+      folder("one", "One", 0, "a"),
+      folder("two", "Two", 1, "a"),
+      folder("b", "Bravo", 1),
+    ];
+
+    const moved = placeFolder(folders, "one", "b", 0);
+
+    expect(folderSiblings(moved, "two").map(({ id }) => id)).toEqual(["two"]);
+    expect(moved.find(({ id }) => id === "two")?.sort_order).toBe(0);
+    expect(moved.find(({ id }) => id === "one")?.parent_id).toBe("b");
+  });
+
+  it("rejects nesting deeper than one level", () => {
     const folders = [
       folder("a", "Alpha", 0),
       folder("child", "Child", 0, "a"),
       folder("b", "Bravo", 1),
     ];
 
-    expect(
-      resolveFolderDragIntent(folders, "b", "child", 30, 30),
-    ).toEqual(
-      expect.objectContaining({
-        action: "nest",
-        nextParentId: "a",
-        targetParentId: "a",
-      }),
-    );
+    expect(placeFolder(folders, "a", "b", 0)).toEqual(sortFolders(folders));
+    expect(placeFolder(folders, "b", "child", 0)).toEqual(sortFolders(folders));
+    expect(placeFolder(folders, "b", "b", 0)).toEqual(sortFolders(folders));
   });
 
-  it("previews moving a child to the top level even while over itself", () => {
-    const folders = [
-      folder("a", "Alpha", 0),
-      folder("child", "Child", 0, "a"),
-    ];
-
-    expect(
-      resolveFolderDragIntent(folders, "child", "child", -30, 30),
-    ).toEqual(
-      expect.objectContaining({
-        action: "unnest",
-        nextParentId: null,
-        overId: "a",
-      }),
-    );
-  });
-
-  it("blocks nesting a collection that already has children", () => {
+  it("offers only other top-level collections as nest targets", () => {
     const folders = [
       folder("a", "Alpha", 0),
       folder("child", "Child", 0, "a"),
       folder("b", "Bravo", 1),
+      folder("c", "Charlie", 2),
     ];
 
-    expect(
-      resolveFolderDragIntent(folders, "a", "b", 30, 30)?.action,
-    ).toBe("blocked");
-
-    expect(resolveFolderDragIntent(folders, "b", "a", 29, 30)?.action).toBe(
-      "reorder",
-    );
+    expect(nestTargets(folders, "a")).toEqual([]);
+    expect(nestTargets(folders, "b").map(({ id }) => id)).toEqual(["a", "c"]);
+    expect(nestTargets(folders, "child").map(({ id }) => id)).toEqual([
+      "b",
+      "c",
+    ]);
   });
 });

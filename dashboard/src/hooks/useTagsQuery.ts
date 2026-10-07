@@ -8,8 +8,9 @@ import {
   getCachedEntriesForUser,
   getCachedTagsForUser,
 } from '../lib/bookmarkCache';
-import { deleteTag, updateTag } from '../lib/taxonomyRepository';
+import { arrangeTags, deleteTag, updateTag } from '../lib/taxonomyRepository';
 import {
+  arrangeLocalTags,
   deleteLocalTag,
   readLocalBookmarks,
   readLocalEntries,
@@ -69,6 +70,46 @@ export const useDeleteTag = () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['readspace'] });
     },
+  });
+};
+
+export type TagPlacement = { id: string; sortOrder: number };
+
+export const useReorderTags = () => {
+  const queryClient = useQueryClient();
+  const { retryBookmarkCacheSync, session, user, isLocalAccount } = useAuth();
+
+  return useMutation({
+    scope: { id: 'tag-reorder' },
+    mutationFn: (placements: TagPlacement[]) => {
+      if (!user) throw new Error('Open a FavLock vault before updating.');
+      return isLocalAccount
+        ? arrangeLocalTags(user.id, placements)
+        : arrangeTags(session?.access_token ?? '', placements);
+    },
+    onMutate: async (placements) => {
+      await queryClient.cancelQueries({ queryKey: TAGS_QUERY_KEY });
+      const previousQueries = queryClient.getQueriesData<Tag[]>({
+        queryKey: TAGS_QUERY_KEY,
+      });
+      const sortOrderById = new Map(
+        placements.map(({ id, sortOrder }) => [id, sortOrder]),
+      );
+      queryClient.setQueriesData<Tag[]>({ queryKey: TAGS_QUERY_KEY }, (old) =>
+        old?.map((tag) =>
+          sortOrderById.has(tag.id)
+            ? { ...tag, sort_order: sortOrderById.get(tag.id) }
+            : tag,
+        ),
+      );
+      return { previousQueries };
+    },
+    onError: (_error, _placements, context) => {
+      context?.previousQueries.forEach(([queryKey, data]) => {
+        queryClient.setQueryData(queryKey, data);
+      });
+    },
+    onSuccess: retryBookmarkCacheSync,
   });
 };
 

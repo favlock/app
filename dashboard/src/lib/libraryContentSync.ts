@@ -65,6 +65,7 @@ async function decryptTag(
     id: tag.id,
     user_id: userId,
     name: await decryptField(tag.encryptedName),
+    sort_order: tag.sortOrder,
     created_at: tag.createdAt,
   };
 }

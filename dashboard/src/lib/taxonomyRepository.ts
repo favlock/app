@@ -108,6 +108,23 @@ export function updateTag(
   );
 }
 
+export function arrangeTags(
+  accessToken: string,
+  placements: Array<{ id: string; sortOrder: number }>,
+): Promise<void> {
+  return putAuthenticatedJsonWithoutResponse(
+    "/v1/tags/order",
+    accessToken,
+    {
+      placements: placements.map(({ id, sortOrder }) => ({
+        tagId: id,
+        sortOrder,
+      })),
+    },
+    "Could not save the tag order.",
+  );
+}
+
 export function deleteTag(accessToken: string, tagId: string): Promise<void> {
   return deleteAuthenticatedWithoutResponse(
     `/v1/tags/${encodeURIComponent(tagId)}`,

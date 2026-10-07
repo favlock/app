@@ -48,6 +48,7 @@ export type EncryptedLibraryFolder = {
 export type EncryptedLibraryTag = {
   id: string;
   encryptedName: string;
+  sortOrder: number;
   createdAt: string;
 };
 
@@ -117,16 +118,18 @@ function parseFolder(value: unknown): EncryptedLibraryFolder {
 
 function parseTag(value: unknown): EncryptedLibraryTag {
   if (!isRecord(value)) throw new Error(LIBRARY_ERROR);
-  const { id, encryptedName, createdAt } = value;
+  const { id, encryptedName, sortOrder = 0, createdAt } = value;
   if (
     !isUuid(id) ||
     typeof encryptedName !== "string" ||
     encryptedName.length > TAXONOMY_NAME_MAX_LENGTH ||
+    !Number.isSafeInteger(sortOrder) ||
+    (sortOrder as number) < 0 ||
     !isTimestamp(createdAt)
   ) {
     throw new Error(LIBRARY_ERROR);
   }
-  return { id, encryptedName, createdAt };
+  return { id, encryptedName, sortOrder: sortOrder as number, createdAt };
 }
 
 function parseEntry(value: unknown): EncryptedLibraryEntry {

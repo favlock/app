@@ -4,6 +4,8 @@ export interface Tag {
   id: string
   user_id: string
   name: string
+  /** Custom sidebar position; absent on tags cached before it existed. */
+  sort_order?: number
   created_at: string
 }
 

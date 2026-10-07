@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { encryptField, importRawKey } from "./encryption";
 import type { FavLockExport } from "./dataExport";
 import {
+  arrangeLocalTags,
   createLocalBookmark,
   createLocalEntry,
   createLocalFolder,
@@ -192,6 +193,49 @@ describe("local encrypted vault", () => {
     ]);
     expect(JSON.stringify(preview)).not.toContain("FavLock");
     expect(JSON.stringify(preview)).not.toContain("https://favlock.app");
+  });
+
+  it("appends new Tags and saves a custom Tag order", async () => {
+    const vaultId = "33333333-3333-4333-8333-333333333333";
+    const key = await importRawKey("12345678901234567890123456789012");
+    const encrypt = (value: string) => encryptField(value, key);
+    await createLocalBookmark(vaultId, {
+      encryptedTitle: await encrypt("One"),
+      encryptedUrl: await encrypt("https://one.example"),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encrypt("Alpha"), await encrypt("Beta")],
+    });
+    await createLocalBookmark(vaultId, {
+      encryptedTitle: await encrypt("Two"),
+      encryptedUrl: await encrypt("https://two.example"),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encrypt("Gamma")],
+    });
+
+    const created = await readLocalTags(vaultId, key);
+    const positions = Object.fromEntries(
+      created.map(({ name, sort_order }) => [name, sort_order]),
+    );
+    expect(positions).toEqual({ Alpha: 0, Beta: 1, Gamma: 2 });
+
+    const idByName = Object.fromEntries(created.map(({ name, id }) => [name, id]));
+    await arrangeLocalTags(vaultId, [
+      { id: idByName.Gamma, sortOrder: 0 },
+      { id: idByName.Alpha, sortOrder: 1 },
+      { id: idByName.Beta, sortOrder: 2 },
+    ]);
+    const arranged = await readLocalTags(vaultId, key);
+    expect(
+      arranged
+        .sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))
+        .map(({ name }) => name),
+    ).toEqual(["Gamma", "Alpha", "Beta"]);
+
+    await expect(
+      arrangeLocalTags("another-vault", [{ id: idByName.Gamma, sortOrder: 0 }]),
+    ).rejects.toThrow("A local Tag could not be found.");
   });
 
   it("keeps vaults isolated and unfiles bookmarks when a Collection is deleted", async () => {
