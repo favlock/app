@@ -70,7 +70,7 @@ export default function ReleaseAnnouncementDialog({
     : content.changes;
 
   return (
-    <Dialog open={open} onClose={dismiss} size="md">
+    <Dialog open={open} onClose={dismiss} size={content.announcementMedia ? "lg" : "md"}>
       <div className="relative">
         <button
           type="button"
@@ -91,6 +91,21 @@ export default function ReleaseAnnouncementDialog({
         </div>
 
         <DialogBody>
+          {content.announcementMedia ? (
+            <picture className="mb-4 block overflow-hidden rounded-xl border border-[var(--app-line)] bg-[var(--app-card)]">
+              <source
+                media="(prefers-reduced-motion: reduce)"
+                srcSet={content.announcementMedia.stillSrc}
+              />
+              <img
+                src={content.announcementMedia.src}
+                alt={content.announcementMedia.alt}
+                width={content.announcementMedia.width}
+                height={content.announcementMedia.height}
+                className="block h-auto w-full"
+              />
+            </picture>
+          ) : null}
           <p className="text-sm leading-6 text-[var(--app-muted)]">
             FavLock has been updated with new features and improvements across
             the app.

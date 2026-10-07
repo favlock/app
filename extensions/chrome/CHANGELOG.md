@@ -1,5 +1,12 @@
 # Chrome extension changelog
 
+## 1.14.0 — October 7, 2026
+
+- Search collections in the "Save to" picker, including by parent collection name, and search the tag picker.
+- Create a tag or collection from the search text when nothing matches exactly.
+- Remember the last selected popup tab.
+- Fixed option lists scrolling unnecessarily in the collection and tag pickers.
+
 ## 1.13.1 — October 1, 2026
 
 - Aligned the extension version with FavLock 1.13.1. No Chrome extension behavior changes.
