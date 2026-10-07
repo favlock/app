@@ -27,6 +27,8 @@ describe("authentication navigation", () => {
   it.each([
     "/checkout", "/write", "/settings#security", "/extension/pair?pairing=example",
     "/c/reading", "/t/design", "/favorites", "/notes", "/todos", "/tasks/",
+    "/settings/preferences", "/settings/security", "/settings/billing",
+    "/settings/usage?billing=success&checkout_id=ch_test",
   ])("preserves the approved destination %s through both modes", (next) => {
     for (const mode of ["sign-in", "sign-up"] as const) {
       const path = buildAuthPath("/login", next, { mode });
@@ -40,7 +42,7 @@ describe("authentication navigation", () => {
     "https://attacker.example", "//attacker.example", "/\\attacker.example",
     "javascript:alert(1)", "/unknown", "/login/", "/register", "/reset-password",
     "/checkout/../login", "/%2f%2fattacker.example", "/c/%2fescape",
-    "/checkout\n", "/checkout?" + "a".repeat(2048),
+    "/checkout\n", "/checkout?" + "a".repeat(2048), "/settings/unknown",
   ])("rejects unsafe or unknown destination %s", (next) => {
     expect(normalizePostAuthPath(next)).toBe("/");
     expect(buildAuthPath("/login", next, { mode: "sign-up" })).toBe("/login?mode=sign-up");

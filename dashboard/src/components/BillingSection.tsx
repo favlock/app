@@ -1,15 +1,12 @@
 import { formatResourceLimit, PLANS } from "@favlock/shared";
-import { CreditCard, ExternalLink, Sparkles } from "lucide-react";
+import { CreditCard, ReceiptText, Sparkles } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/useAuth";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { useBillingSubscription } from "../hooks/useBillingSubscriptionQuery";
 import { createProCheckout } from "../lib/checkoutApi";
 import { favLockAuth } from "../lib/favLockAuth";
-import {
-  getCreemCustomerPortalUrl,
-} from "../lib/creemBilling";
 import { Button } from "./ui/button";
 
 function formatDate(value: string | null): string | null {
@@ -26,6 +23,7 @@ export default function BillingSection() {
   const [checkoutPending, setCheckoutPending] = useState(false);
   const checkoutAttempt = useRef<string | null>(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const checkoutReturned = searchParams.get("billing") === "success";
   const { data: accountPlan, refetch: refetchPlan } = useAccountPlan();
   const {
@@ -36,7 +34,9 @@ export default function BillingSection() {
   } = useBillingSubscription();
   const [actionError, setActionError] = useState<string | null>(null);
   const hasPro = accountPlan?.id === "pro";
-  const hasActiveBilling = subscription
+  // Mirrors can_start_pro_checkout: any record other than canceled has to be
+  // resolved in Billing before a new checkout can start.
+  const blocksNewCheckout = subscription
     ? subscription.status !== "canceled"
     : false;
   const periodEnd = formatDate(subscription?.currentPeriodEnd ?? null);
@@ -73,10 +73,6 @@ export default function BillingSection() {
     } finally {
       setCheckoutPending(false);
     }
-  };
-
-  const openCustomerPortal = () => {
-    window.location.assign(getCreemCustomerPortalUrl());
   };
 
   return (
@@ -144,7 +140,7 @@ export default function BillingSection() {
               <Button
                 type="button"
                 color="emerald"
-                disabled={isLoading || checkoutPending || !!actionError || !session || hasActiveBilling}
+                disabled={isLoading || checkoutPending || !!actionError || !session || blocksNewCheckout}
                 onClick={openCheckout}
               >
                 <CreditCard data-slot="icon" aria-hidden="true" />
@@ -152,12 +148,12 @@ export default function BillingSection() {
               </Button>
             ) : null}
             <Button
-                type="button"
-                outline
-                onClick={openCustomerPortal}
-              >
-                <ExternalLink data-slot="icon" aria-hidden="true" />
-                Receipts &amp; billing
+              type="button"
+              outline
+              onClick={() => navigate("/settings/billing")}
+            >
+              <ReceiptText data-slot="icon" aria-hidden="true" />
+              Manage billing
             </Button>
           </div>
         </div>
@@ -177,10 +173,16 @@ export default function BillingSection() {
             {actionError}
           </p>
         ) : null}
-        {!hasPro && subscription && !hasActiveBilling ? (
+        {!hasPro && subscription && !blocksNewCheckout ? (
           <p className="mt-4 text-xs liquid-muted">
             Your previous Creem subscription is not active. You can start a new
             checkout or open billing for past invoices.
+          </p>
+        ) : null}
+        {!hasPro && blocksNewCheckout ? (
+          <p className="mt-4 text-sm text-amber-700 dark:text-amber-300">
+            Your existing Creem subscription needs attention before you can
+            start a new one. Open Manage billing to see what to do.
           </p>
         ) : null}
         <p className="mt-4 text-xs liquid-muted">

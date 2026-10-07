@@ -148,7 +148,7 @@ function App() {
                   />
                   <Route path="/duplicates" element={<Navigate to="/library-health/duplicates" replace />} />
                   <Route path="/broken-links" element={<Navigate to="/library-health/broken-links" replace />} />
-                  <Route path="settings" element={<Settings />} />
+                  <Route path="settings/:tab?" element={<Settings />} />
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
