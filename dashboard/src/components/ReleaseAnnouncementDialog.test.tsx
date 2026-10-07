@@ -155,6 +155,38 @@ describe("ReleaseAnnouncementDialog", () => {
     expect(document.body.textContent).not.toContain(minorRelease.announcementHighlights[1]);
   });
 
+  it("shows release media with a still frame for reduced motion", async () => {
+    await render();
+    expect(document.querySelector("picture")).toBeNull();
+
+    const releaseWithMedia = {
+      ...minorRelease,
+      announcementMedia: {
+        src: "/demo.gif",
+        stillSrc: "/demo.png",
+        alt: "Sorting tags in the sidebar.",
+        width: 800,
+        height: 500,
+      },
+    } satisfies Release;
+    await act(async () => {
+      root.render(
+        <ReleaseAnnouncementDialog
+          enabled
+          release={releaseWithMedia}
+          releases={[releaseWithMedia]}
+        />,
+      );
+    });
+
+    const image = document.querySelector<HTMLImageElement>("picture img");
+    expect(image?.getAttribute("src")).toBe("/demo.gif");
+    expect(image?.alt).toBe("Sorting tags in the sidebar.");
+    const still = document.querySelector<HTMLSourceElement>("picture source");
+    expect(still?.media).toBe("(prefers-reduced-motion: reduce)");
+    expect(still?.getAttribute("srcset")).toBe("/demo.png");
+  });
+
   it("does not show an invalid version", async () => {
     await render({ ...minorRelease, version: "invalid" });
     expect(document.body.textContent).not.toContain("What’s new in FavLock");
