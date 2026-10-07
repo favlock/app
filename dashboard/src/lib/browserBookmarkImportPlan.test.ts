@@ -52,6 +52,7 @@ describe("browser bookmark import preflight", () => {
       },
       [bookmark("11111111-1111-4111-8111-111111111111", "https://existing.test/")],
       [],
+      [],
       plan,
       { bookmarks: 1, collections: 0 },
     );
@@ -91,6 +92,7 @@ describe("browser bookmark import preflight", () => {
       },
       [],
       [],
+      [],
       plan,
       { bookmarks: 4, collections: 0 },
     );
@@ -110,6 +112,7 @@ describe("browser bookmark import preflight", () => {
       },
       [],
       [folder("22222222-2222-4222-8222-222222222222", "Work")],
+      [],
       plan,
       { bookmarks: 0, collections: 2 },
     );
@@ -132,6 +135,7 @@ describe("browser bookmark import preflight", () => {
       },
       [existing],
       [],
+      [],
       plan,
       { bookmarks: 1, collections: 0 },
     );
@@ -153,6 +157,7 @@ describe("browser bookmark import preflight", () => {
       { bookmarks, folderPaths: [["Synthetic"]] },
       [],
       [],
+      [],
       { ...plan, limits: { ...plan.limits, collections: 0 } },
       { bookmarks: 0, collections: 0 },
     );
@@ -171,6 +176,7 @@ describe("browser bookmark import preflight", () => {
     const startedAt = performance.now();
     const preview = await prepareBrowserBookmarkImport(
       { bookmarks, folderPaths: [] },
+      [],
       [],
       [],
       {
@@ -194,6 +200,7 @@ describe("browser bookmark import preflight", () => {
         ],
         folderPaths: [],
       },
+      [],
       [],
       [],
       {

@@ -5,6 +5,10 @@ export interface PreparedBookmarkTags {
   newEncryptedTagNames: string[];
 }
 
+export function normalizeTagName(name: string): string {
+  return name.replace(/#/g, "").trim().toLowerCase();
+}
+
 export async function prepareBookmarkTags(
   tagNames: string[],
   existingTags: Tag[],
@@ -13,7 +17,7 @@ export async function prepareBookmarkTags(
   const normalizedNames = [
     ...new Set(
       tagNames
-        .map((name) => name.replace(/#/g, "").trim().toLowerCase())
+        .map(normalizeTagName)
         .filter(Boolean),
     ),
   ];

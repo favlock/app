@@ -3,6 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { encryptField, importRawKey } from "./encryption";
 import type { FavLockExport } from "./dataExport";
 import {
+  arrangeLocalTags,
   createLocalBookmark,
   createLocalEntry,
   createLocalFolder,
@@ -192,6 +193,49 @@ describe("local encrypted vault", () => {
     ]);
     expect(JSON.stringify(preview)).not.toContain("FavLock");
     expect(JSON.stringify(preview)).not.toContain("https://favlock.app");
+  });
+
+  it("appends new Tags and saves a custom Tag order", async () => {
+    const vaultId = "33333333-3333-4333-8333-333333333333";
+    const key = await importRawKey("12345678901234567890123456789012");
+    const encrypt = (value: string) => encryptField(value, key);
+    await createLocalBookmark(vaultId, {
+      encryptedTitle: await encrypt("One"),
+      encryptedUrl: await encrypt("https://one.example"),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encrypt("Alpha"), await encrypt("Beta")],
+    });
+    await createLocalBookmark(vaultId, {
+      encryptedTitle: await encrypt("Two"),
+      encryptedUrl: await encrypt("https://two.example"),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encrypt("Gamma")],
+    });
+
+    const created = await readLocalTags(vaultId, key);
+    const positions = Object.fromEntries(
+      created.map(({ name, sort_order }) => [name, sort_order]),
+    );
+    expect(positions).toEqual({ Alpha: 0, Beta: 1, Gamma: 2 });
+
+    const idByName = Object.fromEntries(created.map(({ name, id }) => [name, id]));
+    await arrangeLocalTags(vaultId, [
+      { id: idByName.Gamma, sortOrder: 0 },
+      { id: idByName.Alpha, sortOrder: 1 },
+      { id: idByName.Beta, sortOrder: 2 },
+    ]);
+    const arranged = await readLocalTags(vaultId, key);
+    expect(
+      arranged
+        .sort((left, right) => (left.sort_order ?? 0) - (right.sort_order ?? 0))
+        .map(({ name }) => name),
+    ).toEqual(["Gamma", "Alpha", "Beta"]);
+
+    await expect(
+      arrangeLocalTags("another-vault", [{ id: idByName.Gamma, sortOrder: 0 }]),
+    ).rejects.toThrow("A local Tag could not be found.");
   });
 
   it("keeps vaults isolated and unfiles bookmarks when a Collection is deleted", async () => {
@@ -396,7 +440,7 @@ describe("local encrypted vault", () => {
         ],
         key,
       ),
-    ).resolves.toEqual({ added: 1, overwritten: 1, collectionsCreated: 2 });
+    ).resolves.toEqual({ added: 1, overwritten: 1, collectionsCreated: 2, tagsCreated: 0 });
 
     const bookmarks = await readLocalBookmarks("local-import", key);
     expect(bookmarks).toHaveLength(2);
@@ -412,6 +456,37 @@ describe("local encrypted vault", () => {
     const preview = await readLocalEncryptedPreview("local-import");
     expect(JSON.stringify(preview)).not.toContain("Updated title");
     expect(JSON.stringify(preview)).not.toContain("https://new.test/");
+  });
+
+  it("creates imported Tags once, reuses existing Tags, and encrypts their names", async () => {
+    const key = await importRawKey("12345678901234567890123456789012");
+    await createLocalBookmark("local-import", {
+      encryptedTitle: await encryptField("Existing", key),
+      encryptedUrl: await encryptField("https://existing.test/", key),
+      folderId: null,
+      existingTagIds: [],
+      newEncryptedTagNames: [await encryptField("Work", key)],
+    });
+
+    await expect(
+      importLocalBookmarks(
+        "local-import",
+        [
+          { title: "One", url: "https://one.test/", folderPath: [], tags: ["research", "work"] },
+          { title: "Two", url: "https://two.test/", folderPath: [], tags: ["research"] },
+        ],
+        key,
+      ),
+    ).resolves.toMatchObject({ added: 2, tagsCreated: 1 });
+
+    const bookmarks = await readLocalBookmarks("local-import", key);
+    const one = bookmarks.find((item) => item.title === "One");
+    const two = bookmarks.find((item) => item.title === "Two");
+    expect(one?.tags?.map((tag) => tag.name).sort()).toEqual(["Work", "research"]);
+    expect(two?.tags?.map((tag) => tag.id)).toEqual(
+      one?.tags?.filter((tag) => tag.name === "research").map((tag) => tag.id),
+    );
+    expect(JSON.stringify(await readLocalEncryptedPreview("local-import"))).not.toContain("research");
   });
 
   it("rolls back the whole import if a reviewed duplicate changed", async () => {

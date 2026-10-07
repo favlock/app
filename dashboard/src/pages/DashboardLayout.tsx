@@ -91,7 +91,12 @@ export default function DashboardLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const mainContentRef = useRef<HTMLElement>(null);
-  const previousPathRef = useRef(location.pathname);
+  // Settings tabs have their own paths but stay one page: switching tabs must
+  // keep focus in the tab list and keep the scroll position.
+  const pagePath = location.pathname.startsWith("/settings/")
+    ? "/settings"
+    : location.pathname;
+  const previousPathRef = useRef(pagePath);
   const collectionMatch = useMatch("/c/:collectionSlug");
   const collectionSlug = collectionMatch?.params.collectionSlug ?? null;
   const tagMatch = useMatch("/t/:tagSlug");
@@ -122,13 +127,13 @@ export default function DashboardLayout() {
   useEffect(() => {
     setIsMobileSidebarOpen(false);
 
-    if (previousPathRef.current !== location.pathname) {
-      previousPathRef.current = location.pathname;
+    if (previousPathRef.current !== pagePath) {
+      previousPathRef.current = pagePath;
       window.requestAnimationFrame(() => {
         mainContentRef.current?.focus({ preventScroll: true });
       });
     }
-  }, [location.pathname, location.hash, setIsMobileSidebarOpen]);
+  }, [pagePath, location.pathname, location.hash, setIsMobileSidebarOpen]);
 
   useEffect(() => {
     const userId = user?.id ?? null;
@@ -245,15 +250,15 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     if (
-      location.pathname === "/settings" ||
-      location.pathname === "/support" ||
-      location.pathname === "/trash" ||
-      location.pathname === "/lists" ||
-      location.pathname === "/duplicates"
+      pagePath === "/settings" ||
+      pagePath === "/support" ||
+      pagePath === "/trash" ||
+      pagePath === "/lists" ||
+      pagePath === "/duplicates"
     ) {
       window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     }
-  }, [location.pathname]);
+  }, [pagePath]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);

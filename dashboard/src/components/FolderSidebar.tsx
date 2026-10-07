@@ -1,7 +1,7 @@
 import {
   useMemo,
-  useRef,
   useState,
+  useSyncExternalStore,
   type SubmitEvent,
   type ChangeEvent,
   type KeyboardEvent,
@@ -13,25 +13,7 @@ import {
   useFolders,
   useAddFolder,
   useFolderBookmarkCounts,
-  useReorderFolders,
 } from "../hooks/useFoldersQuery";
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type CollisionDetection,
-  type DragEndEvent,
-  type DragMoveEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useTags, useTagBookmarkCounts } from "../hooks/useTagsQuery";
 import {
   Archive,
@@ -44,7 +26,6 @@ import {
   LifeBuoy,
   CircleHelp,
   ChevronDown,
-  GripVertical,
   CornerDownRight,
   StickyNote,
   ListTodo,
@@ -56,6 +37,8 @@ import {
   ArrowDownUp,
   HeartPulse,
   LoaderCircle,
+  Search,
+  X,
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useUserInfo } from "../hooks/useUserInfoQuery";
@@ -76,48 +59,45 @@ import { Button } from "./ui/button";
 import { changelog } from "../data/changelog";
 import type { Folder } from "../types/bookmark";
 import {
-  buildFolderPlacements,
-  moveFolder,
-  resolveFolderDragIntent,
-  type FolderDragIntent,
-} from "../lib/folderOrder";
+  getSidebarSortMode,
+  setSidebarSortMode,
+  sortSidebarFolders,
+  sortSidebarTags,
+  subscribeSidebarSortMode,
+  type SidebarSortSection,
+} from "../lib/sidebarSort";
+import SidebarSortMenu from "./SidebarSortMenu";
+import {
+  ArrangeCollectionsDialog,
+  ArrangeTagsDialog,
+} from "./SidebarArrangeDialog";
+import {
+  SIDEBAR_SEARCH_THRESHOLD,
+  filterSidebarFolders,
+  filterSidebarTags,
+  hasSidebarQuery,
+  limitSidebarItems,
+  selectedFolderKeepIds,
+} from "../lib/sidebarFilter";
+import { useSidebarSectionExpansion } from "../hooks/useSidebarSectionExpansion";
+import {
+  getSidebarItemLimit,
+  sidebarItemLimitCount,
+  subscribeSidebarItemLimit,
+} from "../lib/sidebarItemLimit";
 import { useAccountPlan } from "../hooks/useAccountPlanQuery";
 import { useNoteCount } from "../hooks/useNotesQuery";
 import { useTodoCount } from "../hooks/useTodosQuery";
 import { useReadspaceCount } from "../hooks/useReadspaceQuery";
 import { useTrashCount } from "../hooks/useTrashQuery";
 import { useListCount } from "../hooks/useListsQuery";
+import LibraryHealthPreviewBadge from "./LibraryHealthPreviewBadge";
 import ProUpgradeDialog from "./ProUpgradeDialog";
 import LocalVaultSignOutDialog from "./LocalVaultSignOutDialog";
 import { useSavedSmartViews } from "../hooks/useSavedSmartViews";
 import { useSavedSmartViewCounts } from "../hooks/useSavedSmartViewCounts";
 import { smartViewIcon } from "../constants/smartViewIcons";
 import { Dialog, DialogActions, DialogDescription, DialogTitle } from "./ui/dialog";
-
-const folderCollisionDetection: CollisionDetection = ({
-  active,
-  collisionRect,
-  droppableContainers,
-  droppableRects,
-  pointerCoordinates,
-}) => {
-  const targetY =
-    pointerCoordinates?.y ?? collisionRect.top + collisionRect.height / 2;
-
-  return droppableContainers
-    .flatMap((container) => {
-      const rect = droppableRects.get(container.id);
-      if (!rect || container.disabled || container.id === active.id) return [];
-      const distance = Math.abs(targetY - (rect.top + rect.height / 2));
-      return [
-        {
-          id: container.id,
-          data: { droppableContainer: container, value: distance },
-        },
-      ];
-    })
-    .sort((left, right) => left.data.value - right.data.value);
-};
 
 interface FolderSidebarProps {
   selectedFolderId: string | null;
@@ -128,73 +108,43 @@ interface FolderSidebarProps {
   onSelectSmartView?: () => void;
 }
 
-interface SortableCollectionProps {
+interface CollectionRowProps {
   folder: Folder;
   count: number;
   selected: boolean;
   onSelect: () => void;
-  previewDepth?: 0 | 1;
-  isNestTarget: boolean;
-  isBlocked: boolean;
+  nested: boolean;
+  isContext: boolean;
 }
 
-function SortableCollection({
+function CollectionRow({
   folder,
   count,
   selected,
   onSelect,
-  previewDepth,
-  isNestTarget,
-  isBlocked,
-}: SortableCollectionProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: folder.id });
-  const displayAsChild =
-    previewDepth === 1 || (previewDepth === undefined && !!folder.parent_id);
-
+  nested,
+  isContext,
+}: CollectionRowProps) {
   return (
     <li
-      ref={setNodeRef}
       data-folder-id={folder.id}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`relative flex items-center rounded-lg transition-[margin,box-shadow,background-color] duration-150 ${
-        displayAsChild ? "ml-4" : "ml-0"
-      } ${isDragging ? "relative z-10 bg-[var(--app-highlight)] opacity-80 shadow-md" : ""} ${
-        isNestTarget ? "bg-emerald-50/40 dark:bg-[var(--app-mint)] ring-1 ring-emerald-300/60" : ""
-      } ${isBlocked ? "bg-red-50 dark:bg-[var(--app-rose)] ring-2 ring-red-400" : ""}`}
+      className={`flex items-center gap-1 rounded-lg ${nested ? "ml-4" : ""}`}
     >
-      {displayAsChild && (
+      {nested && (
         <CornerDownRight
-          className={`size-3 flex-none ${
-            previewDepth === 1 ? "text-emerald-500" : "text-gray-300 dark:text-[var(--app-muted)]"
-          }`}
+          className="size-3 flex-none text-gray-300 dark:text-[var(--app-muted)]"
+          aria-hidden="true"
         />
       )}
       <button
         type="button"
-        aria-label={`Move ${folder.name}`}
-        title="Drag right by one-third of the name width to nest, or left to move up"
-        className="flex size-10 touch-none cursor-grab items-center justify-center rounded-lg text-[color-mix(in_oklab,var(--app-muted)_58%,transparent)] transition-colors hover:bg-[color-mix(in_oklab,var(--app-line)_5%,transparent)] hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)] active:cursor-grabbing"
-        {...attributes}
-        {...listeners}
-      >
-        <GripVertical size={14} />
-      </button>
-      <button
-        type="button"
         onClick={onSelect}
         aria-current={selected ? "page" : undefined}
-        className={`theme-nav-button flex min-w-0 flex-1 items-center gap-2 rounded-lg py-1.5 pr-2.5 pl-1 ${
+        className={`theme-nav-button flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 ${
           selected
             ? "theme-nav-button-active"
             : ""
-        }`}
+        } ${isContext ? "opacity-60" : ""}`}
       >
         <span
           className={`h-3 w-3 flex-none rounded-full ring-1 ring-inset ring-black/10 ${
@@ -209,13 +159,8 @@ function SortableCollection({
                 : undefined,
           }}
         />
-        <span className="min-w-0 flex-1 text-left text-sm">
-          <span
-            data-folder-name
-            className="inline-block max-w-full truncate align-bottom"
-          >
-            {folder.name}
-          </span>
+        <span className="min-w-0 flex-1 truncate text-left text-sm">
+          {folder.name}
         </span>
         <span
           className={`rounded-md px-1.5 py-0.5 text-sm ${
@@ -226,6 +171,30 @@ function SortableCollection({
         </span>
       </button>
     </li>
+  );
+}
+
+function SidebarShowMoreButton({
+  hiddenCount,
+  onToggle,
+}: {
+  hiddenCount: number;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-expanded={hiddenCount === 0}
+      className="mt-1 inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium text-[var(--app-muted)] transition-colors hover:text-[var(--app-primary)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)]"
+    >
+      <ChevronDown
+        size={14}
+        className={hiddenCount === 0 ? "rotate-180" : ""}
+        aria-hidden="true"
+      />
+      {hiddenCount > 0 ? `Show ${hiddenCount} more` : "Show less"}
+    </button>
   );
 }
 
@@ -247,6 +216,9 @@ export default function FolderSidebar({
     useDuplicateScan();
   const { deviceState: linkHealth, phase: linkHealthPhase } = useLinkHealth();
   const location = useLocation();
+  const isSettingsPath =
+    location.pathname === "/settings" ||
+    location.pathname.startsWith("/settings/");
   const [signingOut, setSigningOut] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -268,14 +240,80 @@ export default function FolderSidebar({
     refetch: retryTags,
   } = useTags();
   const { data: tagCounts = {} } = useTagBookmarkCounts();
-  const addFolderMutation = useAddFolder();
-  const reorderFoldersMutation = useReorderFolders();
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
+  const collectionSort = useSyncExternalStore(subscribeSidebarSortMode, () =>
+    getSidebarSortMode("collections"),
   );
+  const tagSort = useSyncExternalStore(subscribeSidebarSortMode, () =>
+    getSidebarSortMode("tags"),
+  );
+  const [arranging, setArranging] = useState<SidebarSortSection | null>(null);
+  const sortedFolders = useMemo(
+    () => sortSidebarFolders(folders, collectionSort, folderCounts),
+    [folders, collectionSort, folderCounts],
+  );
+  const sortedTags = useMemo(
+    () => sortSidebarTags(tags, tagSort, tagCounts),
+    [tags, tagSort, tagCounts],
+  );
+  const [sidebarQuery, setSidebarQuery] = useState("");
+  const { expansion, setExpanded } = useSidebarSectionExpansion(user?.id);
+  const sectionLimit = sidebarItemLimitCount(
+    useSyncExternalStore(subscribeSidebarItemLimit, getSidebarItemLimit),
+  );
+  const searching = hasSidebarQuery(sidebarQuery);
+  const showSidebarSearch =
+    searching || folders.length + tags.length > SIDEBAR_SEARCH_THRESHOLD;
+  const folderRows = useMemo(
+    () => filterSidebarFolders(sortedFolders, sidebarQuery),
+    [sortedFolders, sidebarQuery],
+  );
+  const matchingTags = useMemo(
+    () => filterSidebarTags(sortedTags, sidebarQuery),
+    [sortedTags, sidebarQuery],
+  );
+  const collapsedFolderRows = useMemo(
+    () =>
+      searching
+        ? { visible: folderRows, hiddenCount: 0 }
+        : limitSidebarItems(
+            folderRows,
+            (row) => row.folder.id,
+            sectionLimit,
+            selectedFolderKeepIds(folders, selectedFolderId),
+          ),
+    [folderRows, folders, searching, sectionLimit, selectedFolderId],
+  );
+  const collapsedTags = useMemo(
+    () =>
+      searching
+        ? { visible: matchingTags, hiddenCount: 0 }
+        : limitSidebarItems(
+            matchingTags,
+            (tag) => tag.id,
+            sectionLimit,
+            new Set(selectedTagId ? [selectedTagId] : []),
+          ),
+    [matchingTags, searching, sectionLimit, selectedTagId],
+  );
+  const limitedFolderRows = expansion.collections
+    ? { visible: folderRows, hiddenCount: 0 }
+    : collapsedFolderRows;
+  const limitedTags = expansion.tags
+    ? { visible: matchingTags, hiddenCount: 0 }
+    : collapsedTags;
+  const canCollapseFolders =
+    expansion.collections && collapsedFolderRows.hiddenCount > 0;
+  const canCollapseTags = expansion.tags && collapsedTags.hiddenCount > 0;
+
+  const openFirstSidebarMatch = () => {
+    const firstFolder = folderRows.find((row) => !row.isContext)?.folder;
+    if (firstFolder) {
+      onSelectFolder(firstFolder.id);
+    } else if (matchingTags[0]) {
+      onSelectTag?.(matchingTags[0].id);
+    }
+  };
+  const addFolderMutation = useAddFolder();
 
   const performSignOut = async () => {
     setSigningOut(true);
@@ -295,10 +333,6 @@ export default function FolderSidebar({
   const [error, setError] = useState<string | null>(null);
   const [newColor, setNewColor] = useState<ColorConstant>(COLOR_NONE);
   const [newParentId, setNewParentId] = useState("");
-  const [reorderError, setReorderError] = useState<string | null>(null);
-  const [dragIntent, setDragIntent] = useState<FolderDragIntent | null>(null);
-  const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const nestingThresholdRef = useRef(24);
   const { data: bookmarkCounts } = useBookmarkCounts();
   const { data: noteCount = 0 } = useNoteCount();
   const { data: todoCount = 0 } = useTodoCount();
@@ -335,85 +369,19 @@ export default function FolderSidebar({
       setNewColor(COLOR_NONE);
       setNewParentId("");
       setCreating(false);
+      setSidebarQuery("");
+      if (folders.length + 1 > sectionLimit + 1 && !expansion.collections) {
+        setExpanded("collections", true);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create folder");
     }
   };
 
-  const getDragIntent = (
-    activeId: string | number,
-    overId: string | number | undefined,
-    deltaX: number,
-  ) =>
-    overId === undefined
-      ? null
-      : resolveFolderDragIntent(
-          folders,
-          String(activeId),
-          String(overId),
-          deltaX,
-          nestingThresholdRef.current,
-        );
-
-  const handleDragMove = ({ active, over, delta }: DragMoveEvent) => {
-    setDragIntent(getDragIntent(active.id, over?.id, delta.x));
+  const finishArranging = (section: SidebarSortSection) => {
+    setSidebarSortMode(section, "custom");
+    setArranging(null);
   };
-
-  const handleDragEnd = ({ active, over, delta }: DragEndEvent) => {
-    const intent = getDragIntent(active.id, over?.id, delta.x);
-    setDragIntent(null);
-    setActiveDragId(null);
-    if (!intent) return;
-    if (intent.action === "blocked") {
-      setReorderError(
-        intent.message ?? "That collection cannot be moved there.",
-      );
-      return;
-    }
-
-    const nextFolders = moveFolder(
-      folders,
-      intent.activeId,
-      intent.overId,
-      intent.nextParentId,
-    );
-    const placements = buildFolderPlacements(nextFolders);
-    setReorderError(null);
-    reorderFoldersMutation.mutate(placements, {
-      onError: () => {
-        setReorderError("Could not save the collection order. Try again.");
-      },
-    });
-  };
-
-  const dragFeedback = useMemo(() => {
-    if (!dragIntent) {
-      if (!activeDragId) return null;
-      const activeHasChildren = folders.some(
-        (folder) => folder.parent_id === activeDragId,
-      );
-      return activeHasChildren
-        ? "This collection has subcollections and can only be reordered"
-        : "Move right by ⅓ of its name width to nest · left to move up";
-    }
-    const activeName =
-      folders.find((folder) => folder.id === dragIntent.activeId)?.name ??
-      "Collection";
-
-    if (dragIntent.action === "blocked") {
-      return dragIntent.message ?? "This move is not allowed.";
-    }
-    if (dragIntent.action === "unnest") {
-      return `Drop to move “${activeName}” to the top level`;
-    }
-    if (dragIntent.action === "nest") {
-      const parentName = folders.find(
-        (folder) => folder.id === dragIntent.targetParentId,
-      )?.name;
-      return `Drop to nest “${activeName}” under “${parentName ?? "collection"}”`;
-    }
-    return `Drop to reorder “${activeName}”`;
-  }, [activeDragId, dragIntent, folders]);
 
   return (
     <>
@@ -422,11 +390,7 @@ export default function FolderSidebar({
         aria-label="Bookmark navigation"
       >
       {/* Library and collections */}
-      <div
-        className={`p-3 transition-shadow ${
-          dragIntent?.action === "unnest" ? "ring-2 ring-sky-400 shadow-sm" : ""
-        }`}
-      >
+      <div className="p-3">
         <Link
           to="/"
           aria-label="Go to all items"
@@ -658,12 +622,7 @@ export default function FolderSidebar({
                 Library health
               </span>
               {accountPlan?.id !== "pro" ? (
-                <span
-                  className="rounded-md border border-[color-mix(in_oklab,var(--app-primary)_18%,transparent)] bg-[var(--app-lavender)] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[var(--app-primary)]"
-                  aria-label="FavLock Pro feature"
-                >
-                  Pro
-                </span>
+                <LibraryHealthPreviewBadge />
               ) : duplicateScanPhase === "scanning" || linkHealthPhase === "scanning" ? (
                 <span
                   className="flex items-center rounded-md px-1.5 py-0.5 text-[var(--app-muted)]"
@@ -776,17 +735,71 @@ export default function FolderSidebar({
           aria-label="User collections"
         />
 
+        {showSidebarSearch && (
+          <div className="relative mb-3">
+            <Search
+              size={15}
+              className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[var(--app-muted)]"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              aria-label="Find collections and tags"
+              placeholder="Find collection or tag"
+              value={sidebarQuery}
+              onChange={(e: ChangeEvent<HTMLInputElement>) =>
+                setSidebarQuery(e.target.value)
+              }
+              onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
+                if (e.key === "Enter" && searching) {
+                  e.preventDefault();
+                  openFirstSidebarMatch();
+                } else if (e.key === "Escape") {
+                  if (sidebarQuery) {
+                    e.preventDefault();
+                    setSidebarQuery("");
+                  } else {
+                    e.currentTarget.blur();
+                  }
+                }
+              }}
+              className="min-h-10 w-full rounded-lg border border-[color-mix(in_oklab,var(--app-line)_14%,transparent)] bg-[var(--app-highlight)] pr-10 pl-9 text-sm text-[var(--app-ink)] placeholder:text-[var(--app-muted)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] [&::-webkit-search-cancel-button]:hidden"
+            />
+            {sidebarQuery && (
+              <button
+                type="button"
+                onClick={() => setSidebarQuery("")}
+                className="absolute top-1/2 right-0.5 inline-flex size-9 -translate-y-1/2 items-center justify-center rounded-md text-[var(--app-muted)] hover:text-[var(--app-ink)] focus-visible:outline-2 focus-visible:outline-[var(--app-primary)]"
+                aria-label="Clear search"
+              >
+                <X size={15} aria-hidden="true" />
+              </button>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between px-2">
           <h3 className="app-sidebar-label">Collections</h3>
-          <button
-            type="button"
-            onClick={() => setCreating(!creating)}
-            className="theme-button-icon collection-create-toggle inline-flex size-10"
-            aria-label="Create collection"
-            aria-expanded={creating}
-          >
-            <PlusIcon size={16} aria-hidden="true" />
-          </button>
+          <div className="flex items-center gap-1.5">
+            {folders.length > 1 && (
+              <SidebarSortMenu
+                label="collections"
+                mode={collectionSort}
+                canArrange
+                onChangeMode={(mode) => setSidebarSortMode("collections", mode)}
+                onArrange={() => setArranging("collections")}
+              />
+            )}
+            <button
+              type="button"
+              onClick={() => setCreating(!creating)}
+              className="theme-button-icon collection-create-toggle inline-flex size-10"
+              aria-label="Create collection"
+              aria-expanded={creating}
+            >
+              <PlusIcon size={16} aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {creating && (
@@ -907,94 +920,56 @@ export default function FolderSidebar({
             </button>
           </div>
         ) : folders.length > 0 ? (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={folderCollisionDetection}
-            onDragStart={({ active }) => {
-              const activeId = String(active.id);
-              const nameElement = document.querySelector<HTMLElement>(
-                `[data-folder-id="${activeId}"] [data-folder-name]`,
-              );
-              nestingThresholdRef.current = Math.max(
-                1,
-                (nameElement?.getBoundingClientRect().width ?? 72) / 3,
-              );
-              setActiveDragId(activeId);
-              setDragIntent(null);
-              setReorderError(null);
-            }}
-            onDragMove={handleDragMove}
-            onDragEnd={handleDragEnd}
-            onDragCancel={() => {
-              setDragIntent(null);
-              setActiveDragId(null);
-            }}
-          >
-            <SortableContext
-              items={folders.map((folder) => folder.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <ul className="mt-2 space-y-0.5">
-                {folders.map((folder) => (
-                  <SortableCollection
-                    key={folder.id}
-                    folder={folder}
-                    count={folderCounts[folder.id] ?? 0}
-                    selected={selectedFolderId === folder.id}
-                    onSelect={() => onSelectFolder(folder.id)}
-                    previewDepth={
-                      dragIntent?.activeId === folder.id
-                        ? dragIntent.action === "nest"
-                          ? 1
-                          : dragIntent.action === "unnest"
-                            ? 0
-                            : undefined
-                        : undefined
-                    }
-                    isNestTarget={
-                      dragIntent?.action === "nest" &&
-                      dragIntent.targetParentId === folder.id
-                    }
-                    isBlocked={
-                      dragIntent?.action === "blocked" &&
-                      dragIntent.activeId === folder.id
-                    }
-                  />
-                ))}
-              </ul>
-            </SortableContext>
-          </DndContext>
+          <ul className="mt-2 space-y-0.5">
+            {limitedFolderRows.visible.map(({ folder, isContext }) => (
+              <CollectionRow
+                key={folder.id}
+                folder={folder}
+                count={folderCounts[folder.id] ?? 0}
+                selected={selectedFolderId === folder.id}
+                onSelect={() => onSelectFolder(folder.id)}
+                nested={
+                  !!folder.parent_id &&
+                  folders.some(
+                    (parent) =>
+                      parent.id === folder.parent_id && parent.parent_id === null,
+                  )
+                }
+                isContext={isContext}
+              />
+            ))}
+          </ul>
         ) : null}
-        {folders.length > 1 && (
-          <p
-            className={`mt-2 min-h-4 px-1 text-xs font-medium transition-colors ${
-              dragIntent?.action === "nest"
-                ? "text-emerald-600 dark:text-emerald-300"
-                : dragIntent?.action === "unnest"
-                  ? "text-sky-600 dark:text-sky-300"
-                  : dragIntent?.action === "blocked"
-                    ? "text-red-600 dark:text-red-300"
-                    : "text-gray-400 dark:text-[var(--app-muted)]"
-            }`}
-            role="status"
-            aria-live="polite"
-          >
-            {dragFeedback ?? "Drag right to nest · left to move up"}
+        {searching && folders.length > 0 && folderRows.length === 0 && (
+          <p className="mt-2 px-2 text-sm text-[var(--app-muted)]">
+            No matching collections
           </p>
         )}
-        {reorderError && (
-          <p className="mt-2 text-sm text-red-500" role="alert">
-            {reorderError}
-          </p>
+        {(limitedFolderRows.hiddenCount > 0 || canCollapseFolders) && (
+          <SidebarShowMoreButton
+            hiddenCount={limitedFolderRows.hiddenCount}
+            onToggle={() =>
+              setExpanded("collections", limitedFolderRows.hiddenCount > 0)
+            }
+          />
         )}
       </div>
 
       {/* Tags */}
       <div className="border-t border-[color-mix(in_oklab,var(--app-line)_10%,transparent)] p-3">
-        <div className="flex items-center justify-between">
+        <div className="flex min-h-10 items-center justify-between">
           <h3 className="app-sidebar-label px-2">
             Tags
           </h3>
+          {tags.length > 1 && (
+            <SidebarSortMenu
+              label="tags"
+              mode={tagSort}
+              canArrange
+              onChangeMode={(mode) => setSidebarSortMode("tags", mode)}
+              onArrange={() => setArranging("tags")}
+            />
+          )}
         </div>
 
         {loadingTags ? (
@@ -1019,7 +994,7 @@ export default function FolderSidebar({
           </div>
         ) : tags.length > 0 ? (
           <ul className="mt-2 space-y-0.5">
-            {tags.map((tag) => (
+            {limitedTags.visible.map((tag) => (
               <li key={tag.id}>
                 <button
                   type="button"
@@ -1049,6 +1024,17 @@ export default function FolderSidebar({
             ))}
           </ul>
         ) : null}
+        {searching && tags.length > 0 && matchingTags.length === 0 && (
+          <p className="mt-2 px-2 text-sm text-[var(--app-muted)]">
+            No matching tags
+          </p>
+        )}
+        {(limitedTags.hiddenCount > 0 || canCollapseTags) && (
+          <SidebarShowMoreButton
+            hiddenCount={limitedTags.hiddenCount}
+            onToggle={() => setExpanded("tags", limitedTags.hiddenCount > 0)}
+          />
+        )}
       </div>
 
       {accountPlan?.id === "free" ? (
@@ -1116,9 +1102,9 @@ export default function FolderSidebar({
         <div className="p-2">
           <Link
             to="/settings"
-            aria-current={location.pathname === "/settings" ? "page" : undefined}
+            aria-current={isSettingsPath ? "page" : undefined}
             className={`theme-nav-button mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
-              location.pathname === "/settings"
+              isSettingsPath
                 ? "theme-nav-button-active"
                 : ""
             }`}
@@ -1209,6 +1195,22 @@ export default function FolderSidebar({
           <Button type="button" className="min-w-[100px]" onClick={() => setSmartViewInfoOpen(false)}>Got it</Button>
         </DialogActions>
       </Dialog>
+      {arranging === "collections" && (
+        <ArrangeCollectionsDialog
+          open
+          folders={folders}
+          onClose={() => setArranging(null)}
+          onSaved={() => finishArranging("collections")}
+        />
+      )}
+      {arranging === "tags" && (
+        <ArrangeTagsDialog
+          open
+          tags={tags}
+          onClose={() => setArranging(null)}
+          onSaved={() => finishArranging("tags")}
+        />
+      )}
       <ProUpgradeDialog
         open={upgradeDialogOpen}
         onClose={() => setUpgradeDialogOpen(false)}

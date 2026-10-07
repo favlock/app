@@ -1,10 +1,14 @@
+// A leading "name:" is a URL scheme unless it is a host followed by a port, as
+// in "localhost:3000" or "example.com:8080/path".
+const EXPLICIT_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:(?!\d+(?:[/?#]|$))/i;
+
 export function normalizeImportedBookmarkUrl(rawUrl: string): string | null {
   const trimmed = rawUrl.trim();
   if (!trimmed) return null;
 
-  const normalized = /^https?:\/\//i.test(trimmed)
-    ? trimmed
-    : `https://${trimmed}`;
+  const hasWebScheme = /^https?:\/\//i.test(trimmed);
+  if (!hasWebScheme && EXPLICIT_SCHEME_PATTERN.test(trimmed)) return null;
+  const normalized = hasWebScheme ? trimmed : `https://${trimmed}`;
 
   try {
     const url = new URL(normalized);

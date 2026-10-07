@@ -11,6 +11,7 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   confirmLabel: string;
+  cancelLabel?: string;
   busyLabel?: string;
   busy?: boolean;
   error?: string | null;
@@ -23,6 +24,7 @@ export default function ConfirmDialog({
   title,
   description,
   confirmLabel,
+  cancelLabel = "Cancel",
   busyLabel = "Working...",
   busy = false,
   error,
@@ -43,7 +45,7 @@ export default function ConfirmDialog({
       ) : null}
       <DialogActions>
         <Button type="button" outline onClick={onClose} disabled={busy}>
-          Cancel
+          {cancelLabel}
         </Button>
         <Button type="button" color="red" onClick={onConfirm} disabled={busy}>
           {busy ? busyLabel : confirmLabel}

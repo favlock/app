@@ -16,6 +16,8 @@ describe("server-owned checkout", () => {
     "https://www.creem.io/checkout/prod_test/ch_test/?theme=dark",
     "https://www.creem.io/payment/prod_test",
     "https://www.creem.io/test/payment/prod_test",
+    "https://creem.io/test/checkout/prod_test/ch_test",
+    "https://www.creem.io/test/checkout/prod_test/ch_test",
   ])("accepts the payment URL %s while sending only an attempt ID and bearer", async (url) => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { checkoutUrl: url } })));
     vi.stubGlobal("fetch", fetchMock);
@@ -75,6 +77,22 @@ describe("server-owned checkout", () => {
 
   it.each(["https://evil.creem.io/ch_a", "http://checkout.creem.io/ch_a", "https://checkout.creem.io.evil.test/ch_a", "https://user@www.creem.io/payment/a", "https://www.creem.io/payment/a#secret", "javascript:alert(1)"])("rejects an untrusted redirect %s", (url) => {
     expect(() => validatedCheckoutUrl(url)).toThrow();
+  });
+
+  it("shows the server's reason when it refuses a checkout", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "invalid_request", message: "Manage your existing plan in billing settings.", requestId: "r" },
+    }), { status: 409 })));
+    await expect(createProCheckout("bearer", crypto.randomUUID())).rejects.toThrow(
+      /^Manage your existing plan in billing settings\.$/,
+    );
+  });
+
+  it("keeps the generic message for other conflicts", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      error: { code: "something_else", message: "Internal detail", requestId: "r" },
+    }), { status: 409 })));
+    await expect(createProCheckout("bearer", crypto.randomUUID())).rejects.toThrow("could not be confirmed");
   });
 
   it("never retries a failed or uncertain checkout automatically", async () => {

@@ -21,14 +21,17 @@ import {
   Cloud,
   Gauge,
   Menu,
+  ReceiptText,
   ShieldCheck,
   SlidersHorizontal,
   UserRound,
 } from "lucide-react";
 import {
+  Navigate,
   useLocation,
   useNavigate,
   useOutletContext,
+  useParams,
 } from "react-router-dom";
 import type { DashboardLayoutContext } from "./DashboardLayout";
 import KeyTransferSection from "../components/KeyTransferSection";
@@ -38,35 +41,66 @@ import ResourceUsageSection from "../components/ResourceUsageSection";
 import LocalPrivacySection from "../components/LocalPrivacySection";
 import SearchHistoryPrivacySection from "../components/SearchHistoryPrivacySection";
 import BillingSection from "../components/BillingSection";
+import BillingManagementSection from "../components/BillingManagementSection";
 import AppearancePreference from "../components/AppearancePreference";
 import BookmarkSearchShortcutPreference from "../components/BookmarkSearchShortcutPreference";
+import SidebarItemLimitPreference from "../components/SidebarItemLimitPreference";
 import { hasPasswordSignIn } from "../lib/auth";
 
-type SettingsTab = "profile" | "preferences" | "security" | "usage";
+type SettingsTab = "profile" | "preferences" | "security" | "usage" | "billing";
 
 const SETTINGS_TABS: SettingsTab[] = [
   "profile",
   "preferences",
   "security",
   "usage",
+  "billing",
 ];
+
+const SETTINGS_TAB_PATHS: Record<SettingsTab, string> = {
+  profile: "/settings",
+  preferences: "/settings/preferences",
+  security: "/settings/security",
+  usage: "/settings/usage",
+  billing: "/settings/billing",
+};
+
+function settingsTabFromPath(tab: string | undefined): SettingsTab | null {
+  if (tab === undefined) return "profile";
+  return tab === "preferences" ||
+    tab === "security" ||
+    tab === "usage" ||
+    tab === "billing"
+    ? tab
+    : null;
+}
+
+// Tabs were addressed by fragment before they had paths, and checkout used to
+// return to /settings. Other fragments, such as #import-bookmarks, open layout
+// dialogs over the Profile tab and must stay on /settings.
+function legacySettingsTab(hash: string, search: string): SettingsTab | null {
+  if (hash === "#settings" || hash === "#passkey" || hash === "#security") {
+    return "security";
+  }
+  if (hash === "#preferences") return "preferences";
+  if (hash === "#usage") return "usage";
+  if (!hash && new URLSearchParams(search).get("billing") === "success") {
+    return "usage";
+  }
+  return null;
+}
 
 export default function Settings() {
   const { user, isLocalAccount } = useAuth();
   const { setIsMobileSidebarOpen } = useOutletContext<DashboardLayoutContext>();
   const location = useLocation();
   const navigate = useNavigate();
-  const shouldOpenEncryptionKey = location.hash === "#settings";
-  const activeTab: SettingsTab =
-    shouldOpenEncryptionKey || location.hash === "#passkey"
-      ? "security"
-      : location.hash === "#preferences"
-      ? "preferences"
-      : location.hash === "#security"
-        ? "security"
-        : location.hash === "#usage"
-          ? "usage"
-          : "profile";
+  const { tab: tabPath } = useParams();
+  const activeTab = settingsTabFromPath(tabPath);
+  const legacyTab =
+    tabPath === undefined
+      ? legacySettingsTab(location.hash, location.search)
+      : null;
   const { data: userInfo, isLoading: loading } = useUserInfo();
   const updateUserInfo = useUpdateUserInfo();
   const [firstName, setFirstName] = useState("");
@@ -101,10 +135,13 @@ export default function Settings() {
   };
 
   const selectTab = (tab: SettingsTab) => {
+    const searchParams = new URLSearchParams(location.search);
+    // A checkout return marker on /settings would redirect back to Plan & usage.
+    if (tab !== "usage") searchParams.delete("billing");
+    const search = searchParams.toString();
     navigate({
-      pathname: location.pathname,
-      search: location.search,
-      hash: tab === "profile" ? "" : tab,
+      pathname: SETTINGS_TAB_PATHS[tab],
+      search: search ? `?${search}` : "",
     });
   };
 
@@ -133,6 +170,20 @@ export default function Settings() {
     document.getElementById(`${nextTab}-tab`)?.focus();
   };
 
+  if (legacyTab) {
+    return (
+      <Navigate
+        replace
+        to={{
+          pathname: SETTINGS_TAB_PATHS[legacyTab],
+          search: location.search,
+          hash: location.hash === "#passkey" ? location.hash : "",
+        }}
+      />
+    );
+  }
+  if (!activeTab) return <Navigate replace to="/settings" />;
+
   return (
     <div className="w-full min-w-0 flex-1 space-y-6 lg:space-y-8">
       <header className="flex flex-col justify-between gap-4 px-4 pt-4 sm:px-5 md:flex-row md:items-center lg:px-1 lg:pt-1">
@@ -151,7 +202,7 @@ export default function Settings() {
             </h1>
           </div>
           <p className="mt-1 text-sm text-[var(--app-muted)] sm:text-[0.95rem]">
-            Manage your library preferences, security, and usage
+            Manage your library preferences, security, usage, and billing
           </p>
         </div>
       </header>
@@ -240,6 +291,24 @@ export default function Settings() {
             >
               <Gauge size={14} aria-hidden="true" />
               Plan &amp; usage
+            </button>
+            <button
+              id="billing-tab"
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "billing"}
+              aria-controls="billing-panel"
+              tabIndex={activeTab === "billing" ? 0 : -1}
+              onClick={() => selectTab("billing")}
+              onKeyDown={(event) => selectTabFromKeyboard(event, "billing")}
+              className={`flex cursor-pointer items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-all duration-200 ${
+                activeTab === "billing"
+                  ? "theme-nav-button-active shadow-sm"
+                  : "theme-nav-button"
+              }`}
+            >
+              <ReceiptText size={14} aria-hidden="true" />
+              Billing
             </button>
           </div>
 
@@ -363,6 +432,7 @@ export default function Settings() {
                 aria-labelledby="preferences-tab"
               >
                 <AppearancePreference />
+                <SidebarItemLimitPreference />
                 <BookmarkSearchShortcutPreference />
               </div>
             ) : activeTab === "security" ? (
@@ -396,7 +466,7 @@ export default function Settings() {
                 <SortStoragePreference />
                 <LocalPrivacySection />
               </div>
-            ) : (
+            ) : activeTab === "usage" ? (
               <div
                 id="usage-panel"
                 role="tabpanel"
@@ -413,6 +483,21 @@ export default function Settings() {
                 )}
                 <div className="h-px bg-[color-mix(in_oklab,var(--app-line)_14%,transparent)]" />
                 <ResourceUsageSection localOnly={isLocalAccount} />
+              </div>
+            ) : (
+              <div
+                id="billing-panel"
+                role="tabpanel"
+                aria-labelledby="billing-tab"
+              >
+                {isLocalAccount ? (
+                  <CloudOnlySettingsSection
+                    title="Billing"
+                    description="Subscriptions, payments, and receipts belong to a synced FavLock account."
+                  />
+                ) : (
+                  <BillingManagementSection />
+                )}
               </div>
             )}
           </div>

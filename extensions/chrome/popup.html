@@ -54,13 +54,29 @@
       </section>
 
       <form id="quickAddForm" class="quick-add-form" hidden>
-        <div class="field">
-          <label for="collectionSelect">Save to</label>
-          <select id="collectionSelect">
-            <option value="">No collection</option>
-            <option value="__new__">+ Create a collection</option>
-          </select>
-        </div>
+        <fieldset class="tag-fieldset">
+          <legend>Save to</legend>
+          <details id="collectionPicker" class="tag-picker">
+            <summary>
+              <span id="collectionPickerLabel">No collection</span>
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+            </summary>
+            <div class="picker-search">
+              <label class="sr-only" for="collectionSearch">Search collections</label>
+              <input id="collectionSearch" type="search" placeholder="Search collections…" autocomplete="off" spellcheck="false" />
+            </div>
+            <div id="collectionOptions" class="collection-options">
+              <label class="collection-option">
+                <input type="radio" name="collection" value="" checked />
+                <span>No collection</span>
+              </label>
+            </div>
+            <span id="collectionNoMatches" class="empty-copy picker-no-matches" hidden>No matching collections</span>
+            <button id="showNewCollectionButton" type="button" class="picker-create-option">
+              + Create a collection
+            </button>
+          </details>
+        </fieldset>
         <div id="newCollectionField" class="field" hidden>
           <label for="newCollectionName">New collection name</label>
           <input id="newCollectionName" type="text" maxlength="80" autocomplete="off" />
@@ -72,7 +88,12 @@
               <span id="tagPickerLabel">Select tags</span>
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
             </summary>
+            <div class="picker-search">
+              <label class="sr-only" for="tagSearch">Search tags</label>
+              <input id="tagSearch" type="search" placeholder="Search tags…" autocomplete="off" spellcheck="false" />
+            </div>
             <div id="tagOptions" class="tag-options"><span class="empty-copy">No tags yet</span></div>
+            <span id="tagNoMatches" class="empty-copy picker-no-matches" hidden>No matching tags</span>
             <button id="showNewTagsButton" type="button" class="picker-create-option">
               + Create tags
             </button>

@@ -1,15 +1,52 @@
 import { PRODUCT_VERSION } from "@favlock/shared";
+import sidebarOrganizeDemo from "../assets/releases/1.14.0-sidebar-organize.gif";
+import sidebarOrganizeStill from "../assets/releases/1.14.0-sidebar-organize.png";
+
+export interface ReleaseAnnouncementMedia {
+  /** Animated image shown above the highlights. */
+  src: string;
+  /** Static frame shown instead when the user prefers reduced motion. */
+  stillSrc: string;
+  alt: string;
+  width: number;
+  height: number;
+}
 
 export interface Release {
   version: string;
   date: string;
   changes: string[];
   announcementHighlights?: string[];
+  announcementMedia?: ReleaseAnnouncementMedia;
 }
 
 export const changelog: Release[] = [
   {
     version: PRODUCT_VERSION,
+    date: "October 7, 2026",
+    announcementHighlights: [
+      "Search, sort, and arrange Collections and tags in the sidebar.",
+      "Import from Pocket and Raindrop.io, with your tags and folders.",
+    ],
+    announcementMedia: {
+      src: sidebarOrganizeDemo,
+      stillSrc: sidebarOrganizeStill,
+      alt: "Searching the sidebar for a Collection, sorting Collections by most items, and moving Travel above Design in the Arrange collections dialog.",
+      width: 800,
+      height: 600,
+    },
+    changes: [
+      "Import Pocket and Raindrop.io exports, including their tags and folders.",
+      "Search Collections and tags in the sidebar, with shorter lists and a Show more toggle you can adjust in Preferences.",
+      "Sort Collections and tags by name, item count, or a custom order, and arrange them with buttons instead of drag and drop.",
+      "Manage Pro billing in a new Billing tab: see your next payment, update your payment method, cancel or renew, and view payment history.",
+      "See duplicate bookmarks found by Library health on the Free plan before upgrading.",
+      "Search Collections and tags when saving from the Chrome and Firefox extensions, and pick up on the popup tab you used last.",
+      "Archives with a bookmark in more than one Collection now show a clear error during review instead of failing after import.",
+    ],
+  },
+  {
+    version: "1.13.1",
     date: "October 1, 2026",
     changes: [
       "Fixed the Firefox extension install link so it opens the configured Firefox Add-ons listing.",

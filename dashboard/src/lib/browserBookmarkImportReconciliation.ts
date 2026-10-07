@@ -1,14 +1,18 @@
-import type { Bookmark, Folder } from "../types/bookmark";
+import type { Bookmark, Folder, Tag } from "../types/bookmark";
 import {
   folderPathKey,
   getExistingFolderIdByPath,
   normalizeImportedBookmarkUrl,
   type ExistingImportFolder,
 } from "./browserBookmarkImport";
-import type { PreparedBrowserBookmarkImportItem } from "./browserBookmarkImportPlan";
+import {
+  getImportTagKey,
+  type PreparedBrowserBookmarkImportItem,
+} from "./browserBookmarkImportPlan";
 import {
   fetchEncryptedLibraryBookmarks,
   fetchEncryptedLibraryFolders,
+  fetchEncryptedLibraryTags,
 } from "./libraryContentApi";
 
 type Decrypt = (value: string) => Promise<string>;
@@ -34,11 +38,18 @@ export async function loadAuthoritativeImportLibrary(
   accessToken: string,
   userId: string,
   decrypt: Decrypt,
-): Promise<{ bookmarks: Bookmark[]; folders: Folder[] }> {
-  const [encryptedBookmarks, encryptedFolders] = await Promise.all([
+): Promise<{ bookmarks: Bookmark[]; folders: Folder[]; tags: Tag[] }> {
+  const [encryptedBookmarks, encryptedFolders, encryptedTags] = await Promise.all([
     fetchEncryptedLibraryBookmarks(accessToken),
     fetchEncryptedLibraryFolders(accessToken),
+    fetchEncryptedLibraryTags(accessToken),
   ]);
+  const tags = await mapBatches(encryptedTags, async (tag) => ({
+    id: tag.id,
+    user_id: userId,
+    name: await decrypt(tag.encryptedName),
+    created_at: tag.createdAt,
+  }));
   const folders = await mapBatches(encryptedFolders, async (folder) => ({
     id: folder.id,
     user_id: userId,
@@ -62,7 +73,21 @@ export async function loadAuthoritativeImportLibrary(
       .filter((folder): folder is Folder => Boolean(folder)),
     tags: [],
   }));
-  return { bookmarks, folders };
+  return { bookmarks, folders, tags };
+}
+
+// Tag names are matched case-insensitively, mirroring manual tag entry. When
+// earlier duplicates already exist, the oldest tag wins.
+export function getAuthoritativeTagIdByName(tags: Tag[]): Map<string, string> {
+  const tagIdByName = new Map<string, string>();
+  const ordered = [...tags].sort((left, right) =>
+    left.created_at.localeCompare(right.created_at),
+  );
+  for (const tag of ordered) {
+    const key = getImportTagKey(tag.name);
+    if (key && !tagIdByName.has(key)) tagIdByName.set(key, tag.id);
+  }
+  return tagIdByName;
 }
 
 function bookmarkFolderPath(

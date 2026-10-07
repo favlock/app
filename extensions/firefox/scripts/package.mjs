@@ -77,6 +77,41 @@ run("unzip", ["-tq", archive], extensionRoot);
 const entries = run("unzip", ["-Z1", archive], extensionRoot).trim().split("\n").sort();
 if (JSON.stringify(entries) !== JSON.stringify(packagedFiles)) throw new Error("Unexpected archive contents.");
 console.log(`Created ${archive} (${packagedFiles.length} independent runtime files).`);
+
+// Mozilla reviewers rebuild the add-on from this archive with `npm ci --ignore-scripts && npm run build`.
+// A standalone copy, such as the extracted source archive, has no Git metadata and skips this step.
+let sourceArchive;
+const insideGit = spawnSync("git", ["rev-parse", "--is-inside-work-tree"], { cwd: extensionRoot, encoding: "utf8" })
+  .stdout?.trim() === "true";
+if (target === "production" && !insideGit) console.log("Skipped the source archive outside a Git checkout.");
+if (target === "production" && insideGit) {
+  sourceArchive = resolve(extensionRoot, "dist", `favlock-firefox-v${manifest.version}-source.zip`);
+  const sourceFiles = [];
+  for (const name of run("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "."], extensionRoot).split("\0")) {
+    if (!name) continue;
+    try {
+      if ((await lstat(resolve(extensionRoot, name))).isSymbolicLink()) throw new Error(`Symlinks are forbidden: ${name}`);
+      sourceFiles.push(name);
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  sourceFiles.sort();
+  const buildInputs = [
+    ...packagedFiles.filter((name) => name !== "config.generated.js"),
+    "README.md", "package.json", "package-lock.json", "scripts/configure.mjs", "scripts/package.mjs",
+  ];
+  const missing = buildInputs.filter((name) => !sourceFiles.includes(name));
+  if (missing.length) throw new Error(`Source archive is missing build inputs: ${missing.join(", ")}`);
+  if (sourceFiles.some((name) => /^(dist|node_modules)\/|(^|\/)config\.generated\.js$|(^|\/)\.env/.test(name))) {
+    throw new Error("Source archive must not contain build output, dependencies, or environment files.");
+  }
+  await rm(sourceArchive, { force: true });
+  run("zip", ["-X", "-q", sourceArchive, ...sourceFiles], extensionRoot);
+  run("unzip", ["-tq", sourceArchive], extensionRoot);
+  console.log(`Created ${sourceArchive} (${sourceFiles.length} source files).`);
+}
+
 if (process.argv.includes("--app-dist")) {
   const appOutputDirectory = resolve(extensionRoot, "../../dist/extensions/firefox");
   const appArchiveName = target === "development"
@@ -86,4 +121,9 @@ if (process.argv.includes("--app-dist")) {
   await mkdir(appOutputDirectory, { recursive: true });
   await copyFile(archive, appArchive);
   console.log(`Copied ${appArchive}.`);
+  if (sourceArchive) {
+    const appSourceArchive = resolve(appOutputDirectory, `favlock-firefox-extension-v${manifest.version}-source.zip`);
+    await copyFile(sourceArchive, appSourceArchive);
+    console.log(`Copied ${appSourceArchive}.`);
+  }
 }

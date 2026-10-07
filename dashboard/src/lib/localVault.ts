@@ -11,6 +11,7 @@ import type {
 } from "../types/bookmark";
 import type { EntryWriteValues } from "./entryRepository";
 import type { FavLockExport } from "./dataExport";
+import { normalizeTagName } from "./bookmarkWrites";
 import { decryptFieldStrict, encryptField } from "./encryption";
 import type { PasskeyEncryptionRecord } from "./passkeyEncryption";
 import { clearLocalBookmarkUsage, forgetLocalBookmarkUsage } from "./localBookmarkUsage";
@@ -58,6 +59,8 @@ interface LocalTagRecord {
   id: string;
   vault_id: string;
   encrypted_name: string;
+  /** Missing on tags created before custom tag order; treated as 0. */
+  sort_order?: number;
   created_at: string;
 }
 
@@ -110,6 +113,7 @@ export interface LocalBookmarkImportItem {
   title: string;
   url: string;
   folderPath: string[];
+  tags?: string[];
   overwriteBookmarkId?: string;
 }
 
@@ -117,6 +121,7 @@ export interface LocalBookmarkImportResult {
   added: number;
   overwritten: number;
   collectionsCreated: number;
+  tagsCreated: number;
 }
 
 export interface LocalEncryptedPreviewItem {
@@ -176,6 +181,20 @@ function openLocalVault(): Promise<IDBDatabase> {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error);
   });
+}
+
+function nextTagSortOrder(tags: ReadonlyArray<{ sort_order?: number }>): number {
+  return tags.reduce((next, tag) => Math.max(next, (tag.sort_order ?? 0) + 1), 0);
+}
+
+async function nextLocalTagSortOrder(
+  tagStore: IDBObjectStore,
+  vaultId: string,
+): Promise<number> {
+  const tags = (await requestResult(
+    tagStore.index(VAULT_ID_INDEX).getAll(vaultId),
+  )) as LocalTagRecord[];
+  return nextTagSortOrder(tags);
 }
 
 async function recordsForVault<T>(
@@ -300,6 +319,7 @@ export async function readLocalTags(
       id: row.id,
       user_id: vaultId,
       name: await decryptFieldStrict(row.encrypted_name, key),
+      sort_order: row.sort_order ?? 0,
       created_at: row.created_at,
     })),
   );
@@ -412,12 +432,16 @@ async function addLocalEncryptedTags(
 ): Promise<string[]> {
   const tagIds = [...new Set(existingTagIds)];
   const tagStore = transaction.objectStore(TAGS);
+  let sortOrder = newEncryptedTagNames.length
+    ? await nextLocalTagSortOrder(tagStore, vaultId)
+    : 0;
   for (const encryptedName of newEncryptedTagNames) {
     const id = crypto.randomUUID();
     tagStore.put({
       id,
       vault_id: vaultId,
       encrypted_name: encryptedName,
+      sort_order: sortOrder++,
       created_at: new Date().toISOString(),
     } satisfies LocalTagRecord);
     tagIds.push(id);
@@ -868,12 +892,16 @@ export async function createLocalBookmark(
   const tagStore = transaction.objectStore(TAGS);
   const tagIds = [...new Set(input.existingTagIds)];
   const createdAt = new Date().toISOString();
+  let sortOrder = input.newEncryptedTagNames.length
+    ? await nextLocalTagSortOrder(tagStore, vaultId)
+    : 0;
   for (const encryptedName of input.newEncryptedTagNames) {
     const id = crypto.randomUUID();
     tagStore.put({
       id,
       vault_id: vaultId,
       encrypted_name: encryptedName,
+      sort_order: sortOrder++,
       created_at: createdAt,
     } satisfies LocalTagRecord);
     tagIds.push(id);
@@ -913,12 +941,16 @@ export async function updateLocalBookmark(
   }
   const tagIds = [...new Set(input.existingTagIds)];
   const tagStore = transaction.objectStore(TAGS);
+  let sortOrder = input.newEncryptedTagNames.length
+    ? await nextLocalTagSortOrder(tagStore, vaultId)
+    : 0;
   for (const encryptedName of input.newEncryptedTagNames) {
     const id = crypto.randomUUID();
     tagStore.put({
       id,
       vault_id: vaultId,
       encrypted_name: encryptedName,
+      sort_order: sortOrder++,
       created_at: new Date().toISOString(),
     } satisfies LocalTagRecord);
     tagIds.push(id);
@@ -1196,6 +1228,27 @@ export async function deleteLocalFolder(
   await transactionDone(transaction);
 }
 
+export async function arrangeLocalTags(
+  vaultId: string,
+  placements: Array<{ id: string; sortOrder: number }>,
+): Promise<void> {
+  const db = await openLocalVault();
+  const transaction = db.transaction([TAGS, META], "readwrite");
+  const store = transaction.objectStore(TAGS);
+  for (const placement of placements) {
+    const current = (await requestResult(store.get(placement.id))) as
+      | LocalTagRecord
+      | undefined;
+    if (!current || current.vault_id !== vaultId) {
+      transaction.abort();
+      throw new Error("A local Tag could not be found.");
+    }
+    store.put({ ...current, sort_order: placement.sortOrder });
+  }
+  putRevision(transaction, vaultId);
+  await transactionDone(transaction);
+}
+
 export async function updateLocalTag(
   vaultId: string,
   tagId: string,
@@ -1350,10 +1403,11 @@ export async function restoreLocalVaultFromExport(
     })),
   );
   const tagRecords: LocalTagRecord[] = await Promise.all(
-    archive.data.tags.map(async (tag) => ({
+    archive.data.tags.map(async (tag, index) => ({
       id: tagIds.get(tag.id)!,
       vault_id: vaultId,
       encrypted_name: await encryptField(tag.name, key),
+      sort_order: index,
       created_at: tag.createdAt,
     })),
   );
@@ -1520,6 +1574,30 @@ export async function importLocalBookmarks(
     folderIdByPath.set(pathKey, id);
   }
 
+  const existingTags = await readLocalTags(vaultId, key);
+  const tagIdByName = new Map<string, string>();
+  for (const tag of existingTags) {
+    const name = normalizeTagName(tag.name);
+    if (name && !tagIdByName.has(name)) tagIdByName.set(name, tag.id);
+  }
+  const newTags: LocalTagRecord[] = [];
+  let nextSortOrder = nextTagSortOrder(existingTags);
+  for (const item of items) {
+    if (item.overwriteBookmarkId) continue;
+    for (const name of item.tags ?? []) {
+      if (tagIdByName.has(name)) continue;
+      const record: LocalTagRecord = {
+        id: crypto.randomUUID(),
+        vault_id: vaultId,
+        encrypted_name: await encryptField(name, key),
+        sort_order: nextSortOrder++,
+        created_at: createdAt,
+      };
+      newTags.push(record);
+      tagIdByName.set(name, record.id);
+    }
+  }
+
   const preparedItems = await Promise.all(
     items.map(async (item) => ({
       ...item,
@@ -1528,12 +1606,16 @@ export async function importLocalBookmarks(
       folderId: item.folderPath.length > 0
         ? folderIdByPath.get(localFolderPathKey(item.folderPath)) ?? null
         : null,
+      tagIds: [...new Set((item.tags ?? []).flatMap((name) => {
+        const tagId = tagIdByName.get(name);
+        return tagId ? [tagId] : [];
+      }))],
     })),
   );
 
   const db = await openLocalVault();
   const transaction = db.transaction(
-    [BOOKMARKS, FOLDERS, META],
+    [BOOKMARKS, FOLDERS, TAGS, META],
     "readwrite",
   );
   const bookmarkStore = transaction.objectStore(BOOKMARKS);
@@ -1552,6 +1634,8 @@ export async function importLocalBookmarks(
 
   const folderStore = transaction.objectStore(FOLDERS);
   for (const folder of newFolders) folderStore.add(folder);
+  const tagStore = transaction.objectStore(TAGS);
+  for (const tag of newTags) tagStore.add(tag);
   let added = 0;
   let overwritten = 0;
   for (const item of preparedItems) {
@@ -1580,7 +1664,7 @@ export async function importLocalBookmarks(
       encrypted_title: item.encryptedTitle,
       encrypted_url: item.encryptedUrl,
       folder_id: item.folderId,
-      tag_ids: [],
+      tag_ids: item.tagIds,
       is_favorite: false,
       favorited_at: null,
       created_at: createdAt,
@@ -1593,6 +1677,7 @@ export async function importLocalBookmarks(
     added,
     overwritten,
     collectionsCreated: newFolders.length,
+    tagsCreated: newTags.length,
   };
 }
 
