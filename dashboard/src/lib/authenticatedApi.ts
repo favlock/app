@@ -2,6 +2,19 @@ import { API_URL } from "./appUrls";
 import { CloudAccessError, cloudStatusMessage, reportCloudFailure } from "./cloudAccess";
 import { favLockAuth, type AuthRequestSession } from "./favLockAuth";
 
+// A 409 keeps the caller's generic message; callers that can show the API's
+// own wording opt in through code and serverMessage.
+export class ApiConflictError extends Error {
+  readonly code: string | null;
+  readonly serverMessage: string | null;
+  constructor(message: string, code: string | null, serverMessage: string | null) {
+    super(message);
+    this.name = "ApiConflictError";
+    this.code = code;
+    this.serverMessage = serverMessage;
+  }
+}
+
 interface AuthenticatedResponse {
   response: Response;
   session: AuthRequestSession;
@@ -115,6 +128,19 @@ async function requestAuthenticated(
           throw new CloudAccessError("quota_exceeded", `Your plan allows up to ${details.limit} ${details.resource}. Your existing data remains available.`, { resource: details.resource, limit: details.limit });
         }
       }
+    }
+    if (response.status === 409) {
+      const payload: unknown = await response.json().catch(() => null);
+      assertCurrentRequest(session);
+      const error = payload && typeof payload === "object" && "error" in payload ? payload.error : null;
+      const code = error && typeof error === "object" && "code" in error && typeof error.code === "string"
+        ? error.code
+        : null;
+      const serverMessage = error && typeof error === "object" && "message" in error &&
+        typeof error.message === "string" && error.message.length > 0 && error.message.length <= 300
+        ? error.message
+        : null;
+      throw new ApiConflictError(failureMessage, code, serverMessage);
     }
     if (response.status === 429) {
       // The API rejects rate-limited requests before running the route, so

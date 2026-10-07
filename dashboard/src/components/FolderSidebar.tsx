@@ -216,6 +216,9 @@ export default function FolderSidebar({
     useDuplicateScan();
   const { deviceState: linkHealth, phase: linkHealthPhase } = useLinkHealth();
   const location = useLocation();
+  const isSettingsPath =
+    location.pathname === "/settings" ||
+    location.pathname.startsWith("/settings/");
   const [signingOut, setSigningOut] = useState(false);
   const [confirmingSignOut, setConfirmingSignOut] = useState(false);
   const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -1099,9 +1102,9 @@ export default function FolderSidebar({
         <div className="p-2">
           <Link
             to="/settings"
-            aria-current={location.pathname === "/settings" ? "page" : undefined}
+            aria-current={isSettingsPath ? "page" : undefined}
             className={`theme-nav-button mt-0.5 w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-colors ${
-              location.pathname === "/settings"
+              isSettingsPath
                 ? "theme-nav-button-active"
                 : ""
             }`}

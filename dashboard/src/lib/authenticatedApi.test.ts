@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
 vi.mock("./favLockAuth", () => ({ favLockAuth: auth }));
 
 import {
+  ApiConflictError,
   deleteAuthenticatedWithoutResponse,
   fetchAuthenticatedJson,
   patchAuthenticatedJsonWithoutResponse,
@@ -170,6 +171,28 @@ describe("session-aware authenticated requests", () => {
     } else {
       expect(cloudFailure).not.toHaveBeenCalled();
     }
+  });
+
+  it("keeps the generic message on a 409 but exposes the API's code and message", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      error: { code: "invalid_request", message: "Manage your existing plan in billing settings.", requestId: "r" },
+    }), { status: 409 }));
+    const error = await postAuthenticatedJson(path, "caller-access-token", {}, failureMessage).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(ApiConflictError);
+    expect(error).toMatchObject({
+      message: failureMessage,
+      code: "invalid_request",
+      serverMessage: "Manage your existing plan in billing settings.",
+    });
+  });
+
+  it("tolerates a 409 without a readable error body", async () => {
+    fetchMock.mockResolvedValueOnce(new Response("not json", { status: 409 }));
+    await expect(postAuthenticatedJson(path, "caller-access-token", {}, failureMessage)).rejects.toMatchObject({
+      message: failureMessage,
+      code: null,
+      serverMessage: null,
+    });
   });
 
   it("never replays a checkout whose network result is uncertain", async () => {
