@@ -30,6 +30,7 @@ const folder = {
 const tag = {
   id: tagId,
   encryptedName: "enc:tag",
+  sortOrder: 1,
   createdAt: "2026-08-20T09:00:00.000Z",
 };
 
@@ -143,6 +144,45 @@ describe("library content API client", () => {
         body: JSON.stringify({ ids: [bookmarkId] }),
       }),
     );
+  });
+
+  it("accepts tags from an API without custom tag order", async () => {
+    const legacyTag = {
+      id: tag.id,
+      encryptedName: tag.encryptedName,
+      createdAt: tag.createdAt,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({ data: { items: [legacyTag], nextCursor: null } }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(
+      fetchEncryptedLibraryTags("current.jwt.token", [tagId]),
+    ).resolves.toEqual([{ ...legacyTag, sortOrder: 0 }]);
+  });
+
+  it("rejects a negative tag position", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            data: { items: [{ ...tag, sortOrder: -1 }], nextCursor: null },
+          }),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    await expect(
+      fetchEncryptedLibraryTags("current.jwt.token", [tagId]),
+    ).rejects.toThrow();
   });
 
   it("deduplicates requested identifiers and skips an empty resolution", async () => {

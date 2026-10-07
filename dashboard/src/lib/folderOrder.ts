@@ -1,21 +1,9 @@
-import { arrayMove } from "@dnd-kit/sortable";
 import type { Folder } from "../types/bookmark";
 
 export interface FolderPlacement {
   id: string;
   parentId: string | null;
   sortOrder: number;
-}
-
-export type FolderDragAction = "nest" | "unnest" | "reorder" | "blocked";
-
-export interface FolderDragIntent {
-  action: FolderDragAction;
-  activeId: string;
-  overId: string;
-  nextParentId: string | null;
-  targetParentId: string | null;
-  message?: string;
 }
 
 const ROOT_GROUP = "__root__";
@@ -80,147 +68,86 @@ export function applyFolderPlacements(
   );
 }
 
-export function resolveFolderDragIntent(
-  folders: Folder[],
-  activeId: string,
-  overId: string,
-  deltaX: number,
-  nestingThreshold: number,
-): FolderDragIntent | null {
-  const active = folders.find((folder) => folder.id === activeId);
-  const over = folders.find((folder) => folder.id === overId);
-  if (!active || !over) return null;
-
-  if (deltaX >= nestingThreshold) {
-    const hasChildren = folders.some(
-      (folder) => folder.parent_id === active.id,
-    );
-    if (hasChildren) {
-      return {
-        action: "blocked",
-        activeId,
-        overId,
-        nextParentId: active.parent_id,
-        targetParentId: null,
-        message: "Move its subcollections out before nesting this collection.",
-      };
-    }
-
-    const targetParentId = over.parent_id ?? over.id;
-    if (targetParentId === active.id) {
-      return {
-        action: "blocked",
-        activeId,
-        overId,
-        nextParentId: active.parent_id,
-        targetParentId: null,
-        message: "Drag over another collection to create a subcollection.",
-      };
-    }
-
-    return {
-      action: targetParentId === active.parent_id ? "reorder" : "nest",
-      activeId,
-      overId,
-      nextParentId: targetParentId,
-      targetParentId,
-    };
-  }
-
-  if (deltaX <= -nestingThreshold && active.parent_id !== null) {
-    return {
-      action: "unnest",
-      activeId,
-      overId: over.parent_id ?? over.id,
-      nextParentId: null,
-      targetParentId: null,
-    };
-  }
-
-  if (active.id === over.id) return null;
-
-  if (active.parent_id === over.parent_id) {
-    return {
-      action: "reorder",
-      activeId,
-      overId,
-      nextParentId: active.parent_id,
-      targetParentId: active.parent_id,
-    };
-  }
-
-  if (active.parent_id === null && over.parent_id !== null) {
-    return {
-      action: "reorder",
-      activeId,
-      overId: over.parent_id,
-      nextParentId: null,
-      targetParentId: null,
-    };
-  }
-
-  return {
-    action: "blocked",
-    activeId,
-    overId,
-    nextParentId: active.parent_id,
-    targetParentId: null,
-    message: "Move right to nest or left to move to the top level.",
-  };
-}
-
-export function moveFolder(
-  folders: Folder[],
-  activeId: string,
-  overId: string,
-  nextParentId: string | null,
-): Folder[] {
-  const active = folders.find((folder) => folder.id === activeId);
-  const over = folders.find((folder) => folder.id === overId);
-  if (!active || !over) return sortFolders(folders);
-
+function siblingGroups(folders: Folder[]): Map<string, Folder[]> {
   const groups = new Map<string, Folder[]>();
   for (const folder of sortFolders(folders)) {
     const key = groupKey(folder.parent_id);
-    const siblings = groups.get(key) ?? [];
-    siblings.push(folder);
-    groups.set(key, siblings);
+    groups.set(key, [...(groups.get(key) ?? []), folder]);
+  }
+  return groups;
+}
+
+/** Ordered siblings of a collection, including the collection itself. */
+export function folderSiblings(folders: Folder[], folderId: string): Folder[] {
+  const folder = folders.find(({ id }) => id === folderId);
+  if (!folder) return [];
+  return siblingGroups(folders).get(groupKey(folder.parent_id)) ?? [];
+}
+
+/**
+ * Collections that `folderId` may be moved into. Nesting is one level deep,
+ * so a collection with subcollections cannot become a subcollection.
+ */
+export function nestTargets(folders: Folder[], folderId: string): Folder[] {
+  const folder = folders.find(({ id }) => id === folderId);
+  if (!folder || folders.some(({ parent_id }) => parent_id === folderId)) {
+    return [];
+  }
+  return sortFolders(folders).filter(
+    (candidate) =>
+      candidate.parent_id === null &&
+      candidate.id !== folderId &&
+      candidate.id !== folder.parent_id,
+  );
+}
+
+/**
+ * Moves a collection to `index` among the children of `parentId` (or the top
+ * level) and renumbers every sibling group. Invalid moves return the input
+ * order unchanged.
+ */
+export function placeFolder(
+  folders: Folder[],
+  folderId: string,
+  parentId: string | null,
+  index: number,
+): Folder[] {
+  const folder = folders.find(({ id }) => id === folderId);
+  const parent = parentId
+    ? folders.find(({ id }) => id === parentId)
+    : undefined;
+  const changesParent = folder?.parent_id !== parentId;
+  if (
+    !folder ||
+    (parentId !== null && (!parent || parent.parent_id !== null)) ||
+    parentId === folderId ||
+    (changesParent &&
+      parentId !== null &&
+      folders.some(({ parent_id }) => parent_id === folderId))
+  ) {
+    return sortFolders(folders);
   }
 
-  const previousParentId = active.parent_id;
-  const previousGroup = groups.get(groupKey(previousParentId)) ?? [];
-  const oldIndex = previousGroup.findIndex((folder) => folder.id === activeId);
+  const groups = siblingGroups(folders);
+  const sourceKey = groupKey(folder.parent_id);
   groups.set(
-    groupKey(previousParentId),
-    previousGroup.filter((folder) => folder.id !== activeId),
+    sourceKey,
+    (groups.get(sourceKey) ?? []).filter(({ id }) => id !== folderId),
   );
+  const target = [...(groups.get(groupKey(parentId)) ?? [])];
+  const boundedIndex = Math.max(0, Math.min(index, target.length));
+  target.splice(boundedIndex, 0, { ...folder, parent_id: parentId });
+  groups.set(groupKey(parentId), target);
 
-  const targetKey = groupKey(nextParentId);
-  const targetGroup = groups.get(targetKey) ?? [];
-  const overIndex = targetGroup.findIndex((folder) => folder.id === overId);
-  const originalOverIndex = previousGroup.findIndex(
-    (folder) => folder.id === overId,
-  );
-
-  if (previousParentId === nextParentId && originalOverIndex !== -1) {
-    groups.set(targetKey, arrayMove(previousGroup, oldIndex, originalOverIndex));
-  } else {
-    const insertionIndex = overIndex === -1 ? targetGroup.length : overIndex;
-    targetGroup.splice(insertionIndex, 0, { ...active, parent_id: nextParentId });
-    groups.set(targetKey, targetGroup);
-  }
-
-  const placementById = new Map<string, FolderPlacement>();
+  const placements: FolderPlacement[] = [];
   for (const siblings of groups.values()) {
-    siblings.forEach((folder, sortOrder) => {
-      placementById.set(folder.id, {
-        id: folder.id,
-        parentId:
-          folder.id === activeId ? nextParentId : folder.parent_id,
+    siblings.forEach((sibling, sortOrder) => {
+      placements.push({
+        id: sibling.id,
+        parentId: sibling.parent_id,
         sortOrder,
       });
     });
   }
-
-  return applyFolderPlacements(folders, [...placementById.values()]);
+  return applyFolderPlacements(folders, placements);
 }
